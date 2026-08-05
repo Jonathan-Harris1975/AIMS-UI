@@ -1,0 +1,6 @@
+dist/
+.env
+.dev.vars
+.wrangler/
+.DS_Store
+*.log

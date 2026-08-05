@@ -1,0 +1,17 @@
+{
+  "name": "aims-ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "AIMS Comms Hub operator console, CogniPal website widget and secure edge gateway.",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check": "node scripts/check.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "validate": "npm run check && npm test && npm run build",
+    "dev": "node scripts/serve.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
