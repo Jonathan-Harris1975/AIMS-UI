@@ -1,0 +1,10 @@
+{
+  "name": "AIMS UI",
+  "version": "0.1.0",
+  "builtAt": "2026-08-05T00:17:07.815Z",
+  "applications": {
+    "console": "console/index.html",
+    "widget": "widget/cognipal-widget.js",
+    "gateway": "gateway/index.js"
+  }
+}
