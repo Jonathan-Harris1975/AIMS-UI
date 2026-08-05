@@ -1,0 +1,24 @@
+name = "aims-ui-gateway"
+main = "index.js"
+compatibility_date = "2026-08-01"
+
+[vars]
+ENVIRONMENT = "production"
+AIMS_API_BASE_URL = "https://aims.jonathan-harris.online"
+HIVE_IDENTITY_VERIFY_URL = "https://hive.jonathan-harris.online/v1/auth/session"
+HIVE_IDENTITY_VERIFY_METHOD = "GET"
+CONSOLE_ALLOWED_ORIGINS = "https://comms.jonathan-harris.online"
+WIDGET_ALLOWED_ORIGINS = "https://jonathan-harris.online,https://www.jonathan-harris.online"
+WIDGET_ALLOWED_SITE_IDS = "jonathan-harris.online"
+
+[[d1_databases]]
+binding = "CHAT_DB"
+database_name = "aims-cognipal-chat"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+
+# Configure with `wrangler secret put`:
+# AIMS_API_KEY
+# COMMS_HUB_RBAC_DELEGATION_SECRET
+# CHAT_SESSION_SECRET
+# COGNIPAL_WEBHOOK_SECRET
+# COGNIPAL_API_KEY
