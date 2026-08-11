@@ -40,6 +40,19 @@ await cp(join(root, "workers", "gateway"), join(dist, "gateway"), { recursive: t
 await copyFile(join(root, "README.md"), join(dist, "README.md"));
 await copyFile(join(root, "THIRD_PARTY_NOTICES.md"), join(dist, "THIRD_PARTY_NOTICES.md"));
 
+const rootRedirect = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="refresh" content="0;url=./console/">
+  <title>AIMS Communications Interface</title>
+  <script>location.replace("./console/" + location.search + location.hash);</script>
+</head>
+<body><p>Opening <a href="./console/">AIMS Communications Interface</a>…</p></body>
+</html>\n`;
+await writeFile(join(dist, "index.html"), rootRedirect);
+
 const manifest = {
   name: "AIMS UI",
   version: JSON.parse(await readFile(join(root, "package.json"), "utf8")).version,
