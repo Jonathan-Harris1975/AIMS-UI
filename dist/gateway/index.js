@@ -123,6 +123,34 @@ export async function verifySessionToken(token, secret, { now = Date.now() } = {
   }
 }
 
+export async function createHiveHandoffToken({ actor, role, ttlSeconds = 300, now = Date.now() }, secret) {
+  const issuedAt = Math.floor(now / 1000);
+  const boundedTtl = Math.min(600, Math.max(60, Number(ttlSeconds) || 300));
+  const payload = { v: 1, iat: issuedAt, exp: issuedAt + boundedTtl, actor: normalise(actor).slice(0, 200), role: normalise(role).toLowerCase(), aud: "aims-comms" };
+  if (!payload.actor || !ALLOWED_ROLES.has(payload.role)) throw new Error("Invalid HIVE handoff identity.");
+  const body = base64UrlEncode(JSON.stringify(payload));
+  return `${body}.${await hmacBase64Url(secret, body)}`;
+}
+
+export async function verifyHiveHandoffToken(token, secret, { now = Date.now() } = {}) {
+  try {
+    if (!normalise(secret) || normalise(token).length > 4096) return null;
+    const [body, signature, extra] = normalise(token).split(".");
+    if (!body || !signature || extra) return null;
+    const suppliedBytes = base64UrlDecode(signature);
+    const valid = await crypto.subtle.verify("HMAC", await importHmacKey(secret), suppliedBytes, encoder.encode(body));
+    if (!valid) return null;
+    const payload = JSON.parse(new TextDecoder().decode(base64UrlDecode(body)));
+    if (payload?.v !== 1 || payload?.aud !== "aims-comms" || !payload?.actor || !ALLOWED_ROLES.has(normalise(payload?.role).toLowerCase())) return null;
+    if (!Number.isFinite(payload?.iat) || !Number.isFinite(payload?.exp)) return null;
+    const nowSeconds = Math.floor(now / 1000);
+    if (payload.iat > nowSeconds + 60 || payload.exp <= nowSeconds || payload.exp - payload.iat > 600) return null;
+    return { actor: normalise(payload.actor).slice(0, 200), role: normalise(payload.role).toLowerCase() };
+  } catch {
+    return null;
+  }
+}
+
 function bearerToken(request) {
   return normalise(request.headers.get("authorization")).replace(/^Bearer\s+/i, "");
 }
@@ -336,8 +364,18 @@ async function verifyHiveIdentity(request, env) {
     const role = ALLOWED_ROLES.has(env.DEV_CONSOLE_ROLE) ? env.DEV_CONSOLE_ROLE : "admin";
     return { actor: env.DEV_CONSOLE_ACTOR, role };
   }
+
+  const token = bearerToken(request);
+  if (token && env.HIVE_COMMS_HANDOFF_SECRET) {
+    const identity = await verifyHiveHandoffToken(token, env.HIVE_COMMS_HANDOFF_SECRET);
+    if (identity) return identity;
+    throw Object.assign(new Error("HIVE handoff token is invalid or expired."), { status: 401, code: "hive_handoff_invalid" });
+  }
+
+  // Legacy verification remains available only for deployments that deliberately expose
+  // a compatible HIVE identity endpoint. Cross-subdomain browser cookies are not relied on.
   if (!env.HIVE_IDENTITY_VERIFY_URL) {
-    throw Object.assign(new Error("HIVE identity verification is not configured."), { status: 503, code: "hive_identity_unconfigured" });
+    throw Object.assign(new Error("HIVE communications handoff is not configured."), { status: 503, code: "hive_identity_unconfigured" });
   }
   const method = normalise(env.HIVE_IDENTITY_VERIFY_METHOD || "GET").toUpperCase();
   const headers = new Headers({ accept: "application/json" });
