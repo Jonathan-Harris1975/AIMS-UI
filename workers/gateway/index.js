@@ -463,6 +463,11 @@ export default {
       if (providerMessages && request.method === "POST") return providerSend(request, env, decodeURIComponent(providerMessages[1]));
       const providerMode = url.pathname.match(/^\/sessions\/([^/]+)\/mode$/);
       if (providerMode && request.method === "PUT") return providerSetMode(request, env, decodeURIComponent(providerMode[1]));
+
+      // The chat custom domain is attached to this Worker. Serve the console/widget
+      // from the Worker static-assets binding for every non-API route instead of
+      // returning a gateway 404.
+      if (env.ASSETS && request.method === "GET") return env.ASSETS.fetch(request);
       return json({ error: "not_found", message: "Route not found." }, { status: 404 });
     } catch (error) {
       console.error("aimsUiGateway.requestFailed", { path: url.pathname, method: request.method, error: error?.message || String(error) });
