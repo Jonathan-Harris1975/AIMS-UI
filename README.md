@@ -66,7 +66,7 @@ Produces:
 
 ## Console deployment
 
-Deploy `dist/console` to the chosen AIMS UI hostname. Configure `window.AIMS_UI_CONFIG` before `app.js` loads:
+Deploy `dist` to `chat.jonathan-harris.online`. The generated root `index.html` safely forwards browser navigation to `/console/`, preserving the HIVE handoff fragment. The operator console is therefore served at `https://chat.jonathan-harris.online/console/`. Configure `window.AIMS_UI_CONFIG` before `app.js` loads:
 
 ```html
 <script>
@@ -112,7 +112,7 @@ with `Authorization: Bearer <COGNIPAL_API_KEY>`.
 
 ## Secure HIVE handoff
 
-The operator console is opened from HIVE through `/api/auth/comms-handoff`. HIVE-UI validates its host-only session cookie, creates a short-lived signed handoff token and redirects to `https://chat.jonathan-harris.online/#handoff=...`. The fragment is not sent in the HTTP request; the console consumes it immediately, stores it for the browser session and removes it from the address bar.
+The operator console is opened from HIVE through `/api/auth/comms-handoff`. HIVE-UI validates its host-only session cookie, creates a short-lived signed handoff token and redirects to `https://chat.jonathan-harris.online/console/#handoff=...`. The fragment is not sent in the HTTP request; the console consumes it immediately, stores it for the browser session and removes it from the address bar.
 
 Configure the same `HIVE_COMMS_HANDOFF_SECRET` in HIVE-UI Pages and the AIMS-UI gateway Worker. The AIMS-UI browser API remains same-origin `/console/api`; the gateway proxies accepted console routes to `${AIMS_API_BASE_URL}/comms-hub/*`. `HIVE_IDENTITY_VERIFY_URL` is legacy fallback only and is not required for the normal cross-subdomain flow.
 
