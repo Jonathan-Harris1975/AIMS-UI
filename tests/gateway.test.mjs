@@ -5,9 +5,11 @@ import {
   cogniPalWebhookSignature,
   consoleTargetPath,
   createSessionToken,
+  createHiveHandoffToken,
   delegatedIdentitySignature,
   isAllowedOrigin,
   verifySessionToken,
+  verifyHiveHandoffToken,
 } from "../workers/gateway/index.js";
 
 test("delegated identity signature matches AIMS Node implementation", async () => {
@@ -42,4 +44,14 @@ test("console proxy blocks intake and traversal paths", () => {
   assert.equal(consoleTargetPath("/console/api/queue"), "/comms-hub/queue");
   assert.equal(consoleTargetPath("/console/api/intake/chat"), null);
   assert.equal(consoleTargetPath("/console/api/../intake/chat"), null);
+});
+
+
+test("HIVE communications handoff is short-lived and audience scoped", async () => {
+  const secret = "test-hive-handoff-secret";
+  const now = 1_900_000_000_000;
+  const token = await createHiveHandoffToken({ actor: "hive-owner", role: "admin", ttlSeconds: 300, now }, secret);
+  assert.deepEqual(await verifyHiveHandoffToken(token, secret, { now: now + 60_000 }), { actor: "hive-owner", role: "admin" });
+  assert.equal(await verifyHiveHandoffToken(token, secret, { now: now + 301_000 }), null);
+  assert.equal(await verifyHiveHandoffToken(`${token}x`, secret, { now: now + 60_000 }), null);
 });
