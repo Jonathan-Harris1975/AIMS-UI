@@ -66,7 +66,7 @@ Produces:
 
 ## Console deployment
 
-Deploy `dist` to `chat.jonathan-harris.online`. The generated root `index.html` safely forwards browser navigation to `/console/`, preserving the HIVE handoff fragment. The operator console is therefore served at `https://chat.jonathan-harris.online/console/`. Configure `window.AIMS_UI_CONFIG` before `app.js` loads:
+Deploy `dist` as the Cloudflare Pages output directory. The operator console is served at `/console/`; the generated root `index.html` safely redirects `/` to `/console/` while preserving the signed HIVE handoff fragment. Configure `window.AIMS_UI_CONFIG` before `app.js` loads:
 
 ```html
 <script>
