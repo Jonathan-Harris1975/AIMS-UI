@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const dist = join(root, "dist");
+const siteDir = join(dist, "site");
 
 async function copyFile(source, target) {
   await mkdir(dirname(target), { recursive: true });
@@ -11,9 +12,9 @@ async function copyFile(source, target) {
 }
 
 await rm(dist, { recursive: true, force: true });
-await mkdir(dist, { recursive: true });
+await mkdir(siteDir, { recursive: true });
 
-const consoleDir = join(dist, "console");
+const consoleDir = join(siteDir, "console");
 await cp(join(root, "apps", "console"), consoleDir, { recursive: true });
 await mkdir(join(consoleDir, "lib"), { recursive: true });
 await copyFile(join(root, "packages", "api-client", "index.js"), join(consoleDir, "lib", "api-client.js"));
@@ -60,9 +61,9 @@ const rootIndex = `<!doctype html>
 <body></body>
 </html>
 `;
-await writeFile(join(dist, "index.html"), rootIndex);
+await writeFile(join(siteDir, "index.html"), rootIndex);
 
-await cp(join(root, "apps", "widget"), join(dist, "widget"), { recursive: true });
+await cp(join(root, "apps", "widget"), join(siteDir, "widget"), { recursive: true });
 await cp(join(root, "workers", "gateway"), join(dist, "gateway"), { recursive: true });
 await copyFile(join(root, "README.md"), join(dist, "README.md"));
 await copyFile(join(root, "THIRD_PARTY_NOTICES.md"), join(dist, "THIRD_PARTY_NOTICES.md"));
@@ -72,11 +73,12 @@ const manifest = {
   version: JSON.parse(await readFile(join(root, "package.json"), "utf8")).version,
   builtAt: new Date().toISOString(),
   applications: {
-    console: "console/index.html",
-    widget: "widget/cognipal-widget.js",
+    site: "site",
+    console: "site/console/index.html",
+    widget: "site/widget/cognipal-widget.js",
     gateway: "gateway/index.js",
   },
 };
 await writeFile(join(dist, "build-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 
-console.log("Built AIMS UI: dist/console, dist/widget and dist/gateway");
+console.log("Built AIMS UI: dist/site (root, console, widget) and dist/gateway");
