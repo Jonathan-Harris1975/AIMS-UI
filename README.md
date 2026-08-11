@@ -60,13 +60,17 @@ npm run build
 
 Produces:
 
-- `dist/console`
-- `dist/widget`
-- `dist/gateway`
+- `dist/site` — deployable static root containing `/console/` and `/widget/`
+- `dist/gateway` — gateway source/reference copy
+- `dist/build-manifest.json`
 
-## Console deployment
+## Production deployment
 
-Deploy `dist` as the Cloudflare Pages output directory. The operator console is served at `/console/`; the generated root `index.html` safely redirects `/` to `/console/` while preserving the signed HIVE handoff fragment. Configure `window.AIMS_UI_CONFIG` before `app.js` loads:
+`chat.jonathan-harris.online` must be a **single Cloudflare Worker + Static Assets deployment**, not a gateway-only Worker. The current gateway routes `/console/api/*`, `/widget/*` and `/sessions/*`; Cloudflare Static Assets serves `/`, `/console/` and widget assets from `dist/site`.
+
+Copy `wrangler.toml.example` to `wrangler.toml`, replace `REPLACE_WITH_D1_DATABASE_ID` with the existing `aims-cognipal-chat` D1 database id, configure the documented secrets, then build and deploy from the repository root. The root `/` redirects to `/console/` while preserving the signed HIVE handoff fragment.
+
+The operator console is served at `/console/`. Configure `window.AIMS_UI_CONFIG` before `app.js` loads:
 
 ```html
 <script>
@@ -95,9 +99,11 @@ The browser does not receive `COMMS_HUB_RBAC_DELEGATION_SECRET`. The gateway ver
 
 The script mounts one `<cognipal-widget>` element and isolates its styles in Shadow DOM.
 
-## Gateway deployment
+## Gateway / static-assets deployment
 
-See `workers/gateway/README.md` and `workers/gateway/wrangler.toml.example`.
+The root `wrangler.toml.example` is the production template. Its `[assets]` block points to `./dist/site` and uses selective `run_worker_first` routes so API traffic reaches the Worker while console/widget navigation is served as static assets. This avoids the 404 produced when the custom domain is attached to the gateway Worker without a static-assets binding.
+
+`workers/gateway/wrangler.toml.example` contains the equivalent configuration when deploying from that directory.
 
 The gateway has two hard boundaries:
 
