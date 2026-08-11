@@ -35,23 +35,37 @@ let consoleStyles = await readFile(consoleStylesPath, "utf8");
 consoleStyles = consoleStyles.replace(/^@import url\("\.\.\/\.\.\/packages\/theme\/tokens\.css"\);\s*/u, "");
 await writeFile(consoleStylesPath, consoleStyles);
 
+// Keep the deployment root useful even when Cloudflare Pages is configured with
+// `dist` as its output directory. The communications console itself intentionally
+// lives at /console/ so its same-origin API remains /console/api. Preserve the
+// HIVE handoff fragment during the redirect because URL fragments never reach
+// the server.
+const rootIndex = `<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive,nosnippet">
+  <meta http-equiv="cache-control" content="no-store">
+  <title>AIMS Communications Interface</title>
+  <script>
+    (() => {
+      const target = new URL('/console/', location.origin);
+      target.search = location.search;
+      target.hash = location.hash;
+      location.replace(target.toString());
+    })();
+  </script>
+</head>
+<body></body>
+</html>
+`;
+await writeFile(join(dist, "index.html"), rootIndex);
+
 await cp(join(root, "apps", "widget"), join(dist, "widget"), { recursive: true });
 await cp(join(root, "workers", "gateway"), join(dist, "gateway"), { recursive: true });
 await copyFile(join(root, "README.md"), join(dist, "README.md"));
 await copyFile(join(root, "THIRD_PARTY_NOTICES.md"), join(dist, "THIRD_PARTY_NOTICES.md"));
-
-const rootRedirect = `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta http-equiv="refresh" content="0;url=./console/">
-  <title>AIMS Communications Interface</title>
-  <script>location.replace("./console/" + location.search + location.hash);</script>
-</head>
-<body><p>Opening <a href="./console/">AIMS Communications Interface</a>…</p></body>
-</html>\n`;
-await writeFile(join(dist, "index.html"), rootRedirect);
 
 const manifest = {
   name: "AIMS UI",
