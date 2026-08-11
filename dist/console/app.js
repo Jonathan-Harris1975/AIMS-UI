@@ -10,7 +10,20 @@ const config = Object.freeze({
   apiBaseUrl: String(supplied.apiBaseUrl || "/console/api").replace(/\/+$/, ""),
   demoMode: supplied.demoMode === true || query.get("demo") === "1",
   productName: String(supplied.productName || "AIMS Comms Hub"),
+  hiveHomeUrl: String(supplied.hiveHomeUrl || "https://hive.jonathan-harris.online").replace(/\/+$/, ""),
 });
+
+function acceptHiveHandoff() {
+  const fragment = location.hash.startsWith("#") ? location.hash.slice(1) : location.hash;
+  const params = new URLSearchParams(fragment);
+  const token = params.get("handoff");
+  if (!token) return false;
+  sessionStorage.setItem("aims-ui-console-token", token);
+  history.replaceState(null, "", `${location.pathname}${location.search}#dashboard`);
+  return true;
+}
+
+acceptHiveHandoff();
 
 const client = new AimsCommsClient({
   baseUrl: config.apiBaseUrl,
@@ -49,6 +62,7 @@ const icons = {
   menu: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18v2H3V6Zm0 5h18v2H3v-2Zm0 5h18v2H3v-2Z"/></svg>`,
   close: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.7 5.3 5.3 5.3 5.3-5.3 1.4 1.4-5.3 5.3 5.3 5.3-1.4 1.4-5.3-5.3-5.3 5.3-1.4-1.4 5.3-5.3-5.3-5.3 1.4-1.4Z"/></svg>`,
   arrow: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7-1.4-1.4 5.6-5.6-5.6-5.6L9 5Z"/></svg>`,
+  home: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 8-1.3 1.5L18 11v9h-5v-6h-2v6H6v-9l-1.7 1.5L3 11l9-8Z"/></svg>`,
 };
 
 const navItems = [
@@ -126,6 +140,7 @@ function shell(content) {
           `).join("")}
         </nav>
         <div class="sidebar-footer">
+          <a class="hive-home-link" href="${escapeHtml(config.hiveHomeUrl)}" aria-label="Return to HIVE">${icons.home}<span>Back to HIVE</span></a>
           <div class="service-card">
             <span class="service-dot ${config.demoMode ? "demo" : "live"}"></span>
             <div><strong>${config.demoMode ? "Demo data" : "Live gateway"}</strong><small>${escapeHtml(config.apiBaseUrl)}</small></div>
