@@ -109,3 +109,11 @@ AIMS outbound website-chat replies use the provider-compatible endpoint:
 `POST /sessions/:sessionId/messages`
 
 with `Authorization: Bearer <COGNIPAL_API_KEY>`.
+
+## Secure HIVE handoff
+
+The operator console is opened from HIVE through `/api/auth/comms-handoff`. HIVE-UI validates its host-only session cookie, creates a short-lived signed handoff token and redirects to `https://chat.jonathan-harris.online/#handoff=...`. The fragment is not sent in the HTTP request; the console consumes it immediately, stores it for the browser session and removes it from the address bar.
+
+Configure the same `HIVE_COMMS_HANDOFF_SECRET` in HIVE-UI Pages and the AIMS-UI gateway Worker. The AIMS-UI browser API remains same-origin `/console/api`; the gateway proxies accepted console routes to `${AIMS_API_BASE_URL}/comms-hub/*`. `HIVE_IDENTITY_VERIFY_URL` is legacy fallback only and is not required for the normal cross-subdomain flow.
+
+The console provides a persistent **Back to HIVE** control pointing to `https://hive.jonathan-harris.online`.
