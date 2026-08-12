@@ -22,7 +22,7 @@ binding = "ASSETS"
 run_worker_first = ["/console/api/*", "/widget/session", "/widget/sessions/*", "/sessions/*", "/health"]
 
 [[d1_databases]]
-binding = "CHAT_DB"
+binding = "DB"
 database_name = "database-comms-hub"
 database_id = "1c926f7c-4c5d-4fac-b26d-839db5e6c66e"
 
