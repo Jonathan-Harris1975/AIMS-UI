@@ -17,7 +17,7 @@ WIDGET_ALLOWED_ORIGINS = "https://jonathan-harris.online,https://www.jonathan-ha
 WIDGET_ALLOWED_SITE_IDS = "jonathan-harris.online"
 
 [[d1_databases]]
-binding = "CHAT_DB"
+binding = "DB"
 database_name = "database-comms-hub"
 database_id = "REPLACE_WITH_D1_DATABASE_ID"
 
