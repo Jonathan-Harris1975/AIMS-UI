@@ -230,7 +230,7 @@ async function createWidgetSession(request, env) {
   const expiresAt = addSeconds(createdAt, SESSION_TTL_SECONDS);
   const sessionId = randomId("cps");
   const visitorId = randomId("cpv");
-  await env.CHAT_DB.prepare(
+  await env.DB.prepare(
     `INSERT INTO chat_sessions (id, visitor_id, site_id, origin, mode, status, page_url, referrer, created_at, updated_at, expires_at)
      VALUES (?1, ?2, ?3, ?4, 'automation', 'open', ?5, ?6, ?7, ?7, ?8)`
   ).bind(sessionId, visitorId, siteId, origin, normalise(payload.pageUrl).slice(0, 2000), normalise(payload.referrer).slice(0, 2000), createdAt, expiresAt).run();
@@ -302,17 +302,17 @@ async function relayVisitorMessage(request, env, sessionId) {
     const responsePayload = await response.json().catch(() => null);
     if (!response.ok) {
       const code = normalise(responsePayload?.error || `aims_${response.status}`);
-      await env.CHAT_DB.prepare("UPDATE chat_messages SET delivery_status = 'failed', error_code = ?1 WHERE id = ?2")
+      await env.DB.prepare("UPDATE chat_messages SET delivery_status = 'failed', error_code = ?1 WHERE id = ?2")
         .bind(code, clientMessageId).run();
       return withCors(json({ error: code, message: responsePayload?.message || "AIMS did not accept this message." }, { status: response.status >= 500 ? 502 : response.status }), origin);
     }
-    await env.CHAT_DB.batch([
-      env.CHAT_DB.prepare("UPDATE chat_messages SET delivery_status = 'accepted', error_code = NULL WHERE id = ?1").bind(clientMessageId),
-      env.CHAT_DB.prepare("UPDATE chat_sessions SET updated_at = ?1 WHERE id = ?2").bind(occurredAt, sessionId),
+    await env.DB.batch([
+      env.DB.prepare("UPDATE chat_messages SET delivery_status = 'accepted', error_code = NULL WHERE id = ?1").bind(clientMessageId),
+      env.DB.prepare("UPDATE chat_sessions SET updated_at = ?1 WHERE id = ?2").bind(occurredAt, sessionId),
     ]);
     return withCors(json({ ok: true, accepted: true, duplicate: Boolean(responsePayload?.duplicate), messageId: clientMessageId }, { status: 202 }), origin);
   } catch {
-    await env.CHAT_DB.prepare("UPDATE chat_messages SET delivery_status = 'failed', error_code = 'aims_unreachable' WHERE id = ?1")
+    await env.DB.prepare("UPDATE chat_messages SET delivery_status = 'failed', error_code = 'aims_unreachable' WHERE id = ?1")
       .bind(clientMessageId).run();
     return withCors(json({ error: "aims_unreachable", message: "CogniPal could not reach AIMS." }, { status: 502 }), origin);
   }
@@ -322,7 +322,7 @@ async function providerSend(request, env, sessionId) {
   if (!env.COGNIPAL_API_KEY || bearerToken(request) !== env.COGNIPAL_API_KEY) {
     return json({ error: "provider_unauthorised", message: "Provider credentials are invalid." }, { status: 401 });
   }
-  const session = await env.CHAT_DB.prepare("SELECT id, status FROM chat_sessions WHERE id = ?1 LIMIT 1").bind(sessionId).first();
+  const session = await env.DB.prepare("SELECT id, status FROM chat_sessions WHERE id = ?1 LIMIT 1").bind(sessionId).first();
   if (!session) return json({ error: "session_not_found", message: "Chat session was not found." }, { status: 404 });
   if (session.status !== "open") return json({ error: "session_closed", message: "Chat session is closed." }, { status: 409 });
   const payload = await readJson(request);
@@ -334,7 +334,7 @@ async function providerSend(request, env, sessionId) {
   const messageId = `aims_${sessionId}_${idempotencyKey}`.slice(0, 240);
   const role = payload.role === "operator" ? "operator" : "assistant";
   const createdAt = nowIso();
-  const insert = await env.CHAT_DB.prepare(
+  const insert = await env.DB.prepare(
     `INSERT OR IGNORE INTO chat_messages (id, session_id, role, text, created_at, delivery_status, provider_message_id)
      VALUES (?1, ?2, ?3, ?4, ?5, 'delivered', ?6)`
   ).bind(messageId, sessionId, role, message, createdAt, `${sessionId}:${idempotencyKey}`).run();
@@ -352,7 +352,7 @@ async function providerSetMode(request, env, sessionId) {
     return json({ error: "mode_invalid", message: "Chat mode is invalid." }, { status: 400 });
   }
   const updatedAt = nowIso();
-  const update = await env.CHAT_DB.prepare(
+  const update = await env.DB.prepare(
     "UPDATE chat_sessions SET mode = ?1, status = CASE WHEN ?1 = 'closed' THEN 'closed' ELSE status END, updated_at = ?2 WHERE id = ?3"
   ).bind(mode, updatedAt, sessionId).run();
   if (!Number(update.meta?.changes || 0)) return json({ error: "session_not_found", message: "Chat session was not found." }, { status: 404 });
