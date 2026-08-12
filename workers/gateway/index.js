@@ -546,6 +546,8 @@ export default {
         const assetResponse = await env.ASSETS.fetch(request);
         const headers = new Headers(assetResponse.headers);
         headers.set("content-security-policy", "frame-ancestors 'self' https://hive.jonathan-harris.online");
+        headers.delete("x-frame-options");
+        headers.set("cross-origin-resource-policy", "cross-origin");
         headers.set("referrer-policy", "no-referrer");
         headers.set("x-content-type-options", "nosniff");
         return new Response(assetResponse.body, { status: assetResponse.status, statusText: assetResponse.statusText, headers });
