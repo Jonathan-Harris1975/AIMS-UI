@@ -26,6 +26,10 @@ function acceptHiveHandoff() {
 
 acceptHiveHandoff();
 
+if (config.embedded && window.parent !== window) {
+  window.parent.postMessage({ type: "aims-comms-ready" }, "https://hive.jonathan-harris.online");
+}
+
 const client = new AimsCommsClient({
   baseUrl: config.apiBaseUrl,
   tokenProvider: () => sessionStorage.getItem("aims-ui-console-token") || "",
