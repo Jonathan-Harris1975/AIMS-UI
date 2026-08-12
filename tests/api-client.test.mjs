@@ -24,6 +24,25 @@ test("client adds one idempotency key to mutations", async () => {
   assert.equal(captured.method, "PATCH");
 });
 
+
+test("client never rebinds the supplied fetch implementation", async () => {
+  const requiredThis = globalThis;
+  const brandSensitiveFetch = function (_url, options) {
+    assert.equal(this, undefined);
+    return Promise.resolve(new Response(JSON.stringify({ ok: true, options }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    }));
+  };
+  const client = new AimsCommsClient({
+    baseUrl: "https://example.test",
+    fetchImpl: brandSensitiveFetch,
+  });
+  const result = await client.bootstrap();
+  assert.equal(result.ok, true);
+  assert.equal(requiredThis, globalThis);
+});
+
 test("client exposes AIMS error payloads", async () => {
   const client = new AimsCommsClient({
     baseUrl: "https://example.test",
