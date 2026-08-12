@@ -542,7 +542,14 @@ export default {
       // The chat custom domain is attached to this Worker. Serve the console/widget
       // from the Worker static-assets binding for every non-API route instead of
       // returning a gateway 404.
-      if (env.ASSETS && request.method === "GET") return env.ASSETS.fetch(request);
+      if (env.ASSETS && request.method === "GET") {
+        const assetResponse = await env.ASSETS.fetch(request);
+        const headers = new Headers(assetResponse.headers);
+        headers.set("content-security-policy", "frame-ancestors 'self' https://hive.jonathan-harris.online");
+        headers.set("referrer-policy", "no-referrer");
+        headers.set("x-content-type-options", "nosniff");
+        return new Response(assetResponse.body, { status: assetResponse.status, statusText: assetResponse.statusText, headers });
+      }
       return json({ error: "not_found", message: "Route not found." }, { status: 404 });
     } catch (error) {
       console.error("aimsUiGateway.requestFailed", {
