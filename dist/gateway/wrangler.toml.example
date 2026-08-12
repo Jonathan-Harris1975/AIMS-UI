@@ -13,7 +13,7 @@ WIDGET_ALLOWED_SITE_IDS = "jonathan-harris.online"
 
 [[d1_databases]]
 binding = "CHAT_DB"
-database_name = "aims-cognipal-chat"
+database_name = "database-comms-hub"
 database_id = "REPLACE_WITH_D1_DATABASE_ID"
 
 # Configure with `wrangler secret put`:
