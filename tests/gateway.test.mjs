@@ -9,6 +9,7 @@ import {
   delegatedIdentitySignature,
   gatewayConfigurationStatus,
   isAllowedOrigin,
+  requireConsoleOrigin,
   verifySessionToken,
   verifyHiveHandoffToken,
 } from "../workers/gateway/index.js";
@@ -39,6 +40,33 @@ test("session token is scoped and expires", async () => {
 test("origin allowlist is exact rather than suffix based", () => {
   assert.equal(isAllowedOrigin("https://jonathan-harris.online", "https://jonathan-harris.online", "https://gateway.test"), true);
   assert.equal(isAllowedOrigin("https://jonathan-harris.online.attacker.test", "https://jonathan-harris.online", "https://gateway.test"), false);
+});
+
+
+test("console origin accepts same-origin GET Referer when Origin is absent", async () => {
+  const request = new Request("https://chat.jonathan-harris.online/console/api/ui/bootstrap", {
+    method: "GET",
+    headers: { referer: "https://chat.jonathan-harris.online/console/" },
+  });
+  assert.equal(
+    await requireConsoleOrigin(request, { CONSOLE_ALLOWED_ORIGINS: "https://chat.jonathan-harris.online" }),
+    "https://chat.jonathan-harris.online",
+  );
+});
+
+test("console origin rejects lookalike Referer and does not use Referer fallback for mutations", async () => {
+  const env = { CONSOLE_ALLOWED_ORIGINS: "https://chat.jonathan-harris.online" };
+  const lookalike = new Request("https://chat.jonathan-harris.online/console/api/ui/bootstrap", {
+    method: "GET",
+    headers: { referer: "https://chat.jonathan-harris.online.attacker.test/console/" },
+  });
+  await assert.rejects(() => requireConsoleOrigin(lookalike, env), { code: "origin_denied" });
+
+  const mutation = new Request("https://chat.jonathan-harris.online/console/api/queue", {
+    method: "POST",
+    headers: { referer: "https://chat.jonathan-harris.online/console/" },
+  });
+  await assert.rejects(() => requireConsoleOrigin(mutation, env), { code: "origin_denied" });
 });
 
 test("console proxy blocks intake and traversal paths", () => {
