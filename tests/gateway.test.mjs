@@ -7,6 +7,7 @@ import {
   createSessionToken,
   createHiveHandoffToken,
   delegatedIdentitySignature,
+  gatewayConfigurationStatus,
   isAllowedOrigin,
   verifySessionToken,
   verifyHiveHandoffToken,
@@ -54,4 +55,27 @@ test("HIVE communications handoff is short-lived and audience scoped", async () 
   assert.deepEqual(await verifyHiveHandoffToken(token, secret, { now: now + 60_000 }), { actor: "hive-owner", role: "admin" });
   assert.equal(await verifyHiveHandoffToken(token, secret, { now: now + 301_000 }), null);
   assert.equal(await verifyHiveHandoffToken(`${token}x`, secret, { now: now + 60_000 }), null);
+});
+
+
+test("gateway configuration status uses the production DB binding name", () => {
+  const fakeDb = { prepare() {} };
+  const fakeAssets = { fetch() {} };
+  assert.deepEqual(gatewayConfigurationStatus({
+    AIMS_API_BASE_URL: "https://app.jonathan-harris.online",
+    AIMS_API_KEY: "api-key",
+    COMMS_HUB_RBAC_DELEGATION_SECRET: "delegation-secret",
+    HIVE_COMMS_HANDOFF_SECRET: "handoff-secret",
+    DB: fakeDb,
+    ASSETS: fakeAssets,
+  }), {
+    aimsApiBaseUrl: true,
+    aimsApiKey: true,
+    delegationSecret: true,
+    hiveHandoffSecret: true,
+    d1: true,
+    assets: true,
+  });
+
+  assert.equal(gatewayConfigurationStatus({ CHAT_DB: fakeDb }).d1, false);
 });
