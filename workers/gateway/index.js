@@ -208,12 +208,30 @@ async function requireWidgetOrigin(request, env) {
   return origin;
 }
 
-async function requireConsoleOrigin(request, env) {
-  const origin = request.headers.get("origin") || "";
-  if (!isAllowedOrigin(origin, env.CONSOLE_ALLOWED_ORIGINS, request.url)) {
-    throw Object.assign(new Error("This console origin is not allowed."), { status: 403, code: "origin_denied" });
+export async function requireConsoleOrigin(request, env) {
+  const explicitOrigin = normalise(request.headers.get("origin"));
+  if (explicitOrigin) {
+    if (!isAllowedOrigin(explicitOrigin, env.CONSOLE_ALLOWED_ORIGINS, request.url)) {
+      throw Object.assign(new Error("This console origin is not allowed."), { status: 403, code: "origin_denied" });
+    }
+    return new URL(explicitOrigin).origin;
   }
-  return origin;
+
+  // Browsers do not consistently send Origin on same-origin GET requests.
+  // In that case only, derive the candidate origin from Referer and apply the
+  // same exact-origin allowlist check. Mutating requests never use this fallback.
+  if (request.method === "GET") {
+    const referer = normalise(request.headers.get("referer"));
+    if (referer) {
+      let refererOrigin = "";
+      try { refererOrigin = new URL(referer).origin; } catch { refererOrigin = ""; }
+      if (refererOrigin && isAllowedOrigin(refererOrigin, env.CONSOLE_ALLOWED_ORIGINS, request.url)) {
+        return refererOrigin;
+      }
+    }
+  }
+
+  throw Object.assign(new Error("This console origin is not allowed."), { status: 403, code: "origin_denied" });
 }
 
 async function requireSession(request, env, sessionId) {
