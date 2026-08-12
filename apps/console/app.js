@@ -9,6 +9,7 @@ const supplied = globalThis.AIMS_UI_CONFIG || {};
 const config = Object.freeze({
   apiBaseUrl: String(supplied.apiBaseUrl || "/console/api").replace(/\/+$/, ""),
   demoMode: supplied.demoMode === true || query.get("demo") === "1",
+  embedded: query.get("embed") === "1",
   productName: String(supplied.productName || "AIMS Comms Hub"),
   hiveHomeUrl: String(supplied.hiveHomeUrl || "https://hive.jonathan-harris.online").replace(/\/+$/, ""),
 });
@@ -123,7 +124,7 @@ function shell(content) {
   const identity = state.bootstrap?.identity || { actor: "Unknown", role: "read_only" };
   const unread = state.notifications.filter((item) => item.status !== "read").length;
   return `
-    <div class="layout ${state.sidebarOpen ? "sidebar-open" : ""}">
+    <div class="layout ${state.sidebarOpen ? "sidebar-open" : ""} ${config.embedded ? "embedded" : ""}">
       <button class="scrim" data-action="close-sidebar" aria-label="Close navigation"></button>
       <aside class="sidebar">
         <div class="brand">
