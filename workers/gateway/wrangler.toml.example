@@ -9,7 +9,7 @@ run_worker_first = true
 
 [vars]
 ENVIRONMENT = "production"
-AIMS_API_BASE_URL = "https://aims.jonathan-harris.online"
+AIMS_API_BASE_URL = "https://app.jonathan-harris.online"
 HIVE_IDENTITY_VERIFY_URL = ""
 HIVE_IDENTITY_VERIFY_METHOD = "GET"
 CONSOLE_ALLOWED_ORIGINS = "https://chat.jonathan-harris.online"
