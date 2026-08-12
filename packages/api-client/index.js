@@ -41,7 +41,11 @@ export class AimsCommsClient {
   constructor({ baseUrl, fetchImpl = globalThis.fetch, tokenProvider = null } = {}) {
     this.baseUrl = cleanBaseUrl(baseUrl);
     if (typeof fetchImpl !== "function") throw new TypeError("A fetch implementation is required.");
-    this.fetchImpl = fetchImpl;
+    // Native browser fetch is brand-sensitive in some runtimes. Storing it directly
+    // and later calling it as this.fetchImpl(...) changes its receiver to the client
+    // instance and can throw "Illegal invocation". Always invoke through a closure
+    // so the native function is never rebound to AimsCommsClient.
+    this.fetchImpl = (...args) => fetchImpl(...args);
     this.tokenProvider = typeof tokenProvider === "function" ? tokenProvider : null;
   }
 
