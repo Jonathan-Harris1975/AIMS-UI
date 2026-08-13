@@ -217,16 +217,26 @@ export async function requireConsoleOrigin(request, env) {
     return new URL(explicitOrigin).origin;
   }
 
-  // Browsers do not consistently send Origin on same-origin GET requests.
-  // In that case only, derive the candidate origin from Referer and apply the
-  // same exact-origin allowlist check. Mutating requests never use this fallback.
-  if (request.method === "GET") {
+  // Browsers do not consistently send Origin on same-origin GET/HEAD requests.
+  // Prefer Referer when it exists, but embedded console documents may use a
+  // restrictive referrer policy. In that case Sec-Fetch-Site gives us a
+  // browser-controlled same-origin signal. We still require the request URL's
+  // exact origin to be present in the configured console allowlist.
+  if (["GET", "HEAD"].includes(request.method)) {
     const referer = normalise(request.headers.get("referer"));
     if (referer) {
       let refererOrigin = "";
       try { refererOrigin = new URL(referer).origin; } catch { refererOrigin = ""; }
       if (refererOrigin && isAllowedOrigin(refererOrigin, env.CONSOLE_ALLOWED_ORIGINS, request.url)) {
         return refererOrigin;
+      }
+    }
+
+    const fetchSite = normalise(request.headers.get("sec-fetch-site")).toLowerCase();
+    if (fetchSite === "same-origin") {
+      const requestOrigin = new URL(request.url).origin;
+      if (isAllowedOrigin(requestOrigin, env.CONSOLE_ALLOWED_ORIGINS, request.url)) {
+        return requestOrigin;
       }
     }
   }
@@ -548,7 +558,7 @@ export default {
         headers.set("content-security-policy", "frame-ancestors 'self' https://hive.jonathan-harris.online");
         headers.delete("x-frame-options");
         headers.set("cross-origin-resource-policy", "cross-origin");
-        headers.set("referrer-policy", "no-referrer");
+        headers.set("referrer-policy", "same-origin");
         headers.set("x-content-type-options", "nosniff");
         return new Response(assetResponse.body, { status: assetResponse.status, statusText: assetResponse.statusText, headers });
       }
