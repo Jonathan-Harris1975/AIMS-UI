@@ -158,7 +158,7 @@ function shell(content) {
       </aside>
       <main class="main">
         <header class="topbar">
-          <button class="icon-button mobile-only" data-action="open-sidebar" aria-label="Open navigation">${icons.menu}</button>
+          <button class="icon-button mobile-only aims-menu-trigger" data-action="open-sidebar" aria-label="Open AIMS navigation">${icons.menu}</button>
           <div class="mobile-title"><strong>${escapeHtml(config.productName)}</strong><span>${escapeHtml(titleCase(state.view))}</span></div>
           <label class="global-search">
             ${icons.search}
@@ -169,6 +169,14 @@ function shell(content) {
             ${icons.bell}${unread ? `<span>${unread}</span>` : ""}
           </button>
         </header>
+        ${config.embedded ? `<nav class="embedded-nav" aria-label="AIMS Comms Hub sections">
+          ${navItems.map(([key, label, icon]) => `
+            <button class="embedded-nav-item ${state.view === key || (key === "inbox" && state.view === "workspace") ? "active" : ""}" data-view="${key}">
+              ${icon}<span>${escapeHtml(label)}</span>
+              ${key === "approvals" && pendingApprovals().length ? `<b>${pendingApprovals().length}</b>` : ""}
+            </button>
+          `).join("")}
+        </nav>` : ""}
         <div class="content">${content}</div>
       </main>
       ${notificationPanel()}
