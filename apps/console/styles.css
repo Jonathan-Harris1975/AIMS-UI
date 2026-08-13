@@ -76,7 +76,7 @@ svg { width: 20px; height: 20px; fill: currentColor; }
 .summary-card.tone-purple::before { background: var(--aims-purple-soft); }
 .summary-card.tone-red::before { background: var(--aims-danger-soft); }
 .summary-card.tone-green::before { background: var(--aims-success-soft); }
-.summary-card.tone-cyan::before { background: #e8fbff; }
+.summary-card.tone-cyan::before { background: rgba(103, 232, 249, .10); }
 .summary-card > div:first-child { display: grid; gap: 5px; position: relative; z-index: 1; }
 .summary-card span { color: var(--aims-text-soft); font-size: 12px; }
 .summary-card strong { font-size: 30px; letter-spacing: -.04em; }
@@ -226,37 +226,36 @@ svg { width: 20px; height: 20px; fill: currentColor; }
 }
 
 
-/* Embedded HIVE mode: HIVE owns the outer application chrome.
-   AIMS uses a compact section rail instead of a second hamburger/drawer. */
-.layout.embedded { display: block; min-height: 100%; }
+/* Embedded HIVE mode: HIVE owns the application chrome.
+   AIMS becomes a workspace rather than a second nested application. */
+.layout.embedded { display: block; min-height: 100%; background: var(--aims-bg); }
 .layout.embedded .sidebar,
 .layout.embedded .scrim,
-.layout.embedded .aims-menu-trigger { display: none !important; }
-.layout.embedded .topbar {
-  position: sticky;
-  top: 0;
-  height: 58px;
-  padding: 0 18px;
-  background: var(--aims-bg);
-  border-bottom: 1px solid var(--aims-border);
-}
-.layout.embedded .mobile-title { display: grid; gap: 1px; margin-right: auto; }
-.layout.embedded .mobile-title strong { font-size: 13px; }
-.layout.embedded .mobile-title span { color: var(--aims-text-soft); font-size: 10px; }
-.layout.embedded .global-search { max-width: 620px; }
+.layout.embedded .aims-menu-trigger,
+.layout.embedded .topbar { display: none !important; }
 .embedded-nav {
   position: sticky;
-  top: 58px;
-  z-index: 14;
+  top: 0;
+  z-index: 16;
+  min-height: 54px;
   display: flex;
+  align-items: stretch;
+  gap: 8px;
+  padding: 7px 10px 7px 12px;
+  background: rgba(6, 17, 38, .98);
+  border-bottom: 1px solid var(--aims-border);
+  box-shadow: 0 5px 18px rgba(0, 0, 0, .10);
+}
+.embedded-nav-scroll {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  align-items: center;
   gap: 5px;
   overflow-x: auto;
   scrollbar-width: none;
-  padding: 8px 14px;
-  background: rgba(6, 17, 38, .97);
-  border-bottom: 1px solid var(--aims-border);
 }
-.embedded-nav::-webkit-scrollbar { display: none; }
+.embedded-nav-scroll::-webkit-scrollbar { display: none; }
 .embedded-nav-item {
   min-height: 38px;
   flex: 0 0 auto;
@@ -269,7 +268,7 @@ svg { width: 20px; height: 20px; fill: currentColor; }
   background: transparent;
   color: var(--aims-text-soft);
   cursor: pointer;
-  font-weight: 650;
+  font-weight: 680;
   font-size: 12px;
 }
 .embedded-nav-item svg { width: 17px; height: 17px; }
@@ -281,29 +280,81 @@ svg { width: 20px; height: 20px; fill: currentColor; }
 }
 .embedded-nav-item.active {
   color: var(--aims-accent-strong);
-  background: var(--aims-accent-soft);
-  border-color: var(--aims-border-strong);
+  background: rgba(36, 200, 240, .12);
+  border-color: rgba(103, 232, 249, .24);
 }
 .embedded-nav-item b {
   min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
   display: grid; place-items: center; background: var(--aims-danger); color: #061126; font-size: 10px;
 }
-.layout.embedded .content { padding-top: 22px; }
+.embedded-notification-button {
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  align-self: center;
+  border: 1px solid var(--aims-border);
+  border-radius: 10px;
+  background: var(--aims-panel-subtle);
+  color: var(--aims-text-soft);
+  display: grid;
+  place-items: center;
+  position: relative;
+  cursor: pointer;
+}
+.embedded-notification-button:hover, .embedded-notification-button:focus-visible {
+  color: var(--aims-accent-strong);
+  border-color: var(--aims-border-strong);
+  background: var(--aims-accent-soft);
+  outline: 0;
+}
+.embedded-notification-button svg { width: 18px; height: 18px; }
+.embedded-notification-button span {
+  position: absolute;
+  right: -4px;
+  top: -4px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--aims-danger);
+  color: #061126;
+  border: 2px solid var(--aims-bg);
+  display: grid;
+  place-items: center;
+  font-size: 9px;
+  font-weight: 800;
+}
+.layout.embedded .content { padding-top: 20px; }
+.layout.embedded .page-header { margin-bottom: 20px; }
+.layout.embedded .page-header h1 { margin-top: 0; }
+.layout.embedded .button.primary {
+  background: #10354a;
+  border-color: rgba(103, 232, 249, .30);
+  color: #dff9ff;
+  box-shadow: none;
+}
+.layout.embedded .button.primary:hover {
+  background: #15465d;
+  border-color: rgba(103, 232, 249, .46);
+}
+.layout.embedded .summary-card {
+  background: #08192d;
+  border-color: rgba(163, 197, 219, .12);
+}
+.layout.embedded .summary-card::before { opacity: .30; }
+.layout.embedded .summary-spark { opacity: .72; }
 
 /* Readability pass: secondary copy must remain legible on the navy surfaces. */
 .summary-card span, .page-header p, .connection-error p, .mobile-title span,
 .service-card small, .user-card small, .notification-item small { color: var(--aims-text-soft); }
 .summary-card small, .notification-item time { color: var(--aims-text-faint); }
 
-@media (max-width: 900px) {
-  .layout.embedded .global-search { display: none; }
-}
 @media (max-width: 640px) {
-  .layout.embedded .topbar { height: 54px; padding: 0 12px; }
-  .embedded-nav { top: 54px; padding: 7px 10px; }
-  .embedded-nav-item { min-height: 36px; padding: 0 10px; }
+  .embedded-nav { min-height: 52px; padding: 6px 8px 6px 10px; }
+  .embedded-nav-item { min-height: 36px; padding: 0 9px; }
   .embedded-nav-item span { font-size: 11px; }
-  .layout.embedded .content { padding: 18px 14px 30px; }
+  .embedded-notification-button { width: 38px; min-width: 38px; height: 38px; }
+  .layout.embedded .content { padding: 18px 18px 30px; }
   .summary-card span { font-size: 13px; }
   .summary-card small { font-size: 12px; }
 }
