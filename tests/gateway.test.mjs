@@ -54,6 +54,28 @@ test("console origin accepts same-origin GET Referer when Origin is absent", asy
   );
 });
 
+test("console origin accepts browser same-origin GET when Origin and Referer are absent", async () => {
+  const request = new Request("https://chat.jonathan-harris.online/console/api/ui/bootstrap", {
+    method: "GET",
+    headers: { "sec-fetch-site": "same-origin", "sec-fetch-mode": "cors" },
+  });
+  assert.equal(
+    await requireConsoleOrigin(request, { CONSOLE_ALLOWED_ORIGINS: "https://chat.jonathan-harris.online" }),
+    "https://chat.jonathan-harris.online",
+  );
+});
+
+test("console origin does not trust cross-site Sec-Fetch-Site without Origin", async () => {
+  const request = new Request("https://chat.jonathan-harris.online/console/api/ui/bootstrap", {
+    method: "GET",
+    headers: { "sec-fetch-site": "cross-site", "sec-fetch-mode": "cors" },
+  });
+  await assert.rejects(
+    () => requireConsoleOrigin(request, { CONSOLE_ALLOWED_ORIGINS: "https://chat.jonathan-harris.online" }),
+    { code: "origin_denied" },
+  );
+});
+
 test("console origin rejects lookalike Referer and does not use Referer fallback for mutations", async () => {
   const env = { CONSOLE_ALLOWED_ORIGINS: "https://chat.jonathan-harris.online" };
   const lookalike = new Request("https://chat.jonathan-harris.online/console/api/ui/bootstrap", {
