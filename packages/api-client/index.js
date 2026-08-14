@@ -75,6 +75,31 @@ export class AimsCommsClient {
     return payload;
   }
 
+  async downloadAttachment(attachmentId) {
+    const token = await this.tokenProvider?.();
+    const headers = new Headers({ accept: "application/octet-stream,*/*" });
+    if (token) headers.set("authorization", `Bearer ${token}`);
+    const response = await this.fetchImpl(makeUrl(this.baseUrl, `/attachments/${encodeURIComponent(attachmentId)}`), {
+      method: "GET",
+      credentials: "include",
+      headers,
+    });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      throw new AimsApiError(
+        payload?.message || payload?.error || `Attachment request failed with status ${response.status}.`,
+        { status: response.status, code: payload?.error || "attachment_download_failed", payload },
+      );
+    }
+    const disposition = response.headers.get("content-disposition") || "";
+    const filenameMatch = disposition.match(/filename="([^"]+)"/i);
+    return {
+      blob: await response.blob(),
+      filename: filenameMatch?.[1] || `attachment-${attachmentId}`,
+      contentType: response.headers.get("content-type") || "application/octet-stream",
+    };
+  }
+
   bootstrap() { return this.request("/ui/bootstrap"); }
   queue(filters = {}) { return this.request("/queue", { query: filters }); }
   workspace(conversationId) { return this.request(`/workspace/${encodeURIComponent(conversationId)}`); }
