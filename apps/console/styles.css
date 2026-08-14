@@ -358,3 +358,13 @@ svg { width: 20px; height: 20px; fill: currentColor; }
   .summary-card span { font-size: 13px; }
   .summary-card small { font-size: 12px; }
 }
+
+.attachment-list { display: grid; gap: 8px; margin-top: 8px; }
+.attachment-row { display: grid; grid-template-columns: 32px minmax(0,1fr) auto; gap: 9px; align-items: center; padding: 9px; border: 1px solid var(--aims-border); background: var(--aims-panel-subtle); border-radius: 10px; }
+.attachment-icon { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; background: rgba(40,184,230,.08); color: var(--aims-accent); }
+.attachment-icon svg { width: 17px; height: 17px; fill: currentColor; }
+.attachment-meta { min-width: 0; display: grid; gap: 2px; }
+.attachment-meta strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--aims-text); }
+.attachment-meta small { font-size: 10px; color: var(--aims-text-soft); }
+.attachment-status { font-size: 9px; font-weight: 700; color: var(--aims-text-soft); text-transform: uppercase; letter-spacing: .04em; }
+.button.compact { min-height: 30px; padding: 0 10px; font-size: 11px; }

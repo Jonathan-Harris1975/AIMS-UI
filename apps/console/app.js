@@ -68,6 +68,7 @@ const icons = {
   close: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.7 5.3 5.3 5.3 5.3-5.3 1.4 1.4-5.3 5.3 5.3 5.3-1.4 1.4-5.3-5.3-5.3 5.3-1.4-1.4 5.3-5.3-5.3-5.3 1.4-1.4Z"/></svg>`,
   arrow: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7-1.4-1.4 5.6-5.6-5.6-5.6L9 5Z"/></svg>`,
   home: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 8-1.3 1.5L18 11v9h-5v-6h-2v6H6v-9l-1.7 1.5L3 11l9-8Z"/></svg>`,
+  download: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2v10.2l3.6-3.6 1.4 1.4-6 6-6-6 1.4-1.4 3.6 3.6V3ZM5 19h14v2H5v-2Z"/></svg>`,
 };
 
 const navItems = [
@@ -409,6 +410,7 @@ function workspaceView() {
   const aiState = workspace.ai?.state || workspace.ai?.summary || {};
   const drafts = workspace.ai?.drafts || [];
   const approvals = workspace.ai?.approvals || [];
+  const attachments = conversation.attachments || workspace.attachments || [];
   const role = state.bootstrap?.identity?.role || "read_only";
   const canReply = roleAllows(role, "reply");
   const canApprove = roleAllows(role, "approve");
@@ -451,6 +453,23 @@ function workspaceView() {
           ${approvals.length ? `<div class="approval-box"><strong>Approval required</strong><p>${escapeHtml(approvals[0].rationale || "Review the action scope and evidence.")}</p>${canApprove ? `<div><button class="button secondary" data-approval-id="${escapeHtml(approvals[0].id)}" data-decision="reject">Reject</button><button class="button primary" data-approval-id="${escapeHtml(approvals[0].id)}" data-decision="approve">Approve</button></div>` : ""}</div>` : ""}
         </section>
         ${workspace.chatSession ? `<section class="panel detail-card"><header><strong>Chat control</strong>${statusPill(workspace.chatSession.mode || "automation")}</header><p>Switching mode updates AIMS persistent takeover state. It does not discard the thread.</p>${roleAllows(role, "takeover") ? `<div class="button-row"><button class="button secondary" data-takeover="human">Take over</button><button class="button secondary" data-takeover="automation">Return to AIMS</button></div>` : ""}</section>` : ""}
+        ${attachments.length ? `<section class="panel detail-card attachment-card">
+          <header><strong>Attachments</strong><span>${attachments.length}</span></header>
+          <div class="attachment-list">
+            ${attachments.map((attachment) => {
+              const status = String(attachment.status || "reference_only");
+              const stored = status === "stored";
+              return `<article class="attachment-row">
+                <div class="attachment-icon">${icons.download}</div>
+                <div class="attachment-meta">
+                  <strong>${escapeHtml(attachment.filename || "Attachment")}</strong>
+                  <small>${escapeHtml(stored ? "Stored securely in Comms Hub" : status === "quarantined" ? "Quarantined" : status === "ingest_failed" ? "Storage failed" : "Processing")}</small>
+                </div>
+                ${stored ? `<button class="button secondary compact" type="button" data-attachment-id="${escapeHtml(attachment.id)}">Open</button>` : `<span class="attachment-status">${escapeHtml(titleCase(status.replaceAll("_", " ")))}</span>`}
+              </article>`;
+            }).join("")}
+          </div>
+        </section>` : ""}
         <section class="panel detail-card">
           <header><strong>Private notes</strong><span>${workspace.notes?.length || 0}</span></header>
           <div class="notes-list">${(workspace.notes || []).slice(0, 4).map((note) => `<article><strong>${escapeHtml(note.author || note.created_by || "Operator")}</strong><p>${escapeHtml(note.body_text || "")}</p><small>${escapeHtml(formatRelativeTime(note.created_at))}</small></article>`).join("") || `<p class="muted">No private notes.</p>`}</div>
@@ -459,6 +478,35 @@ function workspaceView() {
       </aside>
     </div>
   `);
+}
+
+async function downloadAttachment(attachmentId, button) {
+  if (!attachmentId || button?.disabled) return;
+  const original = button?.textContent || "Open";
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Opening…";
+  }
+  try {
+    const result = await client.downloadAttachment(attachmentId);
+    const objectUrl = URL.createObjectURL(result.blob);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = result.filename;
+    link.rel = "noopener";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 30_000);
+    toast(`Opened ${result.filename}`);
+  } catch (error) {
+    toast(error?.message || "Attachment could not be opened.", "error");
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = original;
+    }
+  }
 }
 
 function errorView() {
@@ -527,6 +575,7 @@ function bindEvents() {
   root.querySelector('[data-action="analyse"]')?.addEventListener("click", analyseConversation);
   root.querySelectorAll("[data-takeover]").forEach((button) => button.addEventListener("click", () => changeTakeover(button.dataset.takeover)));
   root.querySelectorAll("[data-approval-id]").forEach((button) => button.addEventListener("click", () => decideApproval(button.dataset.approvalId, button.dataset.decision)));
+  root.querySelectorAll("[data-attachment-id]").forEach((button) => button.addEventListener("click", () => downloadAttachment(button.dataset.attachmentId, button)));
   root.querySelector('[data-action="load-quarantine"]')?.addEventListener("click", loadQuarantine);
   root.querySelectorAll("[data-replay-id]").forEach((button) => button.addEventListener("click", () => replayQuarantine(button.dataset.replayId)));
   root.querySelector('[data-action="load-metrics"]')?.addEventListener("click", loadMetrics);
