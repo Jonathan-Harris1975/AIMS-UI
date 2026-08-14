@@ -13,6 +13,7 @@ export function formatDateTime(value, fallback = "Unknown") {
   return new Intl.DateTimeFormat("en-GB", {
     dateStyle: "medium",
     timeStyle: "short",
+    timeZone: "Europe/London",
   }).format(new Date(timestamp));
 }
 
