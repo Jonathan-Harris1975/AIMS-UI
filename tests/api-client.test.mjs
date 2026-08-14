@@ -55,3 +55,27 @@ test("client exposes AIMS error payloads", async () => {
     return true;
   });
 });
+
+
+test("client downloads binary attachments with the console handoff token", async () => {
+  let captured;
+  const client = new AimsCommsClient({
+    baseUrl: "/console/api",
+    tokenProvider: () => "handoff-token",
+    fetchImpl: async (url, options) => {
+      captured = { url, options };
+      return new Response(new Blob(["hello"], { type: "text/plain" }), {
+        status: 200,
+        headers: {
+          "content-type": "text/plain",
+          "content-disposition": 'attachment; filename="test.txt"',
+        },
+      });
+    },
+  });
+  const result = await client.downloadAttachment("att_test");
+  assert.equal(captured.url, "/console/api/attachments/att_test");
+  assert.equal(captured.options.headers.get("authorization"), "Bearer handoff-token");
+  assert.equal(result.filename, "test.txt");
+  assert.equal(await result.blob.text(), "hello");
+});
