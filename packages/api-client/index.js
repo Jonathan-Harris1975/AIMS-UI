@@ -49,12 +49,13 @@ export class AimsCommsClient {
     this.tokenProvider = typeof tokenProvider === "function" ? tokenProvider : null;
   }
 
-  async request(path, { method = "GET", query, body, headers = {}, signal, idempotent = false } = {}) {
+  async request(path, { method = "GET", query, body, headers = {}, signal, idempotent = false, idempotencyKey = "" } = {}) {
     const token = await this.tokenProvider?.();
     const requestHeaders = new Headers(headers);
     requestHeaders.set("accept", "application/json");
     if (token) requestHeaders.set("authorization", `Bearer ${token}`);
     if (body !== undefined) requestHeaders.set("content-type", "application/json");
+    if (idempotencyKey && !requestHeaders.has("idempotency-key")) requestHeaders.set("idempotency-key", String(idempotencyKey));
     if (idempotent && !requestHeaders.has("idempotency-key")) {
       requestHeaders.set("idempotency-key", newIdempotencyKey());
     }
@@ -108,6 +109,20 @@ export class AimsCommsClient {
   markNotification(id, status = "read") { return this.request(`/notifications/${encodeURIComponent(id)}`, { method: "PATCH", body: { status } }); }
   quarantine(query = {}) { return this.request("/quarantine", { query }); }
   replayQuarantine(id) { return this.request(`/quarantine/${encodeURIComponent(id)}/replay`, { method: "POST", body: {}, idempotent: true }); }
+
+  socialStatus() { return this.request("/social/status"); }
+  reconcileSocialWebhooks() { return this.request("/social/webhooks/reconcile-all", { method: "POST", body: {}, idempotent: true }); }
+  drainSocialPoll(limit = 5) { return this.request("/social/poll/drain", { method: "POST", body: { limit }, idempotent: true }); }
+  socialAction(conversationId, action, body = {}, { idempotencyKey = "" } = {}) {
+    return this.request(`/social/conversations/${encodeURIComponent(conversationId)}/actions/${encodeURIComponent(action)}`, {
+      method: "POST", body, idempotent: true, idempotencyKey,
+    });
+  }
+  requestSocialApproval(conversationId, action, body = {}) {
+    return this.request(`/social/conversations/${encodeURIComponent(conversationId)}/approvals/${encodeURIComponent(action)}`, {
+      method: "POST", body, idempotent: true,
+    });
+  }
   workflowDefinitions(query = {}) { return this.request("/workflow-definitions", { query }); }
   escalations(query = {}) { return this.request("/escalations", { query }); }
   search(query, filters = {}) { return this.request("/search", { query: { q: query, query, ...filters } }); }
