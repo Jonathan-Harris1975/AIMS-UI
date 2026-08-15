@@ -1,8 +1,8 @@
 export const COMMS_ROLES = Object.freeze(["admin", "reviewer", "operator", "read_only"]);
 
 export const ROLE_PERMISSIONS = Object.freeze({
-  admin: new Set(["read", "reply", "approve", "assign", "status", "note", "takeover", "workflow", "quarantine", "settings"]),
-  reviewer: new Set(["read", "reply", "approve", "assign", "status", "note", "takeover", "workflow", "quarantine"]),
+  admin: new Set(["read", "reply", "approve", "assign", "status", "note", "takeover", "workflow", "quarantine", "settings", "social_setup"]),
+  reviewer: new Set(["read", "reply", "approve", "assign", "status", "note", "takeover", "workflow", "quarantine", "social_setup"]),
   operator: new Set(["read", "reply", "assign", "status", "note", "takeover"]),
   read_only: new Set(["read"]),
 });
