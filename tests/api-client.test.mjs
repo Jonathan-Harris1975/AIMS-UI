@@ -79,3 +79,39 @@ test("client downloads binary attachments with the console handoff token", async
   assert.equal(result.filename, "test.txt");
   assert.equal(await result.blob.text(), "hello");
 });
+
+
+test("client exposes social status, setup and action endpoints", async () => {
+  const calls = [];
+  const client = new AimsCommsClient({
+    baseUrl: "https://example.test/comms-hub",
+    fetchImpl: async (url, options) => {
+      calls.push([String(url), options.method, options.body ? JSON.parse(options.body) : null]);
+      return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } });
+    },
+  });
+  await client.socialStatus();
+  await client.reconcileSocialWebhooks();
+  await client.drainSocialPoll(10);
+  await client.socialAction("cnv-1", "reply", { message: "hello" });
+  await client.requestSocialApproval("cnv-1", "delete", {});
+  assert.match(calls[0][0], /\/social\/status$/);
+  assert.match(calls[1][0], /\/social\/webhooks\/reconcile-all$/);
+  assert.deepEqual(calls[2][2], { limit: 10 });
+  assert.match(calls[3][0], /\/social\/conversations\/cnv-1\/actions\/reply$/);
+  assert.match(calls[4][0], /\/social\/conversations\/cnv-1\/approvals\/delete$/);
+});
+
+
+test("social action can reuse the approval idempotency key for scoped execution", async () => {
+  let captured;
+  const client = new AimsCommsClient({
+    baseUrl: "https://example.test/comms-hub",
+    fetchImpl: async (_url, options) => {
+      captured = options;
+      return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } });
+    },
+  });
+  await client.socialAction("cnv-1", "delete", { approvalId: "apr-1" }, { idempotencyKey: "approval-action-123" });
+  assert.equal(captured.headers.get("idempotency-key"), "approval-action-123");
+});
