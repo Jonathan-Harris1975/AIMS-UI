@@ -66,7 +66,7 @@ Produces:
 
 ## Console deployment
 
-Deploy `dist/console` to the chosen AIMS UI hostname. Configure `window.AIMS_UI_CONFIG` before `app.js` loads:
+For the `chat.jonathan-harris.online` custom domain, deploy the gateway as a Cloudflare Worker with the `ASSETS` binding from `wrangler.toml`; the Worker serves `dist` for non-API routes. Do not attach the chat custom domain to an API-only Worker without the assets binding. Deploy `dist` as the Cloudflare Pages output directory. The operator console is served at `/console/`; the generated root `index.html` safely redirects `/` to `/console/` while preserving the signed HIVE handoff fragment. Configure `window.AIMS_UI_CONFIG` before `app.js` loads:
 
 ```html
 <script>
@@ -112,8 +112,13 @@ with `Authorization: Bearer <COGNIPAL_API_KEY>`.
 
 ## Secure HIVE handoff
 
-The operator console is opened from HIVE through `/api/auth/comms-handoff`. HIVE-UI validates its host-only session cookie, creates a short-lived signed handoff token and redirects to `https://chat.jonathan-harris.online/#handoff=...`. The fragment is not sent in the HTTP request; the console consumes it immediately, stores it for the browser session and removes it from the address bar.
+The operator console is opened from HIVE through `/api/auth/comms-handoff`. HIVE-UI validates its host-only session cookie, creates a short-lived signed handoff token and redirects to `https://chat.jonathan-harris.online/console/#handoff=...`. The fragment is not sent in the HTTP request; the console consumes it immediately, stores it for the browser session and removes it from the address bar.
 
 Configure the same `HIVE_COMMS_HANDOFF_SECRET` in HIVE-UI Pages and the AIMS-UI gateway Worker. The AIMS-UI browser API remains same-origin `/console/api`; the gateway proxies accepted console routes to `${AIMS_API_BASE_URL}/comms-hub/*`. `HIVE_IDENTITY_VERIFY_URL` is legacy fallback only and is not required for the normal cross-subdomain flow.
 
 The console provides a persistent **Back to HIVE** control pointing to `https://hive.jonathan-harris.online`.
+
+## Social inbox grouping
+
+The console has dedicated **DMs** and **Comments** work queues. Facebook and Instagram DMs are grouped together; Facebook, Instagram and YouTube comments are grouped separately. Platform badges remain visible inside each group. The workspace uses AIMS social-thread metadata rather than subject heuristics, and the Settings page can read social capability status, reconcile enabled webhook families and trigger a controlled poll. Social replies use the existing AIMS idempotent provider-action routes, while monitoring-only mode visibly locks provider mutations.
+
