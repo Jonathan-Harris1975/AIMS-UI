@@ -117,3 +117,8 @@ The operator console is opened from HIVE through `/api/auth/comms-handoff`. HIVE
 Configure the same `HIVE_COMMS_HANDOFF_SECRET` in HIVE-UI Pages and the AIMS-UI gateway Worker. The AIMS-UI browser API remains same-origin `/console/api`; the gateway proxies accepted console routes to `${AIMS_API_BASE_URL}/comms-hub/*`. `HIVE_IDENTITY_VERIFY_URL` is legacy fallback only and is not required for the normal cross-subdomain flow.
 
 The console provides a persistent **Back to HIVE** control pointing to `https://hive.jonathan-harris.online`.
+
+## Social inbox grouping
+
+The console has dedicated **DMs** and **Comments** work queues. Facebook and Instagram DMs are grouped together; Facebook, Instagram and YouTube comments are grouped separately. Platform badges remain visible inside each group. The workspace uses AIMS social-thread metadata rather than subject heuristics, and the Settings page can read social capability status, reconcile enabled webhook families and trigger a controlled poll. Social replies use the existing AIMS idempotent provider-action routes, while monitoring-only mode visibly locks provider mutations.
+

@@ -31,3 +31,5 @@
 - Worker secrets are absent from the repository.
 - Live AIMS provider and deployment canaries remain pending.
 - Website installation remains pending.
+
+- Social grouping: Facebook/Instagram DMs are separated from Facebook/Instagram/YouTube comments using backend `interaction_type`; social setup/status and controlled reply hooks are wired through the gateway.
