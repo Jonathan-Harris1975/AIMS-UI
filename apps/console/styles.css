@@ -368,3 +368,25 @@ svg { width: 20px; height: 20px; fill: currentColor; }
 .attachment-meta small { font-size: 10px; color: var(--aims-text-soft); }
 .attachment-status { font-size: 9px; font-weight: 700; color: var(--aims-text-soft); text-transform: uppercase; letter-spacing: .04em; }
 .button.compact { min-height: 30px; padding: 0 10px; font-size: 11px; }
+
+/* Social work queues: private DMs and public comments stay visibly separate. */
+.interaction-label { display: inline-flex; align-items: center; min-height: 24px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--aims-border); background: var(--aims-panel-subtle); color: var(--aims-text-soft); font-size: 10px; font-weight: 750; white-space: nowrap; }
+.interaction-dm { background: var(--aims-accent-soft); border-color: #c5e8f8; color: var(--aims-accent-strong); }
+.interaction-comment { background: #f5f1ff; border-color: #ddd1ff; color: #6941c6; }
+.social-platform-summary { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.social-platform-summary .channel-label { gap: 6px; }
+.social-platform-summary b { font-size: 9px; }
+.social-status-strip { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; color: var(--aims-text-soft); font-size: 11px; }
+.social-capability-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
+.social-capability-grid article { display: grid; gap: 3px; padding: 10px; border: 1px solid var(--aims-border); border-radius: 10px; background: var(--aims-panel-subtle); }
+.social-capability-grid strong { font-size: 11px; }.social-capability-grid span { color: var(--aims-text); font-size: 10px; }.social-capability-grid small { color: var(--aims-text-faint); font-size: 9px; }
+.social-control-card { border-color: #d8e4ef; }
+.social-lock-note { margin: 9px 0 0; padding: 9px; border-radius: 9px; background: var(--aims-warning-soft); color: var(--aims-warning); font-size: 10px; line-height: 1.45; }
+.social-action-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin-top: 10px; }
+.button.danger { background: var(--aims-danger-soft); color: var(--aims-danger); border-color: #f2c7c7; }
+.reply-mode { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 9px; color: var(--aims-text-soft); font-size: 10px; }
+.reply-mode select { min-width: 150px; }
+@media (max-width: 640px) { .social-capability-grid { grid-template-columns: 1fr; } .social-action-grid { grid-template-columns: 1fr; } }
+
+.approved-action-list { display: grid; gap: 7px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--aims-border); }
+.approved-action-list > strong { font-size: 10px; color: var(--aims-text-soft); }

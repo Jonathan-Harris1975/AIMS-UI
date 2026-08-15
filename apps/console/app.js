@@ -51,11 +51,15 @@ const state = {
   notificationOpen: false,
   quarantine: [],
   metrics: null,
+  socialStatus: null,
+  socialBusy: false,
 };
 
 const icons = {
   dashboard: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h6V4H4v9Zm0 7h6v-5H4v5Zm10 0h6V11h-6v9Zm0-16v5h6V4h-6Z"/></svg>`,
   inbox: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v12h-5l-2 3h-2l-2-3H4V4Zm2 2v8h4l2 3 2-3h4V6H6Z"/></svg>`,
+  dm: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v13H8l-4 4V4Zm3 4v2h10V8H7Zm0 4v2h7v-2H7Z"/></svg>`,
+  comment: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v13H9l-6 4V4Zm3 3v7h11V7H6Zm2 2h7v2H8V9Z"/></svg>`,
   approval: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4 5v6c0 5.1 3.4 9.8 8 11 4.6-1.2 8-5.9 8-11V5l-8-3Zm-1 14-4-4 1.4-1.4 2.6 2.6 4.6-4.6L17 10l-6 6Z"/></svg>`,
   contacts: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0H5Z"/></svg>`,
   workflow: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h6v5H6V3Zm8 13h4v5h-6v-5h2Zm-9-1h6v5H5v-5Zm4-7v3h6v3h2v-5H11V8H9Z"/></svg>`,
@@ -74,6 +78,8 @@ const icons = {
 const navItems = [
   ["dashboard", "Overview", icons.dashboard],
   ["inbox", "Unified inbox", icons.inbox],
+  ["dms", "DMs", icons.dm],
+  ["comments", "Comments", icons.comment],
   ["approvals", "Approvals", icons.approval],
   ["contacts", "Contacts", icons.contacts],
   ["workflows", "Workflows", icons.workflow],
@@ -82,7 +88,15 @@ const navItems = [
   ["settings", "Settings", icons.settings],
 ];
 
-function queueRows() {
+function socialInteractionType(row) {
+  return String(row?.interaction_type || row?.social_thread_type || row?.thread_type || "").trim().toLowerCase();
+}
+
+function isSocialChannel(channel) {
+  return ["facebook", "instagram", "youtube"].includes(String(channel || "").toLowerCase());
+}
+
+function queueRows({ interactionType = "", socialOnly = false } = {}) {
   const term = state.search.trim().toLowerCase();
   return state.queue.filter((row) => {
     if (state.filters.status && row.operational_status !== state.filters.status) return false;
@@ -91,8 +105,10 @@ function queueRows() {
     if (state.filters.ownerId && row.owner_id !== state.filters.ownerId) return false;
     if (state.filters.overdue && !row.response_overdue) return false;
     if (state.filters.aiStatus && row.ai_status !== state.filters.aiStatus && row.latest_ai_status !== state.filters.aiStatus) return false;
+    if (socialOnly && !isSocialChannel(row.channel)) return false;
+    if (interactionType && socialInteractionType(row) !== interactionType) return false;
     if (!term) return true;
-    return [row.display_name, row.primary_email, row.subject, row.summary_text, row.intent, row.channel]
+    return [row.display_name, row.primary_email, row.subject, row.summary_text, row.intent, row.channel, row.social_platform, socialInteractionType(row)]
       .some((value) => String(value || "").toLowerCase().includes(term));
   });
 }
@@ -111,6 +127,18 @@ function toast(message, tone = "success") {
 function channelLabel(channel) {
   const labels = { chat: "Chat", email: "Email", instagram: "Instagram", facebook: "Facebook", youtube: "YouTube", form: "Form" };
   return labels[channel] || titleCase(channel);
+}
+
+function interactionLabel(row) {
+  const type = socialInteractionType(row);
+  if (type === "dm") return "DM";
+  if (type === "comment") return "Comment";
+  return channelLabel(row.channel);
+}
+
+function approvalMetadata(approval) {
+  if (approval?.metadata && typeof approval.metadata === "object") return approval.metadata;
+  try { return JSON.parse(approval?.metadata_json || "{}"); } catch { return {}; }
 }
 
 function statusPill(status) {
@@ -257,12 +285,13 @@ function queueTable(rows = queueRows(), limit = 50, compact = false) {
   return `
     <div class="queue-wrap">
       <table class="queue-table ${compact ? "queue-table-compact" : ""}">
-        <thead><tr><th>Conversation</th><th>Channel</th><th>Priority</th><th>Status</th><th>Age</th><th>Owner</th><th>AI</th><th><span class="sr-only">Open</span></th></tr></thead>
+        <thead><tr><th>Conversation</th><th>Channel</th><th>Type</th><th>Priority</th><th>Status</th><th>Age</th><th>Owner</th><th>AI</th><th><span class="sr-only">Open</span></th></tr></thead>
         <tbody>
           ${visible.map((row) => `
             <tr data-conversation-id="${escapeHtml(row.id)}" tabindex="0">
               <td><div class="conversation-cell"><div class="channel-avatar channel-${escapeHtml(row.channel)}">${escapeHtml(channelLabel(row.channel).charAt(0))}</div><div><strong>${escapeHtml(row.display_name || row.primary_email || "Unknown contact")}</strong><span>${escapeHtml(row.subject || row.summary_text || "Conversation")}</span><small>${escapeHtml(row.summary_text || "")}</small></div></div></td>
               <td><span class="channel-label channel-label-${escapeHtml(row.channel)}">${escapeHtml(channelLabel(row.channel))}</span></td>
+              <td><span class="interaction-label interaction-${escapeHtml(socialInteractionType(row) || row.channel)}">${escapeHtml(interactionLabel(row))}</span></td>
               <td>${priorityPill(row.priority_label)}</td>
               <td>${statusPill(row.operational_status)}</td>
               <td><span class="age ${row.response_overdue ? "overdue" : ""}">${escapeHtml(secondsToAge(row.age_seconds))}</span></td>
@@ -309,6 +338,31 @@ function inboxView() {
     </section>
   `);
 }
+
+function socialPlatformSummary(rows) {
+  const counts = { facebook: 0, instagram: 0, youtube: 0 };
+  for (const row of rows) if (row.channel in counts) counts[row.channel] += 1;
+  return `<div class="social-platform-summary">${Object.entries(counts).map(([platform, count]) => `<span class="channel-label channel-label-${platform}">${escapeHtml(channelLabel(platform))} <b>${count}</b></span>`).join("")}</div>`;
+}
+
+function socialGroupView(type) {
+  const isDm = type === "dm";
+  const rows = queueRows({ interactionType: type, socialOnly: true });
+  const title = isDm ? "DMs" : "Comments";
+  const copy = isDm
+    ? "Private Facebook and Instagram conversations grouped in one operator queue."
+    : "Facebook, Instagram and YouTube comments grouped separately from private messages.";
+  return shell(`
+    ${pageHeader(title, copy, `<button class="button secondary" data-action="refresh">Refresh ${isDm ? "DMs" : "comments"}</button>`)}
+    <section class="panel inbox-panel social-group-panel">
+      <header class="panel-header stacked"><div><strong>${rows.length} ${isDm ? "DM conversations" : "comment threads"}</strong><span>${isDm ? "YouTube does not expose a private DM lane here." : "Public interaction work stays out of the private-message queue."}</span>${socialPlatformSummary(rows)}</div>${filterBar()}</header>
+      ${queueTable(rows)}
+    </section>
+  `);
+}
+
+function dmsView() { return socialGroupView("dm"); }
+function commentsView() { return socialGroupView("comment"); }
 
 function pendingApprovals() {
   const approvals = [];
@@ -389,11 +443,21 @@ function analyticsView() {
 
 function settingsView() {
   const identity = state.bootstrap?.identity || {};
+  const social = state.socialStatus?.monitoring || {};
+  const channels = social.channels || {};
+  const canManageSocial = roleAllows(identity.role || "read_only", "social_setup");
   return shell(`
-    ${pageHeader("Settings", "Deployment-visible configuration only. Secrets remain in the gateway and AIMS.")}
+    ${pageHeader("Settings", "Deployment-visible configuration only. Secrets remain in the gateway and AIMS.", `<button class="button secondary" data-action="load-social-status">Refresh social status</button>`)}
     <div class="settings-grid">
       <section class="panel settings-card"><h3>Console connection</h3><dl><div><dt>API gateway</dt><dd>${escapeHtml(config.apiBaseUrl)}</dd></div><div><dt>Mode</dt><dd>${config.demoMode ? "Explicit demo" : "Live"}</dd></div><div><dt>API version</dt><dd>${escapeHtml(state.bootstrap?.apiVersion || "Unknown")}</dd></div></dl></section>
       <section class="panel settings-card"><h3>Verified identity</h3><dl><div><dt>Actor</dt><dd>${escapeHtml(identity.actor || "Unknown")}</dd></div><div><dt>Role</dt><dd>${escapeHtml(titleCase(identity.role || "read_only"))}</dd></div><div><dt>Strategy</dt><dd>${escapeHtml(identity.strategy || "Unknown")}</dd></div></dl></section>
+      <section class="panel settings-card social-settings-card"><h3>Social channel setup</h3>
+        <div class="social-status-strip"><span class="pill ${social.monitorOnly ? "pill-pending" : "pill-open"}">${social.monitorOnly ? "Monitoring only" : "Outbound enabled"}</span><span>${social.pollWorkerEnabled ? "Poll worker enabled" : "Poll worker disabled"}</span></div>
+        <div class="social-capability-grid">
+          ${["facebook", "instagram", "youtube"].map((platform) => { const cap = channels[platform] || {}; return `<article><strong>${escapeHtml(channelLabel(platform))}</strong><span>${cap.enabled ? "Configured" : "Disabled"}</span><small>${cap.directMessages ? "DMs + comments" : "Comments only"}</small></article>`; }).join("")}
+        </div>
+        ${canManageSocial ? `<div class="button-row"><button class="button secondary" data-action="reconcile-social" ${state.socialBusy ? "disabled" : ""}>Reconcile webhooks</button><button class="button secondary" data-action="poll-social" ${state.socialBusy ? "disabled" : ""}>Run poll now</button></div>` : ""}
+      </section>
       <section class="panel settings-card"><h3>Responsive contract</h3><dl><div><dt>Minimum width</dt><dd>${escapeHtml(state.bootstrap?.responsiveContract?.minimumWidth || 320)}px</dd></div><div><dt>Pagination</dt><dd>${escapeHtml(state.bootstrap?.responsiveContract?.pagination || "cursor")}</dd></div><div><dt>Actions</dt><dd>${escapeHtml((state.bootstrap?.responsiveContract?.actions || []).join(", "))}</dd></div></dl></section>
       <section class="panel settings-card"><h3>Security boundary</h3><p>The browser holds no AIMS delegation secret. HIVE identity verification and HMAC signing happen in the edge gateway before AIMS performs its own RBAC checks.</p></section>
     </div>
@@ -410,13 +474,18 @@ function workspaceView() {
   const aiState = workspace.ai?.state || workspace.ai?.summary || {};
   const drafts = workspace.ai?.drafts || [];
   const approvals = workspace.ai?.approvals || [];
+  const pendingApproval = approvals.find((approval) => approval.status === "pending") || null;
+  const executableModerationApprovals = approvals.filter((approval) => approval.target_type === "moderation_action" && approval.status === "approved");
   const attachments = conversation.attachments || workspace.attachments || [];
+  const socialThread = conversation.socialThread || null;
+  const socialCapabilities = socialThread ? (state.socialStatus?.monitoring?.channels?.[socialThread.platform] || {}) : null;
+  const socialMonitorOnly = state.socialStatus?.monitoring?.monitorOnly === true;
   const role = state.bootstrap?.identity?.role || "read_only";
   const canReply = roleAllows(role, "reply");
   const canApprove = roleAllows(role, "approve");
   return shell(`
     <section class="workspace-header">
-      <button class="back-button" data-view="inbox">‹ <span>Inbox</span></button>
+      <button class="back-button" data-view="${socialThread?.thread_type === "dm" ? "dms" : socialThread?.thread_type === "comment" ? "comments" : "inbox"}">‹ <span>${socialThread?.thread_type === "dm" ? "DMs" : socialThread?.thread_type === "comment" ? "Comments" : "Inbox"}</span></button>
       <div><div class="workspace-title"><h1>${escapeHtml(conversation.subject || "Conversation")}</h1>${statusPill(operations.operational_status || conversation.status)}</div><p>${escapeHtml(contact.display_name || contact.primary_email || "Unknown contact")} · ${escapeHtml(channelLabel(conversation.channel))} · Updated ${escapeHtml(formatRelativeTime(conversation.last_message_at))}</p></div>
       <div class="workspace-actions">
         ${canReply ? `<button class="button secondary" data-action="analyse">Run AI analysis</button>` : ""}
@@ -433,8 +502,9 @@ function workspaceView() {
         </div>
         ${canReply ? `
           <form id="reply-form" class="reply-composer">
-            <textarea name="message" rows="3" maxlength="20000" placeholder="Write an operator reply…" required></textarea>
-            <div><span>Sent through ${escapeHtml(channelLabel(conversation.channel))}; AIMS applies provider and approval rules.</span><button class="button primary" type="submit">Send reply</button></div>
+            <textarea name="message" rows="3" maxlength="20000" placeholder="Write an operator reply…" required ${socialThread && socialMonitorOnly ? "disabled" : ""}></textarea>
+            ${socialThread?.thread_type === "comment" && socialCapabilities?.privateCommentReplies ? `<label class="reply-mode"><span>Reply mode</span><select name="replyMode" ${socialMonitorOnly ? "disabled" : ""}><option value="public">Public comment</option><option value="private">Private reply</option></select></label>` : ""}
+            <div><span>${socialThread && socialMonitorOnly ? "Monitoring-only mode is active; outbound social actions are locked." : `Sent through ${escapeHtml(channelLabel(conversation.channel))}; AIMS applies provider and approval rules.`}</span><button class="button primary" type="submit" ${socialThread && socialMonitorOnly ? "disabled" : ""}>${socialThread?.thread_type === "dm" ? "Send DM" : socialThread?.thread_type === "comment" ? "Send reply" : "Send reply"}</button></div>
           </form>
         ` : `<div class="read-only-banner">Read-only role. Reply and mutation controls are disabled.</div>`}
       </section>
@@ -445,12 +515,24 @@ function workspaceView() {
           <dl><div><dt>Owner</dt><dd>${escapeHtml(operations.owner_id || "Unassigned")}</dd></div><div><dt>Response target</dt><dd>${escapeHtml(operations.response_due_at ? formatDateTime(operations.response_due_at) : "Not set")}</dd></div><div><dt>Workflow</dt><dd>${escapeHtml(titleCase(conversation.workflow || "unassigned"))}</dd></div></dl>
           ${roleAllows(role, "assign") ? `<form id="assignment-form" class="inline-form"><input name="ownerId" value="${escapeHtml(operations.owner_id || "")}" placeholder="Owner ID" required><select name="ownerType"><option value="person">Person</option><option value="team">Team</option><option value="automation">Automation</option></select><button class="button secondary" type="submit">Assign</button></form>` : ""}
         </section>
+        ${socialThread ? `<section class="panel detail-card social-control-card">
+          <header><strong>${socialThread.thread_type === "dm" ? "DM controls" : "Comment controls"}</strong><span class="channel-label channel-label-${escapeHtml(socialThread.platform)}">${escapeHtml(channelLabel(socialThread.platform))}</span></header>
+          <dl><div><dt>Interaction</dt><dd>${escapeHtml(socialThread.thread_type === "dm" ? "Direct message" : "Comment")}</dd></div><div><dt>Provider status</dt><dd>${escapeHtml(titleCase(socialThread.provider_status || "unknown"))}</dd></div><div><dt>Account</dt><dd>${escapeHtml(socialThread.account_id || "Unknown")}</dd></div></dl>
+          ${socialMonitorOnly ? `<p class="social-lock-note">Monitoring-only mode is active. Provider mutations remain locked until the live intake canaries are accepted.</p>` : canReply ? `<div class="social-action-grid">
+            ${socialThread.thread_type === "dm" && socialCapabilities?.markRead ? `<button class="button secondary compact" data-social-action="read">Mark read</button>` : ""}
+            ${socialThread.thread_type === "dm" && socialCapabilities?.conversationStatus ? `<button class="button secondary compact" data-social-action="status" data-social-status="archived">Archive provider thread</button>` : ""}
+            ${socialThread.thread_type === "comment" && socialCapabilities?.hideComments ? `<button class="button secondary compact" data-social-approval="hide">Request hide</button><button class="button secondary compact" data-social-approval="unhide">Request unhide</button>` : ""}
+            ${socialThread.thread_type === "comment" && socialCapabilities?.moderation ? `<button class="button secondary compact" data-social-approval="moderate" data-moderation-status="heldForReview">Request hold</button><button class="button secondary compact" data-social-approval="moderate" data-moderation-status="rejected">Request reject</button>` : ""}
+            ${socialThread.thread_type === "comment" && socialCapabilities?.deleteComments ? `<button class="button danger compact" data-social-approval="delete">Request delete</button>` : ""}
+          </div>` : ""}
+          ${!socialMonitorOnly && executableModerationApprovals.length ? `<div class="approved-action-list"><strong>Approved actions ready</strong>${executableModerationApprovals.map((approval) => `<button class="button primary compact" data-social-approved-id="${escapeHtml(approval.id)}">Execute ${escapeHtml(titleCase(approval.action_type || "action"))}</button>`).join("")}</div>` : ""}
+        </section>` : ""}
         <section class="panel detail-card ai-card">
           <header><strong>AIMS analysis</strong><span class="ai-state risk-${escapeHtml(aiState.risk_level || "unknown")}">${escapeHtml(titleCase(aiState.risk_level || "Unanalysed"))}</span></header>
           <p class="ai-summary">${escapeHtml(aiState.summary_text || "No current summary has been returned.")}</p>
           <dl><div><dt>Intent</dt><dd>${escapeHtml(titleCase(aiState.intent || "Unknown"))}</dd></div><div><dt>Priority</dt><dd>${escapeHtml(titleCase(aiState.priority_label || "Unknown"))}${aiState.priority_score !== undefined ? ` (${escapeHtml(aiState.priority_score)})` : ""}</dd></div><div><dt>Sentiment</dt><dd>${escapeHtml(titleCase(aiState.sentiment || "Unknown"))}</dd></div><div><dt>Next action</dt><dd>${escapeHtml(aiState.next_action || "Not set")}</dd></div></dl>
           ${drafts.length ? `<div class="draft-box"><strong>Latest draft</strong><p>${escapeHtml(drafts[0].body_text || drafts[0].content || "")}</p></div>` : ""}
-          ${approvals.length ? `<div class="approval-box"><strong>Approval required</strong><p>${escapeHtml(approvals[0].rationale || "Review the action scope and evidence.")}</p>${canApprove ? `<div><button class="button secondary" data-approval-id="${escapeHtml(approvals[0].id)}" data-decision="reject">Reject</button><button class="button primary" data-approval-id="${escapeHtml(approvals[0].id)}" data-decision="approve">Approve</button></div>` : ""}</div>` : ""}
+          ${pendingApproval ? `<div class="approval-box"><strong>Approval required</strong><p>${escapeHtml(pendingApproval.rationale || `Review ${titleCase(pendingApproval.action_type || "action")} scope and evidence.`)}</p>${canApprove ? `<div><button class="button secondary" data-approval-id="${escapeHtml(pendingApproval.id)}" data-decision="reject">Reject</button><button class="button primary" data-approval-id="${escapeHtml(pendingApproval.id)}" data-decision="approve">Approve</button></div>` : ""}</div>` : ""}
         </section>
         ${workspace.chatSession ? `<section class="panel detail-card"><header><strong>Chat control</strong>${statusPill(workspace.chatSession.mode || "automation")}</header><p>Switching mode updates AIMS persistent takeover state. It does not discard the thread.</p>${roleAllows(role, "takeover") ? `<div class="button-row"><button class="button secondary" data-takeover="human">Take over</button><button class="button secondary" data-takeover="automation">Return to AIMS</button></div>` : ""}</section>` : ""}
         ${attachments.length ? `<section class="panel detail-card attachment-card">
@@ -525,6 +607,8 @@ function render() {
   const views = {
     dashboard: dashboardView,
     inbox: inboxView,
+    dms: dmsView,
+    comments: commentsView,
     workspace: workspaceView,
     approvals: approvalsView,
     contacts: contactsView,
@@ -554,7 +638,7 @@ function bindEvents() {
   }));
   root.querySelector("#global-search")?.addEventListener("input", (event) => {
     state.search = event.target.value;
-    if (!["dashboard", "inbox"].includes(state.view)) state.view = "inbox";
+    if (!["dashboard", "inbox", "dms", "comments"].includes(state.view)) state.view = "inbox";
     render();
     requestAnimationFrame(() => {
       const input = root.querySelector("#global-search");
@@ -579,6 +663,12 @@ function bindEvents() {
   root.querySelector('[data-action="load-quarantine"]')?.addEventListener("click", loadQuarantine);
   root.querySelectorAll("[data-replay-id]").forEach((button) => button.addEventListener("click", () => replayQuarantine(button.dataset.replayId)));
   root.querySelector('[data-action="load-metrics"]')?.addEventListener("click", loadMetrics);
+  root.querySelector('[data-action="load-social-status"]')?.addEventListener("click", loadSocialStatus);
+  root.querySelector('[data-action="reconcile-social"]')?.addEventListener("click", reconcileSocial);
+  root.querySelector('[data-action="poll-social"]')?.addEventListener("click", pollSocial);
+  root.querySelectorAll("[data-social-action]").forEach((button) => button.addEventListener("click", () => runSocialAction(button)));
+  root.querySelectorAll("[data-social-approval]").forEach((button) => button.addEventListener("click", () => requestSocialModeration(button)));
+  root.querySelectorAll("[data-social-approved-id]").forEach((button) => button.addEventListener("click", () => executeApprovedSocialModeration(button)));
 }
 
 function navigate(view) {
@@ -587,6 +677,7 @@ function navigate(view) {
   state.notificationOpen = false;
   if (view === "quarantine" && !state.quarantine.length) loadQuarantine();
   else if (view === "analytics" && !state.metrics) loadMetrics();
+  else if (view === "settings" && !state.socialStatus) loadSocialStatus({ keepView: true });
   else render();
   history.replaceState(null, "", `${location.pathname}${config.demoMode ? "?demo=1" : ""}#${view}`);
 }
@@ -617,6 +708,7 @@ async function loadBootstrap() {
     state.bootstrap = payload;
     state.queue = payload.queue || payload.conversations || [];
     state.notifications = payload.notifications || [];
+    if (!config.demoMode) state.socialStatus = await client.socialStatus().catch(() => state.socialStatus);
     state.view = location.hash.slice(1) && navItems.some(([key]) => key === location.hash.slice(1)) ? location.hash.slice(1) : state.view;
   } catch (error) {
     state.error = error instanceof Error ? error : new Error(String(error));
@@ -691,12 +783,91 @@ async function submitReply(event) {
     if (!config.demoMode) {
       if (conversation.channel === "chat") await client.sendChat(state.selectedConversationId, message);
       else if (conversation.channel === "email") await client.sendEmail(state.selectedConversationId, { message, bodyText: message });
-      else throw new AimsApiError("This first console slice sends direct replies only for chat and email. Social replies remain approval/action scoped.", { status: 409, code: "ui_social_action_required" });
+      else if (isSocialChannel(conversation.channel)) {
+        const replyMode = String(data.get("replyMode") || "public");
+        await client.socialAction(state.selectedConversationId, "reply", { message, ...(replyMode === "private" ? { private: true } : {}) });
+      } else throw new AimsApiError("This channel does not expose a direct reply action.", { status: 409, code: "ui_reply_unsupported" });
     }
     conversation.messages = [...(conversation.messages || []), { id: `local-${Date.now()}`, direction: "outbound", sender: state.bootstrap.identity.actor, body_text: message, received_at: new Date().toISOString() }];
     form.reset();
     toast(config.demoMode ? "Demo reply added locally." : "Reply sent through AIMS.");
   } catch (error) { toast(error.message || "Reply could not be sent.", "error"); }
+}
+
+async function loadSocialStatus({ keepView = false } = {}) {
+  if (config.demoMode) {
+    state.socialStatus = { monitoring: { monitorOnly: true, pollWorkerEnabled: true, channels: { facebook: { enabled: true, directMessages: true, comments: true, privateCommentReplies: true, markRead: true, conversationStatus: true, hideComments: true, deleteComments: true }, instagram: { enabled: true, directMessages: true, comments: true, privateCommentReplies: true, markRead: true, conversationStatus: true, hideComments: true, deleteComments: true }, youtube: { enabled: true, directMessages: false, comments: true, moderation: true, deleteComments: true } } } };
+    if (!keepView) state.view = "settings";
+    render();
+    return;
+  }
+  try {
+    state.socialStatus = await client.socialStatus();
+    if (!keepView) state.view = "settings";
+    render();
+  } catch (error) { toast(error.message || "Social channel status could not be loaded.", "error"); }
+}
+
+async function reconcileSocial() {
+  if (state.socialBusy) return;
+  state.socialBusy = true; render();
+  try {
+    if (!config.demoMode) await client.reconcileSocialWebhooks();
+    await loadSocialStatus({ keepView: true });
+    toast("Facebook, Instagram and YouTube webhook families reconciled.");
+  } catch (error) { toast(error.message || "Social webhooks could not be reconciled.", "error"); }
+  finally { state.socialBusy = false; render(); }
+}
+
+async function pollSocial() {
+  if (state.socialBusy) return;
+  state.socialBusy = true; render();
+  try {
+    const result = config.demoMode ? { processedJobs: 5 } : await client.drainSocialPoll(10);
+    await loadBootstrap();
+    toast(`Social poll completed${result?.processedJobs !== undefined ? `: ${result.processedJobs} jobs` : ""}.`);
+  } catch (error) { toast(error.message || "Social poll could not be completed.", "error"); }
+  finally { state.socialBusy = false; render(); }
+}
+
+async function runSocialAction(button) {
+  const action = button.dataset.socialAction;
+  const body = action === "status" ? { status: button.dataset.socialStatus || "archived" } : {};
+  try {
+    if (!config.demoMode) await client.socialAction(state.selectedConversationId, action, body);
+    toast(action === "read" ? "Provider conversation marked read." : "Provider conversation updated.");
+    await openConversation(state.selectedConversationId);
+  } catch (error) { toast(error.message || "Social action could not be completed.", "error"); }
+}
+
+async function requestSocialModeration(button) {
+  const action = button.dataset.socialApproval;
+  const body = action === "moderate" ? { moderationStatus: button.dataset.moderationStatus || "heldForReview" } : {};
+  try {
+    if (!config.demoMode) await client.requestSocialApproval(state.selectedConversationId, action, body);
+    toast(`${titleCase(action)} action sent for approval.`);
+    await openConversation(state.selectedConversationId);
+  } catch (error) { toast(error.message || "Social approval could not be requested.", "error"); }
+}
+
+async function executeApprovedSocialModeration(button) {
+  const approvalId = button.dataset.socialApprovedId;
+  const approvals = state.workspace?.workspace?.ai?.approvals || [];
+  const approval = approvals.find((item) => item.id === approvalId && item.status === "approved");
+  if (!approval) return toast("Approved action could not be resolved.", "error");
+  const metadata = approvalMetadata(approval);
+  const idempotencyKey = String(metadata.idempotencyKey || "");
+  if (!idempotencyKey) return toast("Approved action is missing its idempotency key.", "error");
+  try {
+    if (!config.demoMode) await client.socialAction(
+      state.selectedConversationId,
+      approval.action_type,
+      { ...(metadata.actionBody || {}), approvalId: approval.id },
+      { idempotencyKey },
+    );
+    toast(`${titleCase(approval.action_type || "Social")} action executed.`);
+    await openConversation(state.selectedConversationId);
+  } catch (error) { toast(error.message || "Approved social action could not be executed.", "error"); }
 }
 
 async function analyseConversation() {
@@ -717,8 +888,8 @@ async function changeTakeover(mode) {
 async function decideApproval(approvalId, decision) {
   try {
     if (!config.demoMode) await client.decideApproval(approvalId, decision, "Decision recorded in AIMS UI");
-    state.workspace.workspace.ai.approvals = (state.workspace.workspace.ai.approvals || []).filter((approval) => approval.id !== approvalId);
     toast(`Approval ${decision === "approve" ? "granted" : "rejected"}.`);
+    await openConversation(state.selectedConversationId);
   } catch (error) { toast(error.message || "Approval decision could not be recorded.", "error"); }
 }
 
