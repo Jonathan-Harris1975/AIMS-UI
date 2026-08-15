@@ -19,6 +19,28 @@ function baseUrl(value) {
   return normalise(value).replace(/\/+$/, "");
 }
 
+function configurationError(code, message) {
+  return Object.assign(new Error(message), { status: 503, code });
+}
+
+function requireD1(env) {
+  if (!env?.DB || typeof env.DB.prepare !== "function") {
+    throw configurationError("d1_binding_unconfigured", "Cloudflare D1 binding DB is not configured.");
+  }
+  return env.DB;
+}
+
+export function gatewayConfigurationStatus(env = {}) {
+  return {
+    aimsApiBaseUrl: Boolean(baseUrl(env.AIMS_API_BASE_URL)),
+    aimsApiKey: Boolean(normalise(env.AIMS_API_KEY)),
+    delegationSecret: Boolean(normalise(env.COMMS_HUB_RBAC_DELEGATION_SECRET)),
+    hiveHandoffSecret: Boolean(normalise(env.HIVE_COMMS_HANDOFF_SECRET)),
+    d1: Boolean(env.DB && typeof env.DB.prepare === "function"),
+    assets: Boolean(env.ASSETS && typeof env.ASSETS.fetch === "function"),
+  };
+}
+
 function nowIso(now = Date.now()) {
   return new Date(now).toISOString();
 }
@@ -186,12 +208,40 @@ async function requireWidgetOrigin(request, env) {
   return origin;
 }
 
-async function requireConsoleOrigin(request, env) {
-  const origin = request.headers.get("origin") || "";
-  if (!isAllowedOrigin(origin, env.CONSOLE_ALLOWED_ORIGINS, request.url)) {
-    throw Object.assign(new Error("This console origin is not allowed."), { status: 403, code: "origin_denied" });
+export async function requireConsoleOrigin(request, env) {
+  const explicitOrigin = normalise(request.headers.get("origin"));
+  if (explicitOrigin) {
+    if (!isAllowedOrigin(explicitOrigin, env.CONSOLE_ALLOWED_ORIGINS, request.url)) {
+      throw Object.assign(new Error("This console origin is not allowed."), { status: 403, code: "origin_denied" });
+    }
+    return new URL(explicitOrigin).origin;
   }
-  return origin;
+
+  // Browsers do not consistently send Origin on same-origin GET/HEAD requests.
+  // Prefer Referer when it exists, but embedded console documents may use a
+  // restrictive referrer policy. In that case Sec-Fetch-Site gives us a
+  // browser-controlled same-origin signal. We still require the request URL's
+  // exact origin to be present in the configured console allowlist.
+  if (["GET", "HEAD"].includes(request.method)) {
+    const referer = normalise(request.headers.get("referer"));
+    if (referer) {
+      let refererOrigin = "";
+      try { refererOrigin = new URL(referer).origin; } catch { refererOrigin = ""; }
+      if (refererOrigin && isAllowedOrigin(refererOrigin, env.CONSOLE_ALLOWED_ORIGINS, request.url)) {
+        return refererOrigin;
+      }
+    }
+
+    const fetchSite = normalise(request.headers.get("sec-fetch-site")).toLowerCase();
+    if (fetchSite === "same-origin") {
+      const requestOrigin = new URL(request.url).origin;
+      if (isAllowedOrigin(requestOrigin, env.CONSOLE_ALLOWED_ORIGINS, request.url)) {
+        return requestOrigin;
+      }
+    }
+  }
+
+  throw Object.assign(new Error("This console origin is not allowed."), { status: 403, code: "origin_denied" });
 }
 
 async function requireSession(request, env, sessionId) {
@@ -199,7 +249,7 @@ async function requireSession(request, env, sessionId) {
   if (!tokenPayload || tokenPayload.sid !== sessionId) {
     throw Object.assign(new Error("Conversation session is invalid or expired."), { status: 401, code: "session_invalid" });
   }
-  const row = await env.CHAT_DB.prepare(
+  const row = await requireD1(env).prepare(
     "SELECT id, visitor_id, site_id, origin, mode, status, expires_at FROM chat_sessions WHERE id = ?1 LIMIT 1"
   ).bind(sessionId).first();
   if (!row || row.visitor_id !== tokenPayload.vid || row.site_id !== tokenPayload.site || Date.parse(row.expires_at) <= Date.now()) {
@@ -210,7 +260,7 @@ async function requireSession(request, env, sessionId) {
 
 async function enforceRateLimit(env, sessionId) {
   const threshold = new Date(Date.now() - 60_000).toISOString();
-  const row = await env.CHAT_DB.prepare(
+  const row = await requireD1(env).prepare(
     "SELECT COUNT(*) AS total FROM chat_messages WHERE session_id = ?1 AND role = 'visitor' AND created_at >= ?2"
   ).bind(sessionId, threshold).first();
   if (Number(row?.total || 0) >= WIDGET_RATE_LIMIT_PER_MINUTE) {
@@ -230,7 +280,7 @@ async function createWidgetSession(request, env) {
   const expiresAt = addSeconds(createdAt, SESSION_TTL_SECONDS);
   const sessionId = randomId("cps");
   const visitorId = randomId("cpv");
-  await env.CHAT_DB.prepare(
+  await requireD1(env).prepare(
     `INSERT INTO chat_sessions (id, visitor_id, site_id, origin, mode, status, page_url, referrer, created_at, updated_at, expires_at)
      VALUES (?1, ?2, ?3, ?4, 'automation', 'open', ?5, ?6, ?7, ?7, ?8)`
   ).bind(sessionId, visitorId, siteId, origin, normalise(payload.pageUrl).slice(0, 2000), normalise(payload.referrer).slice(0, 2000), createdAt, expiresAt).run();
@@ -242,7 +292,7 @@ async function listWidgetMessages(request, env, sessionId) {
   const origin = await requireWidgetOrigin(request, env);
   const session = await requireSession(request, env, sessionId);
   if (session.row.origin !== origin) throw Object.assign(new Error("Conversation origin does not match this session."), { status: 403, code: "origin_mismatch" });
-  const result = await env.CHAT_DB.prepare(
+  const result = await requireD1(env).prepare(
     `SELECT id, role, text, created_at AS createdAt, delivery_status AS status
      FROM chat_messages WHERE session_id = ?1 ORDER BY created_at ASC, id ASC LIMIT 500`
   ).bind(sessionId).all();
@@ -261,18 +311,18 @@ async function relayVisitorMessage(request, env, sessionId) {
   if (!/^[A-Za-z0-9_.:-]{8,200}$/.test(clientMessageId)) {
     throw Object.assign(new Error("A valid client message identifier is required."), { status: 400, code: "client_message_id_invalid" });
   }
-  const existing = await env.CHAT_DB.prepare(
+  const existing = await requireD1(env).prepare(
     "SELECT id, delivery_status AS status FROM chat_messages WHERE id = ?1 AND session_id = ?2 LIMIT 1"
   ).bind(clientMessageId, sessionId).first();
   if (existing?.status === "accepted") return withCors(json({ ok: true, accepted: true, duplicate: true, messageId: existing.id }), origin);
   const occurredAt = nowIso();
   if (!existing) {
-    await env.CHAT_DB.prepare(
+    await requireD1(env).prepare(
       `INSERT INTO chat_messages (id, session_id, role, text, created_at, delivery_status)
        VALUES (?1, ?2, 'visitor', ?3, ?4, 'pending')`
     ).bind(clientMessageId, sessionId, message, occurredAt).run();
   } else {
-    await env.CHAT_DB.prepare("UPDATE chat_messages SET text = ?1, delivery_status = 'pending', error_code = NULL WHERE id = ?2 AND session_id = ?3")
+    await requireD1(env).prepare("UPDATE chat_messages SET text = ?1, delivery_status = 'pending', error_code = NULL WHERE id = ?2 AND session_id = ?3")
       .bind(message, clientMessageId, sessionId).run();
   }
   const webhook = JSON.stringify({
@@ -302,17 +352,17 @@ async function relayVisitorMessage(request, env, sessionId) {
     const responsePayload = await response.json().catch(() => null);
     if (!response.ok) {
       const code = normalise(responsePayload?.error || `aims_${response.status}`);
-      await env.CHAT_DB.prepare("UPDATE chat_messages SET delivery_status = 'failed', error_code = ?1 WHERE id = ?2")
+      await requireD1(env).prepare("UPDATE chat_messages SET delivery_status = 'failed', error_code = ?1 WHERE id = ?2")
         .bind(code, clientMessageId).run();
       return withCors(json({ error: code, message: responsePayload?.message || "AIMS did not accept this message." }, { status: response.status >= 500 ? 502 : response.status }), origin);
     }
-    await env.CHAT_DB.batch([
-      env.CHAT_DB.prepare("UPDATE chat_messages SET delivery_status = 'accepted', error_code = NULL WHERE id = ?1").bind(clientMessageId),
-      env.CHAT_DB.prepare("UPDATE chat_sessions SET updated_at = ?1 WHERE id = ?2").bind(occurredAt, sessionId),
+    await requireD1(env).batch([
+      requireD1(env).prepare("UPDATE chat_messages SET delivery_status = 'accepted', error_code = NULL WHERE id = ?1").bind(clientMessageId),
+      requireD1(env).prepare("UPDATE chat_sessions SET updated_at = ?1 WHERE id = ?2").bind(occurredAt, sessionId),
     ]);
     return withCors(json({ ok: true, accepted: true, duplicate: Boolean(responsePayload?.duplicate), messageId: clientMessageId }, { status: 202 }), origin);
   } catch {
-    await env.CHAT_DB.prepare("UPDATE chat_messages SET delivery_status = 'failed', error_code = 'aims_unreachable' WHERE id = ?1")
+    await requireD1(env).prepare("UPDATE chat_messages SET delivery_status = 'failed', error_code = 'aims_unreachable' WHERE id = ?1")
       .bind(clientMessageId).run();
     return withCors(json({ error: "aims_unreachable", message: "CogniPal could not reach AIMS." }, { status: 502 }), origin);
   }
@@ -322,7 +372,7 @@ async function providerSend(request, env, sessionId) {
   if (!env.COGNIPAL_API_KEY || bearerToken(request) !== env.COGNIPAL_API_KEY) {
     return json({ error: "provider_unauthorised", message: "Provider credentials are invalid." }, { status: 401 });
   }
-  const session = await env.CHAT_DB.prepare("SELECT id, status FROM chat_sessions WHERE id = ?1 LIMIT 1").bind(sessionId).first();
+  const session = await requireD1(env).prepare("SELECT id, status FROM chat_sessions WHERE id = ?1 LIMIT 1").bind(sessionId).first();
   if (!session) return json({ error: "session_not_found", message: "Chat session was not found." }, { status: 404 });
   if (session.status !== "open") return json({ error: "session_closed", message: "Chat session is closed." }, { status: 409 });
   const payload = await readJson(request);
@@ -334,11 +384,11 @@ async function providerSend(request, env, sessionId) {
   const messageId = `aims_${sessionId}_${idempotencyKey}`.slice(0, 240);
   const role = payload.role === "operator" ? "operator" : "assistant";
   const createdAt = nowIso();
-  const insert = await env.CHAT_DB.prepare(
+  const insert = await requireD1(env).prepare(
     `INSERT OR IGNORE INTO chat_messages (id, session_id, role, text, created_at, delivery_status, provider_message_id)
      VALUES (?1, ?2, ?3, ?4, ?5, 'delivered', ?6)`
   ).bind(messageId, sessionId, role, message, createdAt, `${sessionId}:${idempotencyKey}`).run();
-  await env.CHAT_DB.prepare("UPDATE chat_sessions SET updated_at = ?1 WHERE id = ?2").bind(createdAt, sessionId).run();
+  await requireD1(env).prepare("UPDATE chat_sessions SET updated_at = ?1 WHERE id = ?2").bind(createdAt, sessionId).run();
   return json({ ok: true, id: messageId, messageId, sessionId, duplicate: Number(insert.meta?.changes || 0) === 0 }, { status: 202 });
 }
 
@@ -352,7 +402,7 @@ async function providerSetMode(request, env, sessionId) {
     return json({ error: "mode_invalid", message: "Chat mode is invalid." }, { status: 400 });
   }
   const updatedAt = nowIso();
-  const update = await env.CHAT_DB.prepare(
+  const update = await requireD1(env).prepare(
     "UPDATE chat_sessions SET mode = ?1, status = CASE WHEN ?1 = 'closed' THEN 'closed' ELSE status END, updated_at = ?2 WHERE id = ?3"
   ).bind(mode, updatedAt, sessionId).run();
   if (!Number(update.meta?.changes || 0)) return json({ error: "session_not_found", message: "Chat session was not found." }, { status: 404 });
@@ -403,6 +453,14 @@ async function proxyConsole(request, env, url) {
   const origin = await requireConsoleOrigin(request, env);
   const targetPath = consoleTargetPath(url.pathname);
   if (!targetPath) return withCors(json({ error: "console_path_denied", message: "This AIMS route is not available to the console." }, { status: 403 }), origin, { credentials: true });
+
+  const aimsBase = baseUrl(env.AIMS_API_BASE_URL);
+  if (!aimsBase) throw configurationError("aims_api_base_url_unconfigured", "AIMS_API_BASE_URL is not configured.");
+  if (!normalise(env.AIMS_API_KEY)) throw configurationError("aims_api_key_unconfigured", "AIMS_API_KEY is not configured.");
+  if (!normalise(env.COMMS_HUB_RBAC_DELEGATION_SECRET)) {
+    throw configurationError("delegation_secret_unconfigured", "COMMS_HUB_RBAC_DELEGATION_SECRET is not configured.");
+  }
+
   const identity = await verifyHiveIdentity(request, env);
   const timestamp = String(Date.now());
   const signature = await delegatedIdentitySignature({ method: request.method, path: targetPath, timestamp, actor: identity.actor, role: identity.role }, env.COMMS_HUB_RBAC_DELEGATION_SECRET);
@@ -411,18 +469,39 @@ async function proxyConsole(request, env, url) {
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
   }
-  if (env.AIMS_API_KEY) headers.set("authorization", `Bearer ${env.AIMS_API_KEY}`);
+  headers.set("authorization", `Bearer ${env.AIMS_API_KEY}`);
   headers.set("x-comms-hub-actor", identity.actor);
   headers.set("x-comms-hub-role", identity.role);
   headers.set("x-comms-hub-timestamp", timestamp);
   headers.set("x-comms-hub-signature", signature);
-  const target = `${baseUrl(env.AIMS_API_BASE_URL)}${targetPath}${url.search}`;
-  const response = await fetch(target, {
-    method: request.method,
-    headers,
-    body: ["GET", "HEAD"].includes(request.method) ? undefined : request.body,
-    redirect: "manual",
-  });
+
+  const target = `${aimsBase}${targetPath}${url.search}`;
+  let response;
+  try {
+    response = await fetch(target, {
+      method: request.method,
+      headers,
+      body: ["GET", "HEAD"].includes(request.method) ? undefined : request.body,
+      redirect: "manual",
+    });
+  } catch (error) {
+    console.error("aimsUiGateway.consoleProxy.upstreamFetchFailed", {
+      targetPath,
+      method: request.method,
+      requestId: headers.get("x-request-id") || null,
+      error: error?.message || String(error),
+    });
+    throw Object.assign(new Error("AIMS upstream could not be reached."), { status: 502, code: "aims_upstream_unreachable" });
+  }
+
+  if (!response.ok) {
+    console.warn("aimsUiGateway.consoleProxy.upstreamResponse", {
+      targetPath,
+      method: request.method,
+      status: response.status,
+      requestId: headers.get("x-request-id") || response.headers.get("x-request-id") || null,
+    });
+  }
   return withCors(response, origin, { credentials: true });
 }
 
@@ -452,7 +531,13 @@ export default {
     try {
       if (request.method === "OPTIONS") return handleOptions(request, env, url);
       if (request.method === "GET" && url.pathname === "/health") {
-        return json({ ok: true, service: "aims-ui-gateway", environment: env.ENVIRONMENT || "unknown" });
+        const configuration = gatewayConfigurationStatus(env);
+        return json({
+          ok: true,
+          service: "aims-ui-gateway",
+          environment: env.ENVIRONMENT || "unknown",
+          configuration,
+        });
       }
       if (url.pathname.startsWith("/console/api")) return proxyConsole(request, env, url);
       if (request.method === "POST" && url.pathname === "/widget/session") return createWidgetSession(request, env);
@@ -463,9 +548,29 @@ export default {
       if (providerMessages && request.method === "POST") return providerSend(request, env, decodeURIComponent(providerMessages[1]));
       const providerMode = url.pathname.match(/^\/sessions\/([^/]+)\/mode$/);
       if (providerMode && request.method === "PUT") return providerSetMode(request, env, decodeURIComponent(providerMode[1]));
+
+      // The chat custom domain is attached to this Worker. Serve the console/widget
+      // from the Worker static-assets binding for every non-API route instead of
+      // returning a gateway 404.
+      if (env.ASSETS && request.method === "GET") {
+        const assetResponse = await env.ASSETS.fetch(request);
+        const headers = new Headers(assetResponse.headers);
+        headers.set("content-security-policy", "frame-ancestors 'self' https://hive.jonathan-harris.online");
+        headers.delete("x-frame-options");
+        headers.set("cross-origin-resource-policy", "cross-origin");
+        headers.set("referrer-policy", "same-origin");
+        headers.set("x-content-type-options", "nosniff");
+        return new Response(assetResponse.body, { status: assetResponse.status, statusText: assetResponse.statusText, headers });
+      }
       return json({ error: "not_found", message: "Route not found." }, { status: 404 });
     } catch (error) {
-      console.error("aimsUiGateway.requestFailed", { path: url.pathname, method: request.method, error: error?.message || String(error) });
+      console.error("aimsUiGateway.requestFailed", {
+        path: url.pathname,
+        method: request.method,
+        status: Number(error?.status || 500),
+        code: error?.code || "gateway_error",
+        error: error?.message || String(error),
+      });
       return errorResponse(error, request, env, url);
     }
   },
