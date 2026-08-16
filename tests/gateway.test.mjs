@@ -9,6 +9,8 @@ import {
   delegatedIdentitySignature,
   gatewayConfigurationStatus,
   isAllowedOrigin,
+  isCogniPalIntakePath,
+  proxyCogniPalIntake,
   requireConsoleOrigin,
   verifySessionToken,
   verifyHiveHandoffToken,
@@ -128,4 +130,56 @@ test("gateway configuration status uses the production DB binding name", () => {
   });
 
   assert.equal(gatewayConfigurationStatus({ CHAT_DB: fakeDb }).d1, false);
+});
+
+test("CogniPal first-party intake paths are explicit POST-only gateway routes", () => {
+  assert.equal(isCogniPalIntakePath("/comms-hub/intake/chat", "POST"), true);
+  assert.equal(isCogniPalIntakePath("/comms-hub/intake/chat/sync", "POST"), true);
+  assert.equal(isCogniPalIntakePath("/comms-hub/intake/chat", "GET"), false);
+  assert.equal(isCogniPalIntakePath("/comms-hub/intake/chat/other", "POST"), false);
+});
+
+test("CogniPal intake proxy preserves the exact signed body and HMAC headers", async () => {
+  const rawBody = '{"sessionId":"session-123","visitorId":"visitor-123","websiteId":"jonathan-harris.online"}';
+  const request = new Request("https://chat.jonathan-harris.online/comms-hub/intake/chat/sync", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-coginpal-timestamp": "1786882265635",
+      "x-coginpal-nonce": "nonce-12345678",
+      "x-coginpal-signature": "sha256=abc123",
+      "user-agent": "jonathan-harris-website-cognipal/1.1",
+    },
+    body: rawBody,
+  });
+  let seen = null;
+  const response = await proxyCogniPalIntake(
+    request,
+    { AIMS_API_BASE_URL: "https://app.jonathan-harris.online" },
+    new URL(request.url),
+    async (target, init) => {
+      seen = {
+        target,
+        method: init.method,
+        body: new TextDecoder().decode(init.body),
+        timestamp: init.headers.get("x-coginpal-timestamp"),
+        nonce: init.headers.get("x-coginpal-nonce"),
+        signature: init.headers.get("x-coginpal-signature"),
+      };
+      return new Response(JSON.stringify({ ok: true, messages: [] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    },
+  );
+  assert.deepEqual(seen, {
+    target: "https://app.jonathan-harris.online/comms-hub/intake/chat/sync",
+    method: "POST",
+    body: rawBody,
+    timestamp: "1786882265635",
+    nonce: "nonce-12345678",
+    signature: "sha256=abc123",
+  });
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { ok: true, messages: [] });
 });
