@@ -17,6 +17,14 @@ The Worker is the security boundary between browsers and AIMS.
 
 These routes require `Authorization: Bearer <COGNIPAL_API_KEY>`.
 
+
+### First-party CogniPal intake proxy
+
+- `POST /comms-hub/intake/chat`
+- `POST /comms-hub/intake/chat/sync`
+
+These are server-to-server pass-through routes for the website Pages Functions. The gateway preserves the exact request body and `x-coginpal-timestamp`, `x-coginpal-nonce` and `x-coginpal-signature` headers, then forwards the request to `${AIMS_API_BASE_URL}`. AIMS remains the HMAC verification and persistence authority. The proxy does not expose `AIMS_API_KEY` or any shared secret to the browser.
+
 ### Operator console
 
 - `/console/api/*`
@@ -30,8 +38,9 @@ The gateway verifies the current HIVE session, resolves an actor and Comms Hub r
 3. Copy `wrangler.toml.example` to `wrangler.toml` and set the database identifier and allowed origins.
 4. Add every secret with `wrangler secret put`.
 5. Deploy the Worker.
-6. Set AIMS `COGNIPAL_API_BASE_URL` to this Worker origin.
-7. Use the same `COGNIPAL_API_KEY` and `COGNIPAL_WEBHOOK_SECRET` in AIMS and this Worker.
+6. Set `AIMS_API_BASE_URL` to the live AIMS origin (production: `https://app.jonathan-harris.online`).
+7. For the first-party website path, keep the shared `COMMS_HUB_COGINPAL_WEBHOOK_SECRET` in the website Pages project and AIMS. The AIMS-UI gateway only forwards the signed request and does not need that secret.
+8. `COGNIPAL_API_KEY` remains required only for the legacy `/sessions/*` provider-compatible routes.
 
 ## Required HIVE verification response
 

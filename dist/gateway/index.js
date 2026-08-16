@@ -19,6 +19,78 @@ function baseUrl(value) {
   return normalise(value).replace(/\/+$/, "");
 }
 
+export function isCogniPalIntakePath(pathname, method = "POST") {
+  if (String(method || "").toUpperCase() !== "POST") return false;
+  const path = String(pathname || "").replace(/\/+$/, "").toLowerCase();
+  return path === "/comms-hub/intake/chat" || path === "/comms-hub/intake/chat/sync";
+}
+
+function forwardedCogniPalHeaders(request) {
+  const headers = new Headers();
+  for (const name of [
+    "accept",
+    "content-type",
+    "user-agent",
+    "x-coginpal-timestamp",
+    "x-coginpal-nonce",
+    "x-coginpal-signature",
+    "x-request-id",
+  ]) {
+    const value = request.headers.get(name);
+    if (value) headers.set(name, value);
+  }
+  if (!headers.has("accept")) headers.set("accept", "application/json");
+  if (!headers.has("content-type")) headers.set("content-type", "application/json");
+  headers.set("x-aims-ui-proxy", "cognipal-intake");
+  return headers;
+}
+
+export async function proxyCogniPalIntake(request, env, url = new URL(request.url), fetchImpl = fetch) {
+  if (!isCogniPalIntakePath(url.pathname, request.method)) {
+    throw Object.assign(new Error("CogniPal intake proxy path is invalid."), { status: 404, code: "not_found" });
+  }
+  const upstreamBase = baseUrl(env?.AIMS_API_BASE_URL);
+  if (!upstreamBase) throw configurationError("aims_api_base_url_unconfigured", "AIMS_API_BASE_URL is not configured.");
+
+  for (const name of ["x-coginpal-timestamp", "x-coginpal-nonce", "x-coginpal-signature"]) {
+    if (!normalise(request.headers.get(name))) {
+      throw Object.assign(new Error("CogniPal signature headers are required."), { status: 401, code: "cognipal_signature_headers_missing" });
+    }
+  }
+  const target = `${upstreamBase}${url.pathname}`;
+  const rawBody = await request.arrayBuffer();
+  const startedAt = Date.now();
+  let response;
+  try {
+    response = await fetchImpl(target, {
+      method: "POST",
+      headers: forwardedCogniPalHeaders(request),
+      body: rawBody,
+      redirect: "manual",
+    });
+  } catch (error) {
+    console.error("aimsUiGateway.cogniPalProxyFailed", {
+      path: url.pathname,
+      targetHost: new URL(upstreamBase).host,
+      durationMs: Date.now() - startedAt,
+      error: error?.message || String(error),
+    });
+    throw Object.assign(new Error("AIMS CogniPal intake is temporarily unreachable."), { status: 502, code: "cognipal_upstream_unreachable" });
+  }
+
+  console.info("aimsUiGateway.cogniPalProxy", {
+    path: url.pathname,
+    targetHost: new URL(upstreamBase).host,
+    upstreamStatus: response.status,
+    durationMs: Date.now() - startedAt,
+  });
+
+  const headers = new Headers(response.headers);
+  headers.set("cache-control", "no-store");
+  headers.set("x-content-type-options", "nosniff");
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
+
 function configurationError(code, message) {
   return Object.assign(new Error(message), { status: 503, code });
 }
@@ -539,6 +611,7 @@ export default {
           configuration,
         });
       }
+      if (isCogniPalIntakePath(url.pathname, request.method)) return proxyCogniPalIntake(request, env, url);
       if (url.pathname.startsWith("/console/api")) return proxyConsole(request, env, url);
       if (request.method === "POST" && url.pathname === "/widget/session") return createWidgetSession(request, env);
       const widgetMatch = url.pathname.match(/^\/widget\/sessions\/([^/]+)\/messages$/);
