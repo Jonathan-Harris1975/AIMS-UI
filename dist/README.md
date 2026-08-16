@@ -15,6 +15,7 @@ The applications use browser-native modules and no runtime UI framework. That ke
 Implemented:
 
 - Responsive light console shell.
+- Unified inbox with nested **DMs** and **Comments** operator queues; DMs/comments are no longer top-level navigation items.
 - Unified queue filters for status, channel, priority, owner, tag, overdue and AI state.
 - Conversation workspace with chronological thread, contact context, AI context, notes, status, assignment, reply and chat takeover controls.
 - Notification, approval, quarantine, workflow, analytics and settings surfaces.
