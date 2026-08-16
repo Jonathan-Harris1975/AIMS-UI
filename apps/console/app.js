@@ -78,8 +78,6 @@ const icons = {
 const navItems = [
   ["dashboard", "Overview", icons.dashboard],
   ["inbox", "Unified inbox", icons.inbox],
-  ["dms", "DMs", icons.dm],
-  ["comments", "Comments", icons.comment],
   ["approvals", "Approvals", icons.approval],
   ["contacts", "Contacts", icons.contacts],
   ["workflows", "Workflows", icons.workflow],
@@ -87,6 +85,42 @@ const navItems = [
   ["analytics", "Analytics", icons.analytics],
   ["settings", "Settings", icons.settings],
 ];
+
+const inboxSubItems = [
+  ["inbox", "All conversations", icons.inbox],
+  ["dms", "DMs", icons.dm],
+  ["comments", "Comments", icons.comment],
+];
+const inboxRouteViews = new Set(inboxSubItems.map(([key]) => key));
+const routableViews = new Set([...navItems.map(([key]) => key), ...inboxRouteViews]);
+
+function workspaceInboxView() {
+  const workspace = state.workspace?.workspace || state.workspace || {};
+  const socialThread = workspace?.conversation?.socialThread || null;
+  if (socialThread?.thread_type === "dm") return "dms";
+  if (socialThread?.thread_type === "comment") return "comments";
+  return "inbox";
+}
+
+function activeInboxSubView() {
+  if (state.view === "workspace") return workspaceInboxView();
+  return inboxRouteViews.has(state.view) ? state.view : "";
+}
+
+function isInboxFamilyView() {
+  return state.view === "workspace" || inboxRouteViews.has(state.view);
+}
+
+function allowedChannelsForView(view = state.view) {
+  if (view === "dms") return ["facebook", "instagram"];
+  if (view === "comments") return ["facebook", "instagram", "youtube"];
+  return null;
+}
+
+function normaliseFiltersForView() {
+  const allowed = allowedChannelsForView();
+  if (allowed && state.filters.channel && !allowed.includes(state.filters.channel)) state.filters.channel = "";
+}
 
 function socialInteractionType(row) {
   return String(row?.interaction_type || row?.social_thread_type || row?.thread_type || "").trim().toLowerCase();
@@ -166,8 +200,21 @@ function shell(content) {
           <button class="icon-button mobile-only" data-action="close-sidebar" aria-label="Close navigation">${icons.close}</button>
         </div>
         <nav aria-label="Primary">
-          ${navItems.map(([key, label, icon]) => `
-            <button class="nav-item ${state.view === key || (key === "inbox" && state.view === "workspace") ? "active" : ""}" data-view="${key}">
+          ${navItems.map(([key, label, icon]) => key === "inbox" ? `
+            <div class="nav-group ${isInboxFamilyView() ? "open" : ""}">
+              <button class="nav-item ${isInboxFamilyView() ? "active" : ""}" data-view="inbox" aria-expanded="${isInboxFamilyView() ? "true" : "false"}">
+                ${icon}<span>${escapeHtml(label)}</span><span class="nav-group-chevron">⌄</span>
+              </button>
+              <div class="nav-submenu" aria-label="Unified inbox sections">
+                ${inboxSubItems.slice(1).map(([subKey, subLabel, subIcon]) => `
+                  <button class="nav-subitem ${activeInboxSubView() === subKey ? "active" : ""}" data-view="${subKey}">
+                    ${subIcon}<span>${escapeHtml(subLabel)}</span>
+                  </button>
+                `).join("")}
+              </div>
+            </div>
+          ` : `
+            <button class="nav-item ${state.view === key ? "active" : ""}" data-view="${key}">
               ${icon}<span>${escapeHtml(label)}</span>
               ${key === "approvals" && pendingApprovals().length ? `<b>${pendingApprovals().length}</b>` : ""}
             </button>
@@ -190,7 +237,7 @@ function shell(content) {
         <nav class="embedded-nav" aria-label="Communications sections">
           <div class="embedded-nav-scroll">
             ${navItems.map(([key, label, icon]) => `
-              <button class="embedded-nav-item ${state.view === key || (key === "inbox" && state.view === "workspace") ? "active" : ""}" data-view="${key}">
+              <button class="embedded-nav-item ${key === "inbox" ? (isInboxFamilyView() ? "active" : "") : (state.view === key ? "active" : "")}" data-view="${key}">
                 ${icon}<span>${escapeHtml(label)}</span>
                 ${key === "approvals" && pendingApprovals().length ? `<b>${pendingApprovals().length}</b>` : ""}
               </button>
@@ -200,6 +247,17 @@ function shell(content) {
             ${icons.bell}${unread ? `<span>${unread}</span>` : ""}
           </button>
         </nav>
+        ${isInboxFamilyView() ? `
+          <nav class="embedded-inbox-subnav" aria-label="Unified inbox sections">
+            <div class="embedded-inbox-subnav-scroll">
+              ${inboxSubItems.map(([subKey, subLabel, subIcon]) => `
+                <button class="embedded-inbox-subnav-item ${activeInboxSubView() === subKey ? "active" : ""}" data-view="${subKey}">
+                  ${subIcon}<span>${escapeHtml(subLabel)}</span>
+                </button>
+              `).join("")}
+            </div>
+          </nav>
+        ` : ""}
         ` : `
         <header class="topbar">
           <button class="icon-button mobile-only aims-menu-trigger" data-action="open-sidebar" aria-label="Open AIMS navigation">${icons.menu}</button>
@@ -264,13 +322,13 @@ function summaryCard(label, value, foot, tone) {
   return `<article class="summary-card tone-${tone}"><div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong><small>${escapeHtml(foot)}</small></div><div class="summary-spark"><i></i><i></i><i></i><i></i><i></i></div></article>`;
 }
 
-function filterBar(compact = false) {
+function filterBar(compact = false, allowedChannels = null) {
   const options = (values, selected, blank) => `<option value="">${blank}</option>${values.map((value) => `<option value="${escapeHtml(value)}" ${selected === value ? "selected" : ""}>${escapeHtml(titleCase(value))}</option>`).join("")}`;
   const owners = [...new Set(state.queue.map((row) => row.owner_id).filter(Boolean))];
   return `
     <div class="filter-bar ${compact ? "compact" : ""}">
       <select data-filter="status" aria-label="Filter by status">${options(["open", "pending", "snoozed", "resolved", "blocked", "quarantined", "escalated"], state.filters.status, "All statuses")}</select>
-      <select data-filter="channel" aria-label="Filter by channel">${options(["chat", "email", "instagram", "facebook", "youtube", "form"], state.filters.channel, "All channels")}</select>
+      <select data-filter="channel" aria-label="Filter by channel">${options(allowedChannels || ["chat", "email", "instagram", "facebook", "youtube", "form"], state.filters.channel, "All channels")}</select>
       <select data-filter="priority" aria-label="Filter by priority">${options(["critical", "high", "medium", "low"], state.filters.priority, "All priorities")}</select>
       <select data-filter="ownerId" aria-label="Filter by owner">${options(owners, state.filters.ownerId, "All owners")}</select>
       <label class="check-filter"><input type="checkbox" data-filter="overdue" ${state.filters.overdue ? "checked" : ""}><span>Overdue only</span></label>
@@ -347,6 +405,7 @@ function socialPlatformSummary(rows) {
 
 function socialGroupView(type) {
   const isDm = type === "dm";
+  const allowedChannels = isDm ? ["facebook", "instagram"] : ["facebook", "instagram", "youtube"];
   const rows = queueRows({ interactionType: type, socialOnly: true });
   const title = isDm ? "DMs" : "Comments";
   const copy = isDm
@@ -355,7 +414,7 @@ function socialGroupView(type) {
   return shell(`
     ${pageHeader(title, copy, `<button class="button secondary" data-action="refresh">Refresh ${isDm ? "DMs" : "comments"}</button>`)}
     <section class="panel inbox-panel social-group-panel">
-      <header class="panel-header stacked"><div><strong>${rows.length} ${isDm ? "DM conversations" : "comment threads"}</strong><span>${isDm ? "YouTube does not expose a private DM lane here." : "Public interaction work stays out of the private-message queue."}</span>${socialPlatformSummary(rows)}</div>${filterBar()}</header>
+      <header class="panel-header stacked"><div><strong>${rows.length} ${isDm ? "DM conversations" : "comment threads"}</strong><span>${isDm ? "YouTube does not expose a private DM lane here." : "Public interaction work stays out of the private-message queue."}</span>${socialPlatformSummary(rows)}</div>${filterBar(false, allowedChannels)}</header>
       ${queueTable(rows)}
     </section>
   `);
@@ -599,6 +658,7 @@ function errorView() {
 }
 
 function render() {
+  normaliseFiltersForView();
   if (state.error && !state.bootstrap) {
     root.innerHTML = errorView();
     bindEvents();
@@ -709,7 +769,8 @@ async function loadBootstrap() {
     state.queue = payload.queue || payload.conversations || [];
     state.notifications = payload.notifications || [];
     if (!config.demoMode) state.socialStatus = await client.socialStatus().catch(() => state.socialStatus);
-    state.view = location.hash.slice(1) && navItems.some(([key]) => key === location.hash.slice(1)) ? location.hash.slice(1) : state.view;
+    const requestedView = location.hash.slice(1);
+    state.view = requestedView && routableViews.has(requestedView) ? requestedView : state.view;
   } catch (error) {
     state.error = error instanceof Error ? error : new Error(String(error));
   } finally {
