@@ -15,6 +15,7 @@ The applications use browser-native modules and no runtime UI framework. That ke
 Implemented:
 
 - Responsive light console shell.
+- Unified inbox with nested **DMs** and **Comments** operator queues; DMs/comments are no longer top-level navigation items.
 - Unified queue filters for status, channel, priority, owner, tag, overdue and AI state.
 - Conversation workspace with chronological thread, contact context, AI context, notes, status, assignment, reply and chat takeover controls.
 - Notification, approval, quarantine, workflow, analytics and settings surfaces.
@@ -99,10 +100,11 @@ The script mounts one `<cognipal-widget>` element and isolates its styles in Sha
 
 See `workers/gateway/README.md` and `workers/gateway/wrangler.toml.example`.
 
-The gateway has two hard boundaries:
+The gateway has three hard boundaries:
 
 - `/console/api/*` is an authenticated proxy to protected AIMS Comms Hub routes.
-- `/widget/*` exposes only the public session and message contract.
+- `/widget/*` exposes only the legacy public session/message contract.
+- `POST /comms-hub/intake/chat` and `POST /comms-hub/intake/chat/sync` are exact first-party CogniPal pass-through routes. They preserve the signed JSON body and `x-coginpal-*` headers and forward them to `${AIMS_API_BASE_URL}` for AIMS to verify. This allows the website Pages gateway to use `https://chat.jonathan-harris.online` as its stable upstream without exposing the raw AIMS origin.
 
 AIMS outbound website-chat replies use the provider-compatible endpoint:
 
