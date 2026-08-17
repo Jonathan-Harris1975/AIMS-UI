@@ -1,8 +1,5 @@
 Files/directories removed relative to the uploaded baseline:
-dist/widget/demo.html
-dist/widget/README.md
-dist/widget/cognipal-widget.js
-dist/console/index.html
+
 dist/console/app.js
 dist/console/mock-data.js
 dist/console/styles.css
@@ -11,4 +8,4 @@ dist/console/lib/format.js
 dist/console/lib/api-client.js
 dist/console/lib/tokens.css
 dist/console/lib/contracts.js
-dist/widget/assets/CogniPal.jpg
+
