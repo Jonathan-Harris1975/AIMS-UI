@@ -60,6 +60,7 @@ const icons = {
   inbox: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v12h-5l-2 3h-2l-2-3H4V4Zm2 2v8h4l2 3 2-3h4V6H6Z"/></svg>`,
   dm: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v13H8l-4 4V4Zm3 4v2h10V8H7Zm0 4v2h7v-2H7Z"/></svg>`,
   comment: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v13H9l-6 4V4Zm3 3v7h11V7H6Zm2 2h7v2H8V9Z"/></svg>`,
+  email: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3V5Zm2 2v.4l7 4.6 7-4.6V7H5Zm14 10V9.8l-7 4.5-7-4.5V17h14Z"/></svg>`,
   approval: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4 5v6c0 5.1 3.4 9.8 8 11 4.6-1.2 8-5.9 8-11V5l-8-3Zm-1 14-4-4 1.4-1.4 2.6 2.6 4.6-4.6L17 10l-6 6Z"/></svg>`,
   contacts: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0H5Z"/></svg>`,
   workflow: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h6v5H6V3Zm8 13h4v5h-6v-5h2Zm-9-1h6v5H5v-5Zm4-7v3h6v3h2v-5H11V8H9Z"/></svg>`,
@@ -90,15 +91,21 @@ const inboxSubItems = [
   ["inbox", "All conversations", icons.inbox],
   ["dms", "DMs", icons.dm],
   ["comments", "Comments", icons.comment],
+  ["admin-email", "Admin email", icons.email],
+  ["newsletter-email", "Newsletter email", icons.email],
 ];
 const inboxRouteViews = new Set(inboxSubItems.map(([key]) => key));
 const routableViews = new Set([...navItems.map(([key]) => key), ...inboxRouteViews]);
 
 function workspaceInboxView() {
   const workspace = state.workspace?.workspace || state.workspace || {};
-  const socialThread = workspace?.conversation?.socialThread || null;
+  const conversation = workspace?.conversation || {};
+  const socialThread = conversation?.socialThread || null;
   if (socialThread?.thread_type === "dm") return "dms";
   if (socialThread?.thread_type === "comment") return "comments";
+  const emailAccountKey = String(workspace?.emailThread?.account_key || "").toLowerCase();
+  if (conversation.channel === "email" && emailAccountKey === "admin") return "admin-email";
+  if (conversation.channel === "email" && emailAccountKey === "newsletter") return "newsletter-email";
   return "inbox";
 }
 
@@ -114,6 +121,7 @@ function isInboxFamilyView() {
 function allowedChannelsForView(view = state.view) {
   if (view === "dms") return ["facebook", "instagram"];
   if (view === "comments") return ["facebook", "instagram", "youtube"];
+  if (view === "admin-email" || view === "newsletter-email") return ["email"];
   return null;
 }
 
@@ -130,9 +138,10 @@ function isSocialChannel(channel) {
   return ["facebook", "instagram", "youtube"].includes(String(channel || "").toLowerCase());
 }
 
-function queueRows({ interactionType = "", socialOnly = false } = {}) {
+function queueRows({ interactionType = "", socialOnly = false, emailAccountKey = "" } = {}) {
   const term = state.search.trim().toLowerCase();
   return state.queue.filter((row) => {
+    if (!state.filters.status && row.operational_status === "archived") return false;
     if (state.filters.status && row.operational_status !== state.filters.status) return false;
     if (state.filters.channel && row.channel !== state.filters.channel) return false;
     if (state.filters.priority && row.priority_label !== state.filters.priority) return false;
@@ -141,8 +150,9 @@ function queueRows({ interactionType = "", socialOnly = false } = {}) {
     if (state.filters.aiStatus && row.ai_status !== state.filters.aiStatus && row.latest_ai_status !== state.filters.aiStatus) return false;
     if (socialOnly && !isSocialChannel(row.channel)) return false;
     if (interactionType && socialInteractionType(row) !== interactionType) return false;
+    if (emailAccountKey && (row.channel !== "email" || String(row.email_account_key || "").toLowerCase() !== emailAccountKey)) return false;
     if (!term) return true;
-    return [row.display_name, row.primary_email, row.subject, row.summary_text, row.intent, row.channel, row.social_platform, socialInteractionType(row)]
+    return [row.display_name, row.primary_email, row.subject, row.summary_text, row.intent, row.channel, row.social_platform, row.email_account_key, socialInteractionType(row)]
       .some((value) => String(value || "").toLowerCase().includes(term));
   });
 }
@@ -322,15 +332,30 @@ function summaryCard(label, value, foot, tone) {
   return `<article class="summary-card tone-${tone}"><div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong><small>${escapeHtml(foot)}</small></div><div class="summary-spark"><i></i><i></i><i></i><i></i><i></i></div></article>`;
 }
 
+function themedSelect({ id = "", name = "", value = "", options = [], ariaLabel = "Select", dataFilter = "", disabled = false, className = "" } = {}) {
+  const selected = options.find((option) => String(option.value) === String(value));
+  const label = selected?.label || (value ? titleCase(value) : options[0]?.label || "Select");
+  const selectId = id ? ` id="${escapeHtml(id)}"` : "";
+  const selectName = name ? ` name="${escapeHtml(name)}"` : "";
+  const filterAttr = dataFilter ? ` data-filter="${escapeHtml(dataFilter)}"` : "";
+  return `<div class="themed-select ${escapeHtml(className)} ${disabled ? "disabled" : ""}" data-themed-select>
+    <select class="themed-select-proxy"${selectId}${selectName}${filterAttr} aria-label="${escapeHtml(ariaLabel)}" ${disabled ? "disabled" : ""} tabindex="-1">
+      ${options.map((option) => `<option value="${escapeHtml(option.value)}" ${String(option.value) === String(value) ? "selected" : ""}>${escapeHtml(option.label)}</option>`).join("")}
+    </select>
+    <button class="themed-select-trigger" type="button" data-themed-select-trigger aria-haspopup="listbox" aria-expanded="false" ${disabled ? "disabled" : ""}><span>${escapeHtml(label)}</span><b aria-hidden="true">⌄</b></button>
+    <div class="themed-select-menu" role="listbox" aria-label="${escapeHtml(ariaLabel)}">
+      ${options.map((option) => `<button type="button" class="themed-select-option ${String(option.value) === String(value) ? "selected" : ""}" data-themed-select-value="${escapeHtml(option.value)}" role="option" aria-selected="${String(option.value) === String(value)}">${escapeHtml(option.label)}</button>`).join("")}
+    </div>
+  </div>`;
+}
+
 function filterBar(compact = false, allowedChannels = null) {
-  const options = (values, selected, blank) => `<option value="">${blank}</option>${values.map((value) => `<option value="${escapeHtml(value)}" ${selected === value ? "selected" : ""}>${escapeHtml(titleCase(value))}</option>`).join("")}`;
-  const owners = [...new Set(state.queue.map((row) => row.owner_id).filter(Boolean))];
+  const optionSet = (values, blank) => [{ value: "", label: blank }, ...values.map((value) => ({ value, label: titleCase(value) }))];
   return `
     <div class="filter-bar ${compact ? "compact" : ""}">
-      <select data-filter="status" aria-label="Filter by status">${options(["open", "pending", "snoozed", "resolved", "blocked", "quarantined", "escalated"], state.filters.status, "All statuses")}</select>
-      <select data-filter="channel" aria-label="Filter by channel">${options(allowedChannels || ["chat", "email", "instagram", "facebook", "youtube", "form"], state.filters.channel, "All channels")}</select>
-      <select data-filter="priority" aria-label="Filter by priority">${options(["critical", "high", "medium", "low"], state.filters.priority, "All priorities")}</select>
-      <select data-filter="ownerId" aria-label="Filter by owner">${options(owners, state.filters.ownerId, "All owners")}</select>
+      ${themedSelect({ value: state.filters.status, dataFilter: "status", ariaLabel: "Filter by status", options: optionSet(["open", "pending", "snoozed", "resolved", "blocked", "quarantined", "archived", "escalated"], "All statuses") })}
+      ${themedSelect({ value: state.filters.channel, dataFilter: "channel", ariaLabel: "Filter by channel", options: optionSet(allowedChannels || ["chat", "email", "instagram", "facebook", "youtube", "form"], "All channels") })}
+      ${themedSelect({ value: state.filters.priority, dataFilter: "priority", ariaLabel: "Filter by priority", options: optionSet(["critical", "high", "medium", "low"], "All priorities") })}
       <label class="check-filter"><input type="checkbox" data-filter="overdue" ${state.filters.overdue ? "checked" : ""}><span>Overdue only</span></label>
       <button class="text-button" data-action="clear-filters">Clear</button>
     </div>
@@ -353,7 +378,7 @@ function queueTable(rows = queueRows(), limit = 50, compact = false) {
               <td>${priorityPill(row.priority_label)}</td>
               <td>${statusPill(row.operational_status)}</td>
               <td><span class="age ${row.response_overdue ? "overdue" : ""}">${escapeHtml(secondsToAge(row.age_seconds))}</span></td>
-              <td><span class="owner">${row.owner_id ? `<i>${escapeHtml(row.owner_id.charAt(0).toUpperCase())}</i>${escapeHtml(row.owner_id)}` : "Unassigned"}</span></td>
+              <td><span class="owner">${row.owner_type === "person" ? `<i>J</i>Me` : row.owner_type === "automation" ? `<i>A</i>Automated` : row.owner_id ? `<i>${escapeHtml(row.owner_id.charAt(0).toUpperCase())}</i>Assigned` : "Automated"}</span></td>
               <td><span class="ai-state risk-${escapeHtml(row.risk_level || "unknown")}">${escapeHtml(titleCase(row.intent || "Unanalysed"))}</span></td>
               <td><button class="row-arrow" data-conversation-id="${escapeHtml(row.id)}" aria-label="Open conversation">${icons.arrow}</button></td>
             </tr>
@@ -422,6 +447,26 @@ function socialGroupView(type) {
 
 function dmsView() { return socialGroupView("dm"); }
 function commentsView() { return socialGroupView("comment"); }
+
+function emailGroupView(accountKey) {
+  const rows = queueRows({ emailAccountKey: accountKey });
+  const isAdmin = accountKey === "admin";
+  const title = isAdmin ? "Admin email" : "Newsletter email";
+  const address = isAdmin ? "admin@jonathan-harris.online" : "newsletter@jonathan-harris.online";
+  const copy = isAdmin
+    ? "A separate one.com admin mailbox inside the Unified Inbox. Replies are operator-controlled."
+    : "A separate one.com newsletter mailbox inside the Unified Inbox. Replies are operator-controlled.";
+  return shell(`
+    ${pageHeader(title, copy, `<button class="button secondary" data-action="refresh">Refresh ${isAdmin ? "admin" : "newsletter"} inbox</button>`)}
+    <section class="panel inbox-panel email-group-panel">
+      <header class="panel-header stacked"><div><strong>${rows.length} conversations</strong><span>${escapeHtml(address)} · manual replies only</span></div>${filterBar(false, ["email"])}</header>
+      ${queueTable(rows)}
+    </section>
+  `);
+}
+
+function adminEmailView() { return emailGroupView("admin"); }
+function newsletterEmailView() { return emailGroupView("newsletter"); }
 
 function pendingApprovals() {
   const approvals = [];
@@ -542,15 +587,17 @@ function workspaceView() {
   const role = state.bootstrap?.identity?.role || "read_only";
   const canReply = roleAllows(role, "reply");
   const canApprove = roleAllows(role, "approve");
+  const currentStatus = operations.operational_status || conversation.status || "open";
+  const actor = state.bootstrap?.identity?.actor || "Jonathan";
+  const assignedToMe = operations.owner_type === "person";
   return shell(`
     <section class="workspace-header">
-      <button class="back-button" data-view="${socialThread?.thread_type === "dm" ? "dms" : socialThread?.thread_type === "comment" ? "comments" : "inbox"}">‹ <span>${socialThread?.thread_type === "dm" ? "DMs" : socialThread?.thread_type === "comment" ? "Comments" : "Inbox"}</span></button>
+      <button class="back-button" data-view="${workspaceInboxView()}">‹ <span>${workspaceInboxView() === "dms" ? "DMs" : workspaceInboxView() === "comments" ? "Comments" : workspaceInboxView() === "admin-email" ? "Admin email" : workspaceInboxView() === "newsletter-email" ? "Newsletter email" : "Inbox"}</span></button>
       <div><div class="workspace-title"><h1>${escapeHtml(conversation.subject || "Conversation")}</h1>${statusPill(operations.operational_status || conversation.status)}</div><p>${escapeHtml(contact.display_name || contact.primary_email || "Unknown contact")} · ${escapeHtml(channelLabel(conversation.channel))} · Updated ${escapeHtml(formatRelativeTime(conversation.last_message_at))}</p></div>
       <div class="workspace-actions">
         ${canReply ? `<button class="button secondary" data-action="analyse">Run AI analysis</button>` : ""}
-        <select id="workspace-status" aria-label="Conversation status" ${roleAllows(role, "status") ? "" : "disabled"}>
-          ${["open", "pending", "snoozed", "resolved", "blocked", "quarantined", "archived", "escalated"].map((status) => `<option value="${status}" ${(operations.operational_status || conversation.status) === status ? "selected" : ""}>${titleCase(status)}</option>`).join("")}
-        </select>
+        ${currentStatus === "archived" ? `<span class="archive-state">Archived</span>` : themedSelect({ id: "workspace-status", value: currentStatus, ariaLabel: "Conversation status", disabled: !roleAllows(role, "status"), className: "workspace-status-select", options: ["open", "pending", "snoozed", "resolved", "blocked", "quarantined", "escalated"].map((status) => ({ value: status, label: titleCase(status) })) })}
+        ${currentStatus === "resolved" && roleAllows(role, "status") ? `<button class="button secondary archive-button" type="button" data-action="archive-conversation">Archive completed</button>` : ""}
       </div>
     </section>
     <div class="workspace-grid">
@@ -562,8 +609,8 @@ function workspaceView() {
         ${canReply ? `
           <form id="reply-form" class="reply-composer">
             <textarea name="message" rows="3" maxlength="20000" placeholder="Write an operator reply…" required ${socialThread && socialMonitorOnly ? "disabled" : ""}></textarea>
-            ${socialThread?.thread_type === "comment" && socialCapabilities?.privateCommentReplies ? `<label class="reply-mode"><span>Reply mode</span><select name="replyMode" ${socialMonitorOnly ? "disabled" : ""}><option value="public">Public comment</option><option value="private">Private reply</option></select></label>` : ""}
-            <div><span>${socialThread && socialMonitorOnly ? "Monitoring-only mode is active; outbound social actions are locked." : `Sent through ${escapeHtml(channelLabel(conversation.channel))}; AIMS applies provider and approval rules.`}</span><button class="button primary" type="submit" ${socialThread && socialMonitorOnly ? "disabled" : ""}>${socialThread?.thread_type === "dm" ? "Send DM" : socialThread?.thread_type === "comment" ? "Send reply" : "Send reply"}</button></div>
+            ${socialThread?.thread_type === "comment" && socialCapabilities?.privateCommentReplies ? `<label class="reply-mode"><span>Reply mode</span>${themedSelect({ name: "replyMode", value: "public", ariaLabel: "Reply mode", disabled: socialMonitorOnly, options: [{ value: "public", label: "Public comment" }, { value: "private", label: "Private reply" }] })}</label>` : ""}
+            <div><span>${socialThread && socialMonitorOnly ? "Monitoring-only mode is active; outbound social actions are locked." : conversation.channel === "email" && ["admin", "newsletter"].includes(String(workspace.emailThread?.account_key || "").toLowerCase()) ? `Manual reply from ${escapeHtml(String(workspace.emailThread?.account_key || ""))}@jonathan-harris.online. Initial-response timing policy still applies.` : `Sent through ${escapeHtml(channelLabel(conversation.channel))}; AIMS applies provider and approval rules.`}</span><button class="button primary" type="submit" ${socialThread && socialMonitorOnly ? "disabled" : ""}>${socialThread?.thread_type === "dm" ? "Send DM" : "Send reply"}</button></div>
           </form>
         ` : `<div class="read-only-banner">Read-only role. Reply and mutation controls are disabled.</div>`}
       </section>
@@ -571,8 +618,8 @@ function workspaceView() {
         <section class="panel detail-card">
           <header><strong>Contact</strong></header>
           <div class="contact-hero"><div class="avatar large">${escapeHtml((contact.display_name || "U").charAt(0).toUpperCase())}</div><div><strong>${escapeHtml(contact.display_name || "Unknown contact")}</strong><span>${escapeHtml(contact.primary_email || "No email recorded")}</span><small>${escapeHtml(contact.phone || conversation.provider || "")}</small></div></div>
-          <dl><div><dt>Owner</dt><dd>${escapeHtml(operations.owner_id || "Unassigned")}</dd></div><div><dt>Response target</dt><dd>${escapeHtml(operations.response_due_at ? formatDateTime(operations.response_due_at) : "Not set")}</dd></div><div><dt>Workflow</dt><dd>${escapeHtml(titleCase(conversation.workflow || "unassigned"))}</dd></div></dl>
-          ${roleAllows(role, "assign") ? `<form id="assignment-form" class="inline-form"><input name="ownerId" value="${escapeHtml(operations.owner_id || "")}" placeholder="Owner ID" required><select name="ownerType"><option value="person">Person</option><option value="team">Team</option><option value="automation">Automation</option></select><button class="button secondary" type="submit">Assign</button></form>` : ""}
+          <dl><div><dt>Handling</dt><dd>${assignedToMe ? "Assigned to me" : "Automated"}</dd></div><div><dt>Response target</dt><dd>${escapeHtml(operations.response_due_at ? formatDateTime(operations.response_due_at) : "Not set")}</dd></div><div><dt>Workflow</dt><dd>${escapeHtml(titleCase(conversation.workflow || "unassigned"))}</dd></div></dl>
+          ${roleAllows(role, "assign") ? `<div class="handling-control"><span>Who handles this?</span><div class="handling-segment" role="group" aria-label="Conversation handling"><button type="button" data-handling-mode="automation" class="${assignedToMe ? "" : "active"}" aria-pressed="${!assignedToMe}">Automated</button><button type="button" data-handling-mode="person" class="${assignedToMe ? "active" : ""}" aria-pressed="${assignedToMe}">Assigned to me</button></div><small>${assignedToMe ? `${escapeHtml(actor)} is handling this conversation. AIMS autonomous replies are paused.` : "AIMS can analyse and reply under the active automation policies."}</small></div>` : ""}
         </section>
         ${socialThread ? `<section class="panel detail-card social-control-card">
           <header><strong>${socialThread.thread_type === "dm" ? "DM controls" : "Comment controls"}</strong><span class="channel-label channel-label-${escapeHtml(socialThread.platform)}">${escapeHtml(channelLabel(socialThread.platform))}</span></header>
@@ -593,7 +640,6 @@ function workspaceView() {
           ${drafts.length ? `<div class="draft-box"><strong>Latest draft</strong><p>${escapeHtml(drafts[0].body_text || drafts[0].content || "")}</p></div>` : ""}
           ${pendingApproval ? `<div class="approval-box"><strong>Approval required</strong><p>${escapeHtml(pendingApproval.rationale || `Review ${titleCase(pendingApproval.action_type || "action")} scope and evidence.`)}</p>${canApprove ? `<div><button class="button secondary" data-approval-id="${escapeHtml(pendingApproval.id)}" data-decision="reject">Reject</button><button class="button primary" data-approval-id="${escapeHtml(pendingApproval.id)}" data-decision="approve">Approve</button></div>` : ""}</div>` : ""}
         </section>
-        ${workspace.chatSession ? `<section class="panel detail-card"><header><strong>Chat control</strong>${statusPill(workspace.chatSession.mode || "automation")}</header><p>Switching mode updates AIMS persistent takeover state. It does not discard the thread.</p>${roleAllows(role, "takeover") ? `<div class="button-row"><button class="button secondary" data-takeover="human">Take over</button><button class="button secondary" data-takeover="automation">Return to AIMS</button></div>` : ""}</section>` : ""}
         ${attachments.length ? `<section class="panel detail-card attachment-card">
           <header><strong>Attachments</strong><span>${attachments.length}</span></header>
           <div class="attachment-list">
@@ -669,6 +715,8 @@ function render() {
     inbox: inboxView,
     dms: dmsView,
     comments: commentsView,
+    "admin-email": adminEmailView,
+    "newsletter-email": newsletterEmailView,
     workspace: workspaceView,
     approvals: approvalsView,
     contacts: contactsView,
@@ -698,7 +746,7 @@ function bindEvents() {
   }));
   root.querySelector("#global-search")?.addEventListener("input", (event) => {
     state.search = event.target.value;
-    if (!["dashboard", "inbox", "dms", "comments"].includes(state.view)) state.view = "inbox";
+    if (!["dashboard", "inbox", "dms", "comments", "admin-email", "newsletter-email"].includes(state.view)) state.view = "inbox";
     render();
     requestAnimationFrame(() => {
       const input = root.querySelector("#global-search");
@@ -712,12 +760,13 @@ function bindEvents() {
   root.querySelectorAll('[data-action="close-sidebar"]').forEach((button) => button.addEventListener("click", () => { state.sidebarOpen = false; render(); }));
   root.querySelectorAll('[data-action="toggle-notifications"]').forEach((button) => button.addEventListener("click", () => { state.notificationOpen = !state.notificationOpen; render(); }));
   root.querySelectorAll("[data-notification-id]").forEach((button) => button.addEventListener("click", () => openNotification(button)));
+  bindThemedSelects();
   root.querySelector("#workspace-status")?.addEventListener("change", updateWorkspaceStatus);
-  root.querySelector("#assignment-form")?.addEventListener("submit", submitAssignment);
+  root.querySelectorAll("[data-handling-mode]").forEach((button) => button.addEventListener("click", () => changeHandlingMode(button.dataset.handlingMode)));
+  root.querySelector('[data-action="archive-conversation"]')?.addEventListener("click", archiveConversation);
   root.querySelector("#note-form")?.addEventListener("submit", submitNote);
   root.querySelector("#reply-form")?.addEventListener("submit", submitReply);
   root.querySelector('[data-action="analyse"]')?.addEventListener("click", analyseConversation);
-  root.querySelectorAll("[data-takeover]").forEach((button) => button.addEventListener("click", () => changeTakeover(button.dataset.takeover)));
   root.querySelectorAll("[data-approval-id]").forEach((button) => button.addEventListener("click", () => decideApproval(button.dataset.approvalId, button.dataset.decision)));
   root.querySelectorAll("[data-attachment-id]").forEach((button) => button.addEventListener("click", () => downloadAttachment(button.dataset.attachmentId, button)));
   root.querySelector('[data-action="load-quarantine"]')?.addEventListener("click", loadQuarantine);
@@ -729,6 +778,75 @@ function bindEvents() {
   root.querySelectorAll("[data-social-action]").forEach((button) => button.addEventListener("click", () => runSocialAction(button)));
   root.querySelectorAll("[data-social-approval]").forEach((button) => button.addEventListener("click", () => requestSocialModeration(button)));
   root.querySelectorAll("[data-social-approved-id]").forEach((button) => button.addEventListener("click", () => executeApprovedSocialModeration(button)));
+}
+
+function bindThemedSelects() {
+  const closeAll = (except = null) => {
+    root.querySelectorAll("[data-themed-select].open").forEach((element) => {
+      if (element === except) return;
+      element.classList.remove("open");
+      element.querySelector("[data-themed-select-trigger]")?.setAttribute("aria-expanded", "false");
+    });
+  };
+  root.querySelectorAll("[data-themed-select]").forEach((element) => {
+    const trigger = element.querySelector("[data-themed-select-trigger]");
+    const proxy = element.querySelector(".themed-select-proxy");
+    const menu = element.querySelector(".themed-select-menu");
+    const options = [...element.querySelectorAll("[data-themed-select-value]")];
+    if (!trigger || !proxy || !menu || proxy.disabled) return;
+
+    const open = ({ focusOption = false } = {}) => {
+      closeAll(element);
+      element.classList.add("open");
+      trigger.setAttribute("aria-expanded", "true");
+      if (focusOption) (options.find((item) => item.classList.contains("selected")) || options[0])?.focus();
+    };
+    const close = ({ restoreFocus = false } = {}) => {
+      element.classList.remove("open");
+      trigger.setAttribute("aria-expanded", "false");
+      if (restoreFocus) trigger.focus();
+    };
+    const choose = (option) => {
+      proxy.value = option.dataset.themedSelectValue || "";
+      trigger.querySelector("span").textContent = option.textContent.trim();
+      options.forEach((item) => {
+        const selected = item === option;
+        item.classList.toggle("selected", selected);
+        item.setAttribute("aria-selected", String(selected));
+      });
+      close();
+      proxy.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+
+    trigger.addEventListener("click", (event) => {
+      event.stopPropagation();
+      element.classList.contains("open") ? close() : open();
+    });
+    trigger.addEventListener("keydown", (event) => {
+      if (!["ArrowDown", "ArrowUp"].includes(event.key)) return;
+      event.preventDefault();
+      open({ focusOption: true });
+    });
+    options.forEach((option) => option.addEventListener("click", (event) => {
+      event.stopPropagation();
+      choose(option);
+    }));
+    menu.addEventListener("keydown", (event) => {
+      const currentIndex = options.indexOf(document.activeElement);
+      if (event.key === "Escape") {
+        event.preventDefault();
+        close({ restoreFocus: true });
+      } else if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+        event.preventDefault();
+        const last = Math.max(options.length - 1, 0);
+        const nextIndex = event.key === "Home" ? 0 : event.key === "End" ? last : event.key === "ArrowDown" ? Math.min(currentIndex + 1, last) : Math.max(currentIndex - 1, 0);
+        options[nextIndex]?.focus();
+      }
+    });
+  });
+  root.onclick = (event) => {
+    if (!event.target.closest?.("[data-themed-select]")) closeAll();
+  };
 }
 
 function navigate(view) {
@@ -807,16 +925,34 @@ async function updateWorkspaceStatus(event) {
   } catch (error) { toast(error.message || "Status could not be updated.", "error"); }
 }
 
-async function submitAssignment(event) {
-  event.preventDefault();
-  const data = new FormData(event.currentTarget);
-  const assignment = { ownerId: String(data.get("ownerId") || ""), ownerType: String(data.get("ownerType") || "person"), expectedVersion: state.workspace?.workspace?.operations?.version ?? null };
+async function changeHandlingMode(mode) {
+  if (!new Set(["automation", "person"]).has(mode)) return;
+  const actor = state.bootstrap?.identity?.actor || "Jonathan";
+  const assignment = {
+    ownerId: mode === "person" ? actor : "AIMS",
+    ownerType: mode,
+    expectedVersion: state.workspace?.workspace?.operations?.version ?? null,
+  };
   try {
-    if (!config.demoMode) await client.assign(state.selectedConversationId, assignment);
+    const result = config.demoMode ? null : await client.assign(state.selectedConversationId, assignment);
     const operations = state.workspace?.workspace?.operations;
-    if (operations) Object.assign(operations, { owner_id: assignment.ownerId, owner_type: assignment.ownerType });
-    toast("Assignment updated.");
-  } catch (error) { toast(error.message || "Assignment could not be updated.", "error"); }
+    if (operations) Object.assign(operations, result?.result || result || {}, { owner_id: assignment.ownerId, owner_type: assignment.ownerType });
+    const queueItem = state.queue.find((row) => row.id === state.selectedConversationId);
+    if (queueItem) Object.assign(queueItem, { owner_id: assignment.ownerId, owner_type: assignment.ownerType });
+    toast(mode === "person" ? "Assigned to me. AIMS autonomous replies are paused." : "Returned to AIMS automation.");
+  } catch (error) { toast(error.message || "Handling mode could not be updated.", "error"); }
+}
+
+async function archiveConversation() {
+  const operations = state.workspace?.workspace?.operations;
+  if ((operations?.operational_status || "") !== "resolved") return toast("Only completed conversations can be archived.", "error");
+  try {
+    const result = config.demoMode ? null : await client.updateStatus(state.selectedConversationId, "archived", { expectedVersion: operations?.version ?? null, reason: "manual_archive" });
+    if (operations) Object.assign(operations, result?.result || result || {}, { operational_status: "archived" });
+    const queueItem = state.queue.find((row) => row.id === state.selectedConversationId);
+    if (queueItem) queueItem.operational_status = "archived";
+    toast("Completed conversation archived.");
+  } catch (error) { toast(error.message || "Conversation could not be archived.", "error"); }
 }
 
 async function submitNote(event) {
@@ -843,7 +979,14 @@ async function submitReply(event) {
   try {
     if (!config.demoMode) {
       if (conversation.channel === "chat") await client.sendChat(state.selectedConversationId, message);
-      else if (conversation.channel === "email") await client.sendEmail(state.selectedConversationId, { message, bodyText: message });
+      else if (conversation.channel === "email") {
+        const result = await client.sendEmail(state.selectedConversationId, { message, bodyText: message });
+        if (result?.scheduled) {
+          form.reset();
+          toast(`Reply scheduled for ${formatDateTime(result.dueAt)}.`);
+          return;
+        }
+      }
       else if (isSocialChannel(conversation.channel)) {
         const replyMode = String(data.get("replyMode") || "public");
         await client.socialAction(state.selectedConversationId, "reply", { message, ...(replyMode === "private" ? { private: true } : {}) });
@@ -938,13 +1081,6 @@ async function analyseConversation() {
   } catch (error) { toast(error.message || "Analysis could not be started.", "error"); }
 }
 
-async function changeTakeover(mode) {
-  try {
-    if (!config.demoMode) await client.takeover(state.selectedConversationId, mode);
-    state.workspace.workspace.chatSession.mode = mode;
-    toast(mode === "human" ? "Human takeover enabled." : "Conversation returned to AIMS automation.");
-  } catch (error) { toast(error.message || "Takeover mode could not be changed.", "error"); }
-}
 
 async function decideApproval(approvalId, decision) {
   try {
