@@ -1,14 +1,12 @@
 import { AimsCommsClient, AimsApiError } from "@aims/api";
 import { escapeHtml, formatDateTime, formatRelativeTime, secondsToAge, titleCase } from "@aims/shared";
 import { roleAllows } from "@aims/contracts";
-import { demoBootstrap, demoMetrics, demoQuarantine, demoWorkspace } from "./mock-data.js";
 
 const root = document.querySelector("#app");
 const query = new URLSearchParams(location.search);
 const supplied = globalThis.AIMS_UI_CONFIG || {};
 const config = Object.freeze({
   apiBaseUrl: String(supplied.apiBaseUrl || "/console/api").replace(/\/+$/, ""),
-  demoMode: supplied.demoMode === true || query.get("demo") === "1",
   embedded: query.get("embed") === "1",
   productName: String(supplied.productName || "AIMS Comms Hub"),
   hiveHomeUrl: String(supplied.hiveHomeUrl || "https://hive.jonathan-harris.online").replace(/\/+$/, ""),
@@ -233,8 +231,8 @@ function shell(content) {
         <div class="sidebar-footer">
           <a class="hive-home-link" href="${escapeHtml(config.hiveHomeUrl)}" aria-label="Return to HIVE">${icons.home}<span>Back to HIVE</span></a>
           <div class="service-card">
-            <span class="service-dot ${config.demoMode ? "demo" : "live"}"></span>
-            <div><strong>${config.demoMode ? "Demo data" : "Live gateway"}</strong><small>${escapeHtml(config.apiBaseUrl)}</small></div>
+            <span class="service-dot live"></span>
+            <div><strong>Live gateway</strong><small>${escapeHtml(config.apiBaseUrl)}</small></div>
           </div>
           <div class="user-card">
             <div class="avatar">${escapeHtml(String(identity.actor || "U").charAt(0).toUpperCase())}</div>
@@ -406,7 +404,7 @@ function dashboardView() {
         <div class="channel-bars">
           ${channelCounts.map(([channel, count]) => `<div><span>${escapeHtml(channelLabel(channel))}</span><div><i style="width:${Math.round((count / maximum) * 100)}%"></i></div><b>${count}</b></div>`).join("") || `<p class="muted">No queue records yet.</p>`}
         </div>
-        <div class="health-strip"><span class="service-dot ${state.error ? "warning" : "live"}"></span><div><strong>${state.error ? "Gateway attention required" : "Console data loaded"}</strong><small>${config.demoMode ? "Explicit demo mode" : "Protected AIMS API"}</small></div></div>
+        <div class="health-strip"><span class="service-dot ${state.error ? "warning" : "live"}"></span><div><strong>${state.error ? "Gateway attention required" : "Console data loaded"}</strong><small>Protected AIMS API</small></div></div>
       </section>
     </div>
   `);
@@ -512,7 +510,6 @@ function workflowsView() {
     ${pageHeader("Workflows", "A readable control surface for AIMS workflow definitions, runs and delayed actions.")}
     <div class="workflow-grid">
       ${Object.entries(workflowGroups).map(([name, count]) => `<article class="workflow-card"><div class="workflow-node">${icons.workflow}</div><div><strong>${escapeHtml(titleCase(name))}</strong><span>${count} active conversation${count === 1 ? "" : "s"}</span><small>Definition and transition controls connect through the protected gateway.</small></div><button class="button secondary" data-view="inbox">Inspect queue</button></article>`).join("") || emptyState("No workflow activity", "Definitions will appear after the backend returns workflow records.")}
-      <article class="workflow-card muted-card"><div class="workflow-node">+</div><div><strong>Definition editor</strong><span>Reserved for reviewer and admin roles</span><small>The API contract exists. The visual editor lands after live workflow canaries.</small></div><button class="button secondary" disabled>Not enabled</button></article>
     </div>
   `);
 }
@@ -527,7 +524,7 @@ function quarantineView() {
 }
 
 function analyticsView() {
-  const metrics = state.metrics || demoMetrics;
+  const metrics = state.metrics || {};
   const byChannel = metrics.volume?.byChannel || {};
   const maximum = Math.max(1, ...Object.values(byChannel));
   return shell(`
@@ -553,7 +550,7 @@ function settingsView() {
   return shell(`
     ${pageHeader("Settings", "Deployment-visible configuration only. Secrets remain in the gateway and AIMS.", `<button class="button secondary" data-action="load-social-status">Refresh social status</button>`)}
     <div class="settings-grid">
-      <section class="panel settings-card"><h3>Console connection</h3><dl><div><dt>API gateway</dt><dd>${escapeHtml(config.apiBaseUrl)}</dd></div><div><dt>Mode</dt><dd>${config.demoMode ? "Explicit demo" : "Live"}</dd></div><div><dt>API version</dt><dd>${escapeHtml(state.bootstrap?.apiVersion || "Unknown")}</dd></div></dl></section>
+      <section class="panel settings-card"><h3>Console connection</h3><dl><div><dt>API gateway</dt><dd>${escapeHtml(config.apiBaseUrl)}</dd></div><div><dt>Mode</dt><dd>Live</dd></div><div><dt>API version</dt><dd>${escapeHtml(state.bootstrap?.apiVersion || "Unknown")}</dd></div></dl></section>
       <section class="panel settings-card"><h3>Verified identity</h3><dl><div><dt>Actor</dt><dd>${escapeHtml(identity.actor || "Unknown")}</dd></div><div><dt>Role</dt><dd>${escapeHtml(titleCase(identity.role || "read_only"))}</dd></div><div><dt>Strategy</dt><dd>${escapeHtml(identity.strategy || "Unknown")}</dd></div></dl></section>
       <section class="panel settings-card social-settings-card"><h3>Social channel setup</h3>
         <div class="social-status-strip"><span class="pill ${social.monitorOnly ? "pill-pending" : "pill-open"}">${social.monitorOnly ? "Monitoring only" : "Outbound enabled"}</span><span>${social.pollWorkerEnabled ? "Poll worker enabled" : "Poll worker disabled"}</span></div>
@@ -698,8 +695,8 @@ async function downloadAttachment(attachmentId, button) {
 
 function errorView() {
   return shell(`
-    ${pageHeader("Connection not ready", "The console did not replace a failed live request with demo data.")}
-    <section class="connection-error panel"><div class="error-orb">!</div><h2>${escapeHtml(state.error?.message || "AIMS gateway could not be reached.")}</h2><p>Check the gateway URL, HIVE session verification and AIMS Comms Hub readiness. Demo mode remains available only through an explicit <code>?demo=1</code> query.</p><div><button class="button primary" data-action="refresh">Try again</button><a class="button secondary" href="?demo=1">Open explicit demo</a></div></section>
+    ${pageHeader("Connection not ready", "The live AIMS gateway could not be loaded.")}
+    <section class="connection-error panel"><div class="error-orb">!</div><h2>${escapeHtml(state.error?.message || "AIMS gateway could not be reached.")}</h2><p>Check the gateway URL, HIVE session verification and AIMS Comms Hub readiness.</p><div><button class="button primary" data-action="refresh">Try again</button></div></section>
   `);
 }
 
@@ -857,7 +854,7 @@ function navigate(view) {
   else if (view === "analytics" && !state.metrics) loadMetrics();
   else if (view === "settings" && !state.socialStatus) loadSocialStatus({ keepView: true });
   else render();
-  history.replaceState(null, "", `${location.pathname}${config.demoMode ? "?demo=1" : ""}#${view}`);
+  history.replaceState(null, "", `${location.pathname}${location.search}#${view}`);
 }
 
 async function openConversation(conversationId) {
@@ -868,7 +865,7 @@ async function openConversation(conversationId) {
   state.notificationOpen = false;
   render();
   try {
-    state.workspace = config.demoMode ? demoWorkspace(conversationId) : await client.workspace(conversationId);
+    state.workspace = await client.workspace(conversationId);
     state.error = null;
   } catch (error) {
     toast(error.message || "Conversation could not be loaded.", "error");
@@ -882,11 +879,11 @@ async function loadBootstrap() {
   state.loading = true;
   state.error = null;
   try {
-    const payload = config.demoMode ? demoBootstrap : await client.bootstrap();
+    const payload = await client.bootstrap();
     state.bootstrap = payload;
     state.queue = payload.queue || payload.conversations || [];
     state.notifications = payload.notifications || [];
-    if (!config.demoMode) state.socialStatus = await client.socialStatus().catch(() => state.socialStatus);
+    state.socialStatus = await client.socialStatus().catch(() => state.socialStatus);
     const requestedView = location.hash.slice(1);
     state.view = requestedView && routableViews.has(requestedView) ? requestedView : state.view;
   } catch (error) {
@@ -899,7 +896,7 @@ async function loadBootstrap() {
 
 async function loadQuarantine() {
   try {
-    state.quarantine = config.demoMode ? demoQuarantine : (await client.quarantine({ status: "quarantined", limit: 100 })).items || [];
+    state.quarantine = (await client.quarantine({ status: "quarantined", limit: 100 })).items || [];
     state.view = "quarantine";
     render();
   } catch (error) { toast(error.message || "Quarantine could not be loaded.", "error"); }
@@ -907,7 +904,7 @@ async function loadQuarantine() {
 
 async function loadMetrics() {
   try {
-    state.metrics = config.demoMode ? demoMetrics : (await client.metrics()).metrics;
+    state.metrics = (await client.metrics()).metrics;
     state.view = "analytics";
     render();
   } catch (error) { toast(error.message || "Metrics could not be loaded.", "error"); }
@@ -916,7 +913,7 @@ async function loadMetrics() {
 async function updateWorkspaceStatus(event) {
   const status = event.target.value;
   try {
-    if (!config.demoMode) await client.updateStatus(state.selectedConversationId, status, { expectedVersion: state.workspace?.workspace?.operations?.version ?? null });
+    await client.updateStatus(state.selectedConversationId, status, { expectedVersion: state.workspace?.workspace?.operations?.version ?? null });
     const operations = state.workspace?.workspace?.operations;
     if (operations) operations.operational_status = status;
     const queueItem = state.queue.find((row) => row.id === state.selectedConversationId);
@@ -934,7 +931,7 @@ async function changeHandlingMode(mode) {
     expectedVersion: state.workspace?.workspace?.operations?.version ?? null,
   };
   try {
-    const result = config.demoMode ? null : await client.assign(state.selectedConversationId, assignment);
+    const result = await client.assign(state.selectedConversationId, assignment);
     const operations = state.workspace?.workspace?.operations;
     if (operations) Object.assign(operations, result?.result || result || {}, { owner_id: assignment.ownerId, owner_type: assignment.ownerType });
     const queueItem = state.queue.find((row) => row.id === state.selectedConversationId);
@@ -947,7 +944,7 @@ async function archiveConversation() {
   const operations = state.workspace?.workspace?.operations;
   if ((operations?.operational_status || "") !== "resolved") return toast("Only completed conversations can be archived.", "error");
   try {
-    const result = config.demoMode ? null : await client.updateStatus(state.selectedConversationId, "archived", { expectedVersion: operations?.version ?? null, reason: "manual_archive" });
+    const result = await client.updateStatus(state.selectedConversationId, "archived", { expectedVersion: operations?.version ?? null, reason: "manual_archive" });
     if (operations) Object.assign(operations, result?.result || result || {}, { operational_status: "archived" });
     const queueItem = state.queue.find((row) => row.id === state.selectedConversationId);
     if (queueItem) queueItem.operational_status = "archived";
@@ -962,7 +959,7 @@ async function submitNote(event) {
   const bodyText = String(data.get("bodyText") || "").trim();
   if (!bodyText) return;
   try {
-    const result = config.demoMode ? { note: { id: `note-${Date.now()}`, author: state.bootstrap.identity.actor, body_text: bodyText, created_at: new Date().toISOString() } } : await client.addNote(state.selectedConversationId, { bodyText, mentions: [] });
+    const result = await client.addNote(state.selectedConversationId, { bodyText, mentions: [] });
     state.workspace.workspace.notes = [result.note, ...(state.workspace.workspace.notes || [])];
     form.reset();
     toast("Private note added.");
@@ -977,7 +974,7 @@ async function submitReply(event) {
   if (!message) return;
   const conversation = state.workspace?.workspace?.conversation || {};
   try {
-    if (!config.demoMode) {
+    {
       if (conversation.channel === "chat") await client.sendChat(state.selectedConversationId, message);
       else if (conversation.channel === "email") {
         const result = await client.sendEmail(state.selectedConversationId, { message, bodyText: message });
@@ -994,17 +991,11 @@ async function submitReply(event) {
     }
     conversation.messages = [...(conversation.messages || []), { id: `local-${Date.now()}`, direction: "outbound", sender: state.bootstrap.identity.actor, body_text: message, received_at: new Date().toISOString() }];
     form.reset();
-    toast(config.demoMode ? "Demo reply added locally." : "Reply sent through AIMS.");
+    toast("Reply sent through AIMS.");
   } catch (error) { toast(error.message || "Reply could not be sent.", "error"); }
 }
 
 async function loadSocialStatus({ keepView = false } = {}) {
-  if (config.demoMode) {
-    state.socialStatus = { monitoring: { monitorOnly: true, pollWorkerEnabled: true, channels: { facebook: { enabled: true, directMessages: true, comments: true, privateCommentReplies: true, markRead: true, conversationStatus: true, hideComments: true, deleteComments: true }, instagram: { enabled: true, directMessages: true, comments: true, privateCommentReplies: true, markRead: true, conversationStatus: true, hideComments: true, deleteComments: true }, youtube: { enabled: true, directMessages: false, comments: true, moderation: true, deleteComments: true } } } };
-    if (!keepView) state.view = "settings";
-    render();
-    return;
-  }
   try {
     state.socialStatus = await client.socialStatus();
     if (!keepView) state.view = "settings";
@@ -1016,7 +1007,7 @@ async function reconcileSocial() {
   if (state.socialBusy) return;
   state.socialBusy = true; render();
   try {
-    if (!config.demoMode) await client.reconcileSocialWebhooks();
+    await client.reconcileSocialWebhooks();
     await loadSocialStatus({ keepView: true });
     toast("Facebook, Instagram and YouTube webhook families reconciled.");
   } catch (error) { toast(error.message || "Social webhooks could not be reconciled.", "error"); }
@@ -1027,7 +1018,7 @@ async function pollSocial() {
   if (state.socialBusy) return;
   state.socialBusy = true; render();
   try {
-    const result = config.demoMode ? { processedJobs: 5 } : await client.drainSocialPoll(10);
+    const result = await client.drainSocialPoll(10);
     await loadBootstrap();
     toast(`Social poll completed${result?.processedJobs !== undefined ? `: ${result.processedJobs} jobs` : ""}.`);
   } catch (error) { toast(error.message || "Social poll could not be completed.", "error"); }
@@ -1038,7 +1029,7 @@ async function runSocialAction(button) {
   const action = button.dataset.socialAction;
   const body = action === "status" ? { status: button.dataset.socialStatus || "archived" } : {};
   try {
-    if (!config.demoMode) await client.socialAction(state.selectedConversationId, action, body);
+    await client.socialAction(state.selectedConversationId, action, body);
     toast(action === "read" ? "Provider conversation marked read." : "Provider conversation updated.");
     await openConversation(state.selectedConversationId);
   } catch (error) { toast(error.message || "Social action could not be completed.", "error"); }
@@ -1048,7 +1039,7 @@ async function requestSocialModeration(button) {
   const action = button.dataset.socialApproval;
   const body = action === "moderate" ? { moderationStatus: button.dataset.moderationStatus || "heldForReview" } : {};
   try {
-    if (!config.demoMode) await client.requestSocialApproval(state.selectedConversationId, action, body);
+    await client.requestSocialApproval(state.selectedConversationId, action, body);
     toast(`${titleCase(action)} action sent for approval.`);
     await openConversation(state.selectedConversationId);
   } catch (error) { toast(error.message || "Social approval could not be requested.", "error"); }
@@ -1063,7 +1054,7 @@ async function executeApprovedSocialModeration(button) {
   const idempotencyKey = String(metadata.idempotencyKey || "");
   if (!idempotencyKey) return toast("Approved action is missing its idempotency key.", "error");
   try {
-    if (!config.demoMode) await client.socialAction(
+    await client.socialAction(
       state.selectedConversationId,
       approval.action_type,
       { ...(metadata.actionBody || {}), approvalId: approval.id },
@@ -1076,15 +1067,15 @@ async function executeApprovedSocialModeration(button) {
 
 async function analyseConversation() {
   try {
-    if (!config.demoMode) await client.analyse(state.selectedConversationId, { operation: "operator_refresh", scheduleFollowUp: true });
-    toast(config.demoMode ? "Demo analysis is already present." : "AIMS analysis started.");
+    await client.analyse(state.selectedConversationId, { operation: "operator_refresh", scheduleFollowUp: true });
+    toast("AIMS analysis started.");
   } catch (error) { toast(error.message || "Analysis could not be started.", "error"); }
 }
 
 
 async function decideApproval(approvalId, decision) {
   try {
-    if (!config.demoMode) await client.decideApproval(approvalId, decision, "Decision recorded in AIMS UI");
+    await client.decideApproval(approvalId, decision, "Decision recorded in AIMS UI");
     toast(`Approval ${decision === "approve" ? "granted" : "rejected"}.`);
     await openConversation(state.selectedConversationId);
   } catch (error) { toast(error.message || "Approval decision could not be recorded.", "error"); }
@@ -1092,7 +1083,7 @@ async function decideApproval(approvalId, decision) {
 
 async function replayQuarantine(id) {
   try {
-    if (!config.demoMode) await client.replayQuarantine(id);
+    await client.replayQuarantine(id);
     state.quarantine = state.quarantine.filter((item) => item.id !== id);
     toast("Replay accepted with idempotency protection.");
   } catch (error) { toast(error.message || "Quarantine item could not be replayed.", "error"); }
@@ -1102,7 +1093,7 @@ async function openNotification(button) {
   const id = button.dataset.notificationId;
   const conversationId = button.dataset.conversationId;
   try {
-    if (!config.demoMode) await client.markNotification(id, "read");
+    await client.markNotification(id, "read");
     const notification = state.notifications.find((item) => item.id === id);
     if (notification) notification.status = "read";
   } catch {}
