@@ -1,124 +1,60 @@
 # AIMS UI
 
-A deliberately light interface layer for the AIMS-owned Comms Hub.
+AIMS UI is the operator interface for the AIMS-owned Comms Hub. It contains a browser console, the CogniPal widget source and a Cloudflare Worker gateway that keeps AIMS/HIVE delegation secrets out of the browser.
 
-The repository contains three independently deployable surfaces:
+## Surfaces
 
-- `apps/console`: internal queue and conversation workspace for HIVE operators.
-- `apps/widget`: embeddable CogniPal website chat widget.
-- `workers/gateway`: Cloudflare Worker that keeps AIMS delegation secrets out of browsers and supplies the CogniPal relay contract used by AIMS.
+- `apps/console` — internal conversation, queue, approval and operations workspace.
+- `apps/widget` — embeddable CogniPal website-chat widget.
+- `workers/gateway` — authenticated console proxy and first-party CogniPal relay.
 
-The applications use browser-native modules and no runtime UI framework. That keeps the first production slice small, reviewable and free of dependency-chain surprises. The component boundaries are intentionally compatible with a later React migration if HIVE component sharing becomes worthwhile.
+## Console capabilities
 
-## Current slice
+- Unified Inbox with nested **DMs** and **Comments** queues.
+- Facebook and Instagram DMs grouped together.
+- Facebook, Instagram and YouTube comments grouped separately.
+- Filters for status, channel, priority, owner, tag, overdue and AI state.
+- Conversation thread, contact context, AI context, notes, assignment, reply and takeover controls.
+- Approval, quarantine, workflow, analytics, notification and settings surfaces.
+- Social capability/status display, webhook reconciliation and controlled polling.
+- Live API mode only. Connection failures remain visible and never fall back to invented data.
 
-Implemented:
+## Secure HIVE hand-off
 
-- Responsive light console shell.
-- Unified inbox with nested **DMs** and **Comments** operator queues; DMs/comments are no longer top-level navigation items.
-- Unified queue filters for status, channel, priority, owner, tag, overdue and AI state.
-- Conversation workspace with chronological thread, contact context, AI context, notes, status, assignment, reply and chat takeover controls.
-- Notification, approval, quarantine, workflow, analytics and settings surfaces.
-- Live API mode only. Failed gateway requests remain visible as connection errors and never fall back to invented data.
-- Shadow-DOM CogniPal widget with consent, persistent session, polling, cold-start state, retries and accessible keyboard controls.
-- Gateway-side HIVE identity verification and HMAC delegation to AIMS.
-- Gateway-side public chat sessions, CogniPal-compatible webhook signing, AIMS outbound relay and D1 message persistence.
-- Node validation, tests and dependency-free static builds.
+HIVE opens the console through `/api/auth/comms-handoff`. HIVE-UI creates a short-lived signed hand-off token and redirects to `https://chat.jonathan-harris.online/console/#handoff=...`. The fragment is consumed immediately and removed from the address bar.
 
-Not enabled by this repository alone:
+`HIVE_COMMS_HANDOFF_SECRET` must match between HIVE-UI and the AIMS-UI gateway. The browser uses same-origin `/console/api`; the gateway validates the hand-off/session and delegates to AIMS server-side.
 
-- A production HIVE identity-verification endpoint.
-- Production D1 identifiers and Worker secrets.
-- Live AIMS, one.com, Zernio or AI provider testing.
-- Website installation of the widget loader.
+## Gateway boundaries
 
-## Validate
+- `/console/api/*` — authenticated proxy to protected AIMS Comms Hub routes.
+- `/widget/*` — public widget session/message contract.
+- `POST /comms-hub/intake/chat` and `/comms-hub/intake/chat/sync` — signed first-party pass-through to AIMS.
+
+AIMS outbound website-chat replies use the gateway's session-message contract with the configured CogniPal API secret.
+
+## Local verification
 
 ```bash
 npm run validate
 ```
 
-No package installation is required for this initial slice.
-
-## Local preview
+For local preview:
 
 ```bash
 npm run dev
 ```
 
-Open:
+The console is available at `http://127.0.0.1:4173/apps/console/`.
 
-- Console: `http://127.0.0.1:4173/apps/console/`
+## Deployment
 
-The console always uses the configured live gateway and reports connection failures rather than inventing data.
+The Cloudflare Worker serves the operator assets and API gateway on `chat.jonathan-harris.online`. The operator console is `/console/`. Configure `window.AIMS_UI_CONFIG` before the console application script loads, using the same-origin API base.
 
-## Build output
+The Worker requires its production D1 binding plus the AIMS/HIVE hand-off and delegation secrets documented in `workers/gateway/README.md` and `wrangler.toml`.
 
-```bash
-npm run build
-```
+## Widget
 
-Produces:
+The widget is isolated in Shadow DOM, persists its session, supports polling/retry/cold-start states and includes keyboard/accessibility controls. Website installation is governed in the website repository; the current public website uses its own first-party CogniPal assets and Pages Functions rather than depending on this repository alone for installation.
 
-- `dist/console`
-- `dist/widget`
-- `dist/gateway`
-
-## Console deployment
-
-For the `chat.jonathan-harris.online` custom domain, deploy the gateway as a Cloudflare Worker with the `ASSETS` binding from `wrangler.toml`; the Worker serves `dist` for non-API routes. Do not attach the chat custom domain to an API-only Worker without the assets binding. Deploy `dist` as the Cloudflare Pages output directory. The operator console is served at `/console/`; the generated root `index.html` safely redirects `/` to `/console/` while preserving the signed HIVE handoff fragment. Configure `window.AIMS_UI_CONFIG` before `app.js` loads:
-
-```html
-<script>
-  window.AIMS_UI_CONFIG = {
-    apiBaseUrl: "https://chat.jonathan-harris.online/console/api",
-    productName: "AIMS Comms Hub"
-  };
-</script>
-```
-
-The browser does not receive `COMMS_HUB_RBAC_DELEGATION_SECRET`. The gateway verifies the current HIVE session and signs the delegated AIMS identity server-side.
-
-## Website widget installation
-
-```html
-<script
-  src="https://chat.jonathan-harris.online/widget/cognipal-widget.js"
-  data-api-base="https://chat.jonathan-harris.online"
-  data-site-id="jonathan-harris.online"
-  data-icon-url="https://assets.jonathan-harris.online/CogniPal.jpg"
-  data-position="right"
-  defer
-></script>
-```
-
-The script mounts one `<cognipal-widget>` element and isolates its styles in Shadow DOM.
-
-## Gateway deployment
-
-See `workers/gateway/README.md` and `workers/gateway/wrangler.toml.example`.
-
-The gateway has three hard boundaries:
-
-- `/console/api/*` is an authenticated proxy to protected AIMS Comms Hub routes.
-- `/widget/*` exposes only the legacy public session/message contract.
-- `POST /comms-hub/intake/chat` and `POST /comms-hub/intake/chat/sync` are exact first-party CogniPal pass-through routes. They preserve the signed JSON body and `x-coginpal-*` headers and forward them to `${AIMS_API_BASE_URL}` for AIMS to verify. This allows the website Pages gateway to use `https://chat.jonathan-harris.online` as its stable upstream without exposing the raw AIMS origin.
-
-AIMS outbound website-chat replies use the provider-compatible endpoint:
-
-`POST /sessions/:sessionId/messages`
-
-with `Authorization: Bearer <COGNIPAL_API_KEY>`.
-
-## Secure HIVE handoff
-
-The operator console is opened from HIVE through `/api/auth/comms-handoff`. HIVE-UI validates its host-only session cookie, creates a short-lived signed handoff token and redirects to `https://chat.jonathan-harris.online/console/#handoff=...`. The fragment is not sent in the HTTP request; the console consumes it immediately, stores it for the browser session and removes it from the address bar.
-
-Configure the same `HIVE_COMMS_HANDOFF_SECRET` in HIVE-UI Pages and the AIMS-UI gateway Worker. The AIMS-UI browser API remains same-origin `/console/api`; the gateway proxies accepted console routes to `${AIMS_API_BASE_URL}/comms-hub/*`. `HIVE_IDENTITY_VERIFY_URL` is legacy fallback only and is not required for the normal cross-subdomain flow.
-
-The console provides a persistent **Back to HIVE** control pointing to `https://hive.jonathan-harris.online`.
-
-## Social inbox grouping
-
-The console has dedicated **DMs** and **Comments** work queues. Facebook and Instagram DMs are grouped together; Facebook, Instagram and YouTube comments are grouped separately. Platform badges remain visible inside each group. The workspace uses AIMS social-thread metadata rather than subject heuristics, and the Settings page can read social capability status, reconcile enabled webhook families and trigger a controlled poll. Social replies use the existing AIMS idempotent provider-action routes, while monitoring-only mode visibly locks provider mutations.
-
+See `workers/gateway/README.md`, `apps/widget/README.md` and `docs/architecture.md` for component-level details.
