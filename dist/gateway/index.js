@@ -507,18 +507,21 @@ async function exchangeHiveHandoff(request, env) {
     return withCors(json({ error: "method_not_allowed", message: "Use POST to establish a console session." }, { status: 405, headers: { allow: "POST" } }), origin, { credentials: true });
   }
   const token = bearerToken(request);
-  if (!token || !normalise(env.HIVE_COMMS_HANDOFF_SECRET)) {
+  if (!token) {
     return withCors(json({ error: "hive_handoff_invalid", message: "HIVE handoff token is missing or invalid." }, { status: 401, headers: { "set-cookie": clearConsoleSessionCookie() } }), origin, { credentials: true });
   }
-  const identity = await verifyHiveHandoffToken(token, env.HIVE_COMMS_HANDOFF_SECRET);
-  if (!identity) {
-    return withCors(json({ error: "hive_handoff_invalid", message: "HIVE handoff token is invalid or expired." }, { status: 401, headers: { "set-cookie": clearConsoleSessionCookie() } }), origin, { credentials: true });
-  }
+
+  // Preserve the pre-hardening deployment contract: verify locally when the
+  // shared handoff secret exists, otherwise use the configured HIVE identity
+  // verifier. The browser still exchanges the handoff for an HttpOnly cookie.
+  const identity = await verifyHiveIdentity(request, env);
   const encodedBody = token.split(".")[0];
   let maxAge = CONSOLE_SESSION_MAX_AGE_SECONDS;
   try {
     const payload = JSON.parse(new TextDecoder().decode(base64UrlDecode(encodedBody)));
-    maxAge = Math.max(1, Math.min(CONSOLE_SESSION_MAX_AGE_SECONDS, Number(payload.exp) - Math.floor(Date.now() / 1000)));
+    if (Number.isFinite(Number(payload.exp))) {
+      maxAge = Math.max(1, Math.min(CONSOLE_SESSION_MAX_AGE_SECONDS, Number(payload.exp) - Math.floor(Date.now() / 1000)));
+    }
   } catch {}
   return withCors(json({ ok: true, authenticated: true, actor: identity.actor, role: identity.role }, {
     headers: { "set-cookie": consoleSessionCookie(token, maxAge) },
@@ -532,31 +535,40 @@ async function verifyHiveIdentity(request, env) {
   }
 
   const token = bearerToken(request) || readCookie(request, CONSOLE_SESSION_COOKIE_NAME);
-  if (token && env.HIVE_COMMS_HANDOFF_SECRET) {
+  let localHandoffRejected = false;
+  if (token && normalise(env.HIVE_COMMS_HANDOFF_SECRET)) {
     const identity = await verifyHiveHandoffToken(token, env.HIVE_COMMS_HANDOFF_SECRET);
     if (identity) return identity;
-    throw Object.assign(new Error("HIVE handoff token is invalid or expired."), { status: 401, code: "hive_handoff_invalid" });
+    localHandoffRejected = true;
   }
 
-  // Legacy verification remains available only for deployments that deliberately expose
-  // a compatible HIVE identity endpoint. Cross-subdomain browser cookies are not relied on.
-  if (!env.HIVE_IDENTITY_VERIFY_URL) {
-    throw Object.assign(new Error("HIVE communications handoff is not configured."), { status: 503, code: "hive_identity_unconfigured" });
+  // Backwards-compatible verifier path. When the handoff has already been
+  // exchanged for an HttpOnly AIMS cookie, convert that cookie-held token back
+  // into the Bearer form expected by the existing HIVE identity endpoint.
+  const identityVerifyUrl = normalise(env.HIVE_IDENTITY_VERIFY_URL) || "https://hive.jonathan-harris.online/api/auth/comms-identity";
+  if (identityVerifyUrl) {
+    const method = normalise(env.HIVE_IDENTITY_VERIFY_METHOD || "GET").toUpperCase();
+    const headers = new Headers({ accept: "application/json" });
+    const originalAuthorization = request.headers.get("authorization");
+    if (originalAuthorization) headers.set("authorization", originalAuthorization);
+    else if (token) headers.set("authorization", `Bearer ${token}`);
+    const accessAssertion = request.headers.get("cf-access-jwt-assertion");
+    if (accessAssertion) headers.set("cf-access-jwt-assertion", accessAssertion);
+
+    const response = await fetch(identityVerifyUrl, { method, headers, redirect: "manual" });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) throw Object.assign(new Error("HIVE session is not authorised."), { status: 401, code: "hive_identity_invalid" });
+    const identity = payload?.identity || payload?.user || payload;
+    const actor = normalise(identity?.actor || identity?.email || identity?.id).slice(0, 200);
+    const role = normalise(identity?.role).toLowerCase();
+    if (!actor || !ALLOWED_ROLES.has(role)) throw Object.assign(new Error("HIVE identity response is incomplete."), { status: 502, code: "hive_identity_response_invalid" });
+    return { actor, role };
   }
-  const method = normalise(env.HIVE_IDENTITY_VERIFY_METHOD || "GET").toUpperCase();
-  const headers = new Headers({ accept: "application/json" });
-  for (const name of ["cookie", "authorization", "cf-access-jwt-assertion"]) {
-    const value = request.headers.get(name);
-    if (value) headers.set(name, value);
+
+  if (localHandoffRejected) {
+    throw Object.assign(new Error("HIVE handoff token is invalid or expired."), { status: 401, code: "hive_handoff_invalid" });
   }
-  const response = await fetch(env.HIVE_IDENTITY_VERIFY_URL, { method, headers, redirect: "manual" });
-  const payload = await response.json().catch(() => null);
-  if (!response.ok) throw Object.assign(new Error("HIVE session is not authorised."), { status: 401, code: "hive_identity_invalid" });
-  const identity = payload?.identity || payload?.user || payload;
-  const actor = normalise(identity?.actor || identity?.email || identity?.id).slice(0, 200);
-  const role = normalise(identity?.role).toLowerCase();
-  if (!actor || !ALLOWED_ROLES.has(role)) throw Object.assign(new Error("HIVE identity response is incomplete."), { status: 502, code: "hive_identity_response_invalid" });
-  return { actor, role };
+  throw Object.assign(new Error("HIVE communications handoff is not configured."), { status: 503, code: "hive_identity_unconfigured" });
 }
 
 export function consoleTargetPath(pathname) {

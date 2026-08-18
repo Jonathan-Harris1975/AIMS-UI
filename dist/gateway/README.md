@@ -29,7 +29,7 @@ These are server-to-server pass-through routes for the website Pages Functions. 
 
 - `/console/api/*`
 
-The gateway verifies the current HIVE session, resolves an actor and Comms Hub role, then signs the exact target path using `COMMS_HUB_RBAC_DELEGATION_SECRET`. The secret is never sent to the browser.
+The gateway verifies the current HIVE session, resolves an actor and Comms Hub role, then signs the exact target path using `COMMS_HUB_RBAC_DELEGATION_SECRET`. HIVE handoffs are verified locally when a shared handoff secret is configured, otherwise through the HIVE-UI `/api/auth/comms-identity` endpoint. The delegation secret is never sent to the browser.
 
 ## Provisioning
 
