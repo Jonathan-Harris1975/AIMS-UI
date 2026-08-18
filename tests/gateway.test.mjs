@@ -207,6 +207,76 @@ test("HIVE handoff is exchanged for an HttpOnly host-only console cookie", async
   assert.equal(cookie.includes("Domain="), false);
 });
 
+
+test("HIVE handoff remains compatible with the existing identity verifier when no shared secret is configured", async () => {
+  const originalFetch = globalThis.fetch;
+  const token = "legacy-handoff-token";
+  let seenAuthorization = "";
+  globalThis.fetch = async (target, init = {}) => {
+    assert.equal(String(target), "https://hive.jonathan-harris.online/api/auth/comms-identity");
+    seenAuthorization = new Headers(init.headers).get("authorization") || "";
+    return new Response(JSON.stringify({ actor: "hive-owner", role: "operator" }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+  try {
+    const response = await gateway.fetch(new Request("https://chat.jonathan-harris.online/console/api/auth/handoff", {
+      method: "POST",
+      headers: {
+        origin: "https://chat.jonathan-harris.online",
+        authorization: `Bearer ${token}`,
+      },
+    }), {
+      HIVE_IDENTITY_VERIFY_METHOD: "GET",
+      CONSOLE_ALLOWED_ORIGINS: "https://chat.jonathan-harris.online",
+    });
+    assert.equal(response.status, 200);
+    assert.equal(seenAuthorization, `Bearer ${token}`);
+    assert.match(response.headers.get("set-cookie") || "", /__Host-aims_console_session=/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("legacy identity verification receives the HttpOnly cookie token as a Bearer credential", async () => {
+  const originalFetch = globalThis.fetch;
+  const token = "legacy-handoff-token";
+  let identityAuthorization = "";
+  globalThis.fetch = async (target, init = {}) => {
+    const url = String(target);
+    if (url === "https://hive.jonathan-harris.online/api/auth/comms-identity") {
+      identityAuthorization = new Headers(init.headers).get("authorization") || "";
+      return new Response(JSON.stringify({ actor: "hive-owner", role: "operator" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    assert.equal(url, "https://app.jonathan-harris.online/comms-hub/ui/bootstrap");
+    return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } });
+  };
+  try {
+    const response = await gateway.fetch(new Request("https://chat.jonathan-harris.online/console/api/ui/bootstrap", {
+      method: "GET",
+      headers: {
+        referer: "https://chat.jonathan-harris.online/console/",
+        cookie: `__Host-aims_console_session=${encodeURIComponent(token)}`,
+      },
+    }), {
+      ENVIRONMENT: "production",
+      AIMS_API_BASE_URL: "https://app.jonathan-harris.online",
+      AIMS_API_KEY: "aims-api-key",
+      COMMS_HUB_RBAC_DELEGATION_SECRET: "delegation-secret",
+      HIVE_IDENTITY_VERIFY_METHOD: "GET",
+      CONSOLE_ALLOWED_ORIGINS: "https://chat.jonathan-harris.online",
+    });
+    assert.equal(response.status, 200);
+    assert.equal(identityAuthorization, `Bearer ${token}`);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("console HTML receives a restrictive CSP", async () => {
   const response = await gateway.fetch(new Request("https://chat.jonathan-harris.online/console/"), {
     ASSETS: { fetch: async () => new Response("<html></html>", { headers: { "content-type": "text/html; charset=utf-8" } }) },
