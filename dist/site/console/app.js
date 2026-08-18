@@ -1,6 +1,6 @@
-import { AimsCommsClient, AimsApiError } from "@aims/api";
-import { escapeHtml, formatDateTime, formatRelativeTime, secondsToAge, titleCase } from "@aims/shared";
-import { roleAllows } from "@aims/contracts";
+import { AimsCommsClient, AimsApiError } from "./lib/api-client.js";
+import { escapeHtml, formatDateTime, formatRelativeTime, secondsToAge, titleCase } from "./lib/format.js";
+import { roleAllows } from "./lib/contracts.js";
 
 const root = document.querySelector("#app");
 const query = new URLSearchParams(location.search);
