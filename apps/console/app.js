@@ -61,7 +61,6 @@ const icons = {
   inbox: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v12h-5l-2 3h-2l-2-3H4V4Zm2 2v8h4l2 3 2-3h4V6H6Z"/></svg>`,
   dm: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v13H8l-4 4V4Zm3 4v2h10V8H7Zm0 4v2h7v-2H7Z"/></svg>`,
   comment: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v13H9l-6 4V4Zm3 3v7h11V7H6Zm2 2h7v2H8V9Z"/></svg>`,
-  email: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3V5Zm2 2v.4l7 4.6 7-4.6V7H5Zm14 10V9.8l-7 4.5-7-4.5V17h14Z"/></svg>`,
   approval: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4 5v6c0 5.1 3.4 9.8 8 11 4.6-1.2 8-5.9 8-11V5l-8-3Zm-1 14-4-4 1.4-1.4 2.6 2.6 4.6-4.6L17 10l-6 6Z"/></svg>`,
   contacts: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0H5Z"/></svg>`,
   workflow: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h6v5H6V3Zm8 13h4v5h-6v-5h2Zm-9-1h6v5H5v-5Zm4-7v3h6v3h2v-5H11V8H9Z"/></svg>`,
@@ -92,8 +91,6 @@ const inboxSubItems = [
   ["inbox", "All conversations", icons.inbox],
   ["dms", "DMs", icons.dm],
   ["comments", "Comments", icons.comment],
-  ["admin-email", "Admin email", icons.email],
-  ["newsletter-email", "Newsletter email", icons.email],
 ];
 const inboxRouteViews = new Set(inboxSubItems.map(([key]) => key));
 const routableViews = new Set([...navItems.map(([key]) => key), ...inboxRouteViews]);
@@ -104,9 +101,6 @@ function workspaceInboxView() {
   const socialThread = conversation?.socialThread || null;
   if (socialThread?.thread_type === "dm") return "dms";
   if (socialThread?.thread_type === "comment") return "comments";
-  const emailAccountKey = String(workspace?.emailThread?.account_key || "").toLowerCase();
-  if (conversation.channel === "email" && emailAccountKey === "admin") return "admin-email";
-  if (conversation.channel === "email" && emailAccountKey === "newsletter") return "newsletter-email";
   return "inbox";
 }
 
@@ -122,7 +116,6 @@ function isInboxFamilyView() {
 function allowedChannelsForView(view = state.view) {
   if (view === "dms") return ["facebook", "instagram"];
   if (view === "comments") return ["facebook", "instagram", "youtube"];
-  if (view === "admin-email" || view === "newsletter-email") return ["email"];
   return null;
 }
 
@@ -139,7 +132,7 @@ function isSocialChannel(channel) {
   return ["facebook", "instagram", "youtube"].includes(String(channel || "").toLowerCase());
 }
 
-function queueRows({ interactionType = "", socialOnly = false, emailAccountKey = "" } = {}) {
+function queueRows({ interactionType = "", socialOnly = false } = {}) {
   const term = state.search.trim().toLowerCase();
   return state.queue.filter((row) => {
     if (!state.filters.status && row.operational_status === "archived") return false;
@@ -151,7 +144,6 @@ function queueRows({ interactionType = "", socialOnly = false, emailAccountKey =
     if (state.filters.aiStatus && row.ai_status !== state.filters.aiStatus && row.latest_ai_status !== state.filters.aiStatus) return false;
     if (socialOnly && !isSocialChannel(row.channel)) return false;
     if (interactionType && socialInteractionType(row) !== interactionType) return false;
-    if (emailAccountKey && (row.channel !== "email" || String(row.email_account_key || "").toLowerCase() !== emailAccountKey)) return false;
     if (!term) return true;
     return [row.display_name, row.primary_email, row.subject, row.summary_text, row.intent, row.channel, row.social_platform, row.email_account_key, socialInteractionType(row)]
       .some((value) => String(value || "").toLowerCase().includes(term));
@@ -449,26 +441,6 @@ function socialGroupView(type) {
 function dmsView() { return socialGroupView("dm"); }
 function commentsView() { return socialGroupView("comment"); }
 
-function emailGroupView(accountKey) {
-  const rows = queueRows({ emailAccountKey: accountKey });
-  const isAdmin = accountKey === "admin";
-  const title = isAdmin ? "Admin email" : "Newsletter email";
-  const address = isAdmin ? "admin@jonathan-harris.online" : "newsletter@jonathan-harris.online";
-  const copy = isAdmin
-    ? "A separate one.com admin mailbox inside the Unified Inbox. Replies are operator-controlled."
-    : "A separate one.com newsletter mailbox inside the Unified Inbox. Replies are operator-controlled.";
-  return shell(`
-    ${pageHeader(title, copy, `<button class="button secondary" data-action="refresh">Refresh ${isAdmin ? "admin" : "newsletter"} inbox</button>`)}
-    <section class="panel inbox-panel email-group-panel">
-      <header class="panel-header stacked"><div><strong>${rows.length} conversations</strong><span>${escapeHtml(address)} · manual replies only</span></div>${filterBar(false, ["email"])}</header>
-      ${queueTable(rows)}
-    </section>
-  `);
-}
-
-function adminEmailView() { return emailGroupView("admin"); }
-function newsletterEmailView() { return emailGroupView("newsletter"); }
-
 function pendingApprovals() {
   const approvals = [];
   for (const row of state.queue) {
@@ -617,7 +589,7 @@ function workspaceView() {
   const assignedToMe = operations.owner_type === "person";
   return shell(`
     <section class="workspace-header">
-      <button class="back-button" data-view="${workspaceInboxView()}">‹ <span>${workspaceInboxView() === "dms" ? "DMs" : workspaceInboxView() === "comments" ? "Comments" : workspaceInboxView() === "admin-email" ? "Admin email" : workspaceInboxView() === "newsletter-email" ? "Newsletter email" : "Inbox"}</span></button>
+      <button class="back-button" data-view="${workspaceInboxView()}">‹ <span>${workspaceInboxView() === "dms" ? "DMs" : workspaceInboxView() === "comments" ? "Comments" : "Inbox"}</span></button>
       <div><div class="workspace-title"><h1>${escapeHtml(conversation.subject || "Conversation")}</h1>${statusPill(operations.operational_status || conversation.status)}</div><p>${escapeHtml(contact.display_name || contact.primary_email || "Unknown contact")} · ${escapeHtml(channelLabel(conversation.channel))} · Updated ${escapeHtml(formatRelativeTime(conversation.last_message_at))}</p></div>
       <div class="workspace-actions">
         ${canReply ? `<button class="button secondary" data-action="analyse">Run AI analysis</button>` : ""}
@@ -741,8 +713,6 @@ function render() {
     inbox: inboxView,
     dms: dmsView,
     comments: commentsView,
-    "admin-email": adminEmailView,
-    "newsletter-email": newsletterEmailView,
     workspace: workspaceView,
     approvals: approvalsView,
     contacts: contactsView,
@@ -772,7 +742,7 @@ function bindEvents() {
   }));
   root.querySelector("#global-search")?.addEventListener("input", (event) => {
     state.search = event.target.value;
-    if (!["dashboard", "inbox", "dms", "comments", "admin-email", "newsletter-email"].includes(state.view)) state.view = "inbox";
+    if (!["dashboard", "inbox", "dms", "comments"].includes(state.view)) state.view = "inbox";
     render();
     requestAnimationFrame(() => {
       const input = root.querySelector("#global-search");
