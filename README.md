@@ -23,7 +23,7 @@ AIMS UI is the operator interface for the AIMS-owned Comms Hub. It contains a br
 
 HIVE opens the console through `/api/auth/comms-handoff`. HIVE-UI creates a short-lived signed hand-off token and redirects to `https://chat.jonathan-harris.online/console/#handoff=...`. The fragment is consumed immediately and removed from the address bar.
 
-`HIVE_COMMS_HANDOFF_SECRET` must match between HIVE-UI and the AIMS-UI gateway. The browser uses same-origin `/console/api`; the gateway validates the hand-off/session and delegates to AIMS server-side.
+The browser uses same-origin `/console/api`; the gateway exchanges the short-lived HIVE hand-off for an HttpOnly console cookie and delegates to AIMS server-side. If a matching `HIVE_COMMS_HANDOFF_SECRET` is present the gateway verifies locally; otherwise it uses HIVE-UI's `/api/auth/comms-identity` verifier, so existing deployments do not require a new shared secret.
 
 ## Gateway boundaries
 

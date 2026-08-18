@@ -24,7 +24,7 @@ head_sampling_rate = 1
 [vars]
 ENVIRONMENT = "production"
 AIMS_API_BASE_URL = "https://app.jonathan-harris.online"
-HIVE_IDENTITY_VERIFY_URL = ""
+HIVE_IDENTITY_VERIFY_URL = "https://hive.jonathan-harris.online/api/auth/comms-identity"
 HIVE_IDENTITY_VERIFY_METHOD = "GET"
 CONSOLE_ALLOWED_ORIGINS = "https://chat.jonathan-harris.online"
 WIDGET_ALLOWED_ORIGINS = "https://jonathan-harris.online,https://www.jonathan-harris.online"
