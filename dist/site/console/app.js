@@ -1,14 +1,12 @@
 import { AimsCommsClient, AimsApiError } from "@aims/api";
 import { escapeHtml, formatDateTime, formatRelativeTime, secondsToAge, titleCase } from "@aims/shared";
 import { roleAllows } from "@aims/contracts";
-import { demoBootstrap, demoMetrics, demoQuarantine, demoWorkspace } from "./mock-data.js";
 
 const root = document.querySelector("#app");
 const query = new URLSearchParams(location.search);
 const supplied = globalThis.AIMS_UI_CONFIG || {};
 const config = Object.freeze({
   apiBaseUrl: String(supplied.apiBaseUrl || "/console/api").replace(/\/+$/, ""),
-  demoMode: supplied.demoMode === true || query.get("demo") === "1",
   embedded: query.get("embed") === "1",
   productName: String(supplied.productName || "AIMS Comms Hub"),
   hiveHomeUrl: String(supplied.hiveHomeUrl || "https://hive.jonathan-harris.online").replace(/\/+$/, ""),
@@ -42,7 +40,11 @@ const state = {
   notifications: [],
   workspace: null,
   selectedConversationId: "",
-  filters: { status: "", channel: "", priority: "", ownerId: "", tag: "", overdue: false, aiStatus: "" },
+  selectedContactId: "",
+  contactProfile: null,
+  contactBusy: false,
+  filters: { status: "", channel: "", priority: "", ownerId: "", ownerMode: "", tag: "", overdue: false, aiStatus: "" },
+  workspaceContextTab: "details",
   search: "",
   loading: false,
   error: null,
@@ -60,7 +62,6 @@ const icons = {
   inbox: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v12h-5l-2 3h-2l-2-3H4V4Zm2 2v8h4l2 3 2-3h4V6H6Z"/></svg>`,
   dm: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v13H8l-4 4V4Zm3 4v2h10V8H7Zm0 4v2h7v-2H7Z"/></svg>`,
   comment: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v13H9l-6 4V4Zm3 3v7h11V7H6Zm2 2h7v2H8V9Z"/></svg>`,
-  email: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3V5Zm2 2v.4l7 4.6 7-4.6V7H5Zm14 10V9.8l-7 4.5-7-4.5V17h14Z"/></svg>`,
   approval: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4 5v6c0 5.1 3.4 9.8 8 11 4.6-1.2 8-5.9 8-11V5l-8-3Zm-1 14-4-4 1.4-1.4 2.6 2.6 4.6-4.6L17 10l-6 6Z"/></svg>`,
   contacts: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0H5Z"/></svg>`,
   workflow: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h6v5H6V3Zm8 13h4v5h-6v-5h2Zm-9-1h6v5H5v-5Zm4-7v3h6v3h2v-5H11V8H9Z"/></svg>`,
@@ -91,8 +92,6 @@ const inboxSubItems = [
   ["inbox", "All conversations", icons.inbox],
   ["dms", "DMs", icons.dm],
   ["comments", "Comments", icons.comment],
-  ["admin-email", "Admin email", icons.email],
-  ["newsletter-email", "Newsletter email", icons.email],
 ];
 const inboxRouteViews = new Set(inboxSubItems.map(([key]) => key));
 const routableViews = new Set([...navItems.map(([key]) => key), ...inboxRouteViews]);
@@ -103,9 +102,6 @@ function workspaceInboxView() {
   const socialThread = conversation?.socialThread || null;
   if (socialThread?.thread_type === "dm") return "dms";
   if (socialThread?.thread_type === "comment") return "comments";
-  const emailAccountKey = String(workspace?.emailThread?.account_key || "").toLowerCase();
-  if (conversation.channel === "email" && emailAccountKey === "admin") return "admin-email";
-  if (conversation.channel === "email" && emailAccountKey === "newsletter") return "newsletter-email";
   return "inbox";
 }
 
@@ -121,7 +117,6 @@ function isInboxFamilyView() {
 function allowedChannelsForView(view = state.view) {
   if (view === "dms") return ["facebook", "instagram"];
   if (view === "comments") return ["facebook", "instagram", "youtube"];
-  if (view === "admin-email" || view === "newsletter-email") return ["email"];
   return null;
 }
 
@@ -138,7 +133,7 @@ function isSocialChannel(channel) {
   return ["facebook", "instagram", "youtube"].includes(String(channel || "").toLowerCase());
 }
 
-function queueRows({ interactionType = "", socialOnly = false, emailAccountKey = "" } = {}) {
+function queueRows({ interactionType = "", socialOnly = false } = {}) {
   const term = state.search.trim().toLowerCase();
   return state.queue.filter((row) => {
     if (!state.filters.status && row.operational_status === "archived") return false;
@@ -146,11 +141,11 @@ function queueRows({ interactionType = "", socialOnly = false, emailAccountKey =
     if (state.filters.channel && row.channel !== state.filters.channel) return false;
     if (state.filters.priority && row.priority_label !== state.filters.priority) return false;
     if (state.filters.ownerId && row.owner_id !== state.filters.ownerId) return false;
+    if (state.filters.ownerMode && row.owner_type !== state.filters.ownerMode) return false;
     if (state.filters.overdue && !row.response_overdue) return false;
     if (state.filters.aiStatus && row.ai_status !== state.filters.aiStatus && row.latest_ai_status !== state.filters.aiStatus) return false;
     if (socialOnly && !isSocialChannel(row.channel)) return false;
     if (interactionType && socialInteractionType(row) !== interactionType) return false;
-    if (emailAccountKey && (row.channel !== "email" || String(row.email_account_key || "").toLowerCase() !== emailAccountKey)) return false;
     if (!term) return true;
     return [row.display_name, row.primary_email, row.subject, row.summary_text, row.intent, row.channel, row.social_platform, row.email_account_key, socialInteractionType(row)]
       .some((value) => String(value || "").toLowerCase().includes(term));
@@ -233,8 +228,8 @@ function shell(content) {
         <div class="sidebar-footer">
           <a class="hive-home-link" href="${escapeHtml(config.hiveHomeUrl)}" aria-label="Return to HIVE">${icons.home}<span>Back to HIVE</span></a>
           <div class="service-card">
-            <span class="service-dot ${config.demoMode ? "demo" : "live"}"></span>
-            <div><strong>${config.demoMode ? "Demo data" : "Live gateway"}</strong><small>${escapeHtml(config.apiBaseUrl)}</small></div>
+            <span class="service-dot live"></span>
+            <div><strong>Live gateway</strong><small>${escapeHtml(config.apiBaseUrl)}</small></div>
           </div>
           <div class="user-card">
             <div class="avatar">${escapeHtml(String(identity.actor || "U").charAt(0).toUpperCase())}</div>
@@ -362,6 +357,21 @@ function filterBar(compact = false, allowedChannels = null) {
   `;
 }
 
+function quickFilterBar() {
+  const active = (key) => {
+    if (key === "all") return !state.filters.status && !state.filters.priority && !state.filters.overdue && !state.filters.ownerMode;
+    if (key === "overdue") return state.filters.overdue;
+    if (key === "open") return state.filters.status === "open";
+    if (key === "high") return state.filters.priority === "high";
+    if (key === "mine") return state.filters.ownerMode === "person";
+    return false;
+  };
+  return `<div class="quick-filters" aria-label="Quick inbox filters">
+    <span>Quick views</span>
+    ${[["all", "All"], ["overdue", "Overdue"], ["open", "Open"], ["high", "High priority"], ["mine", "Assigned to me"]].map(([key, label]) => `<button type="button" class="quick-filter ${active(key) ? "active" : ""}" data-quick-filter="${key}" aria-pressed="${active(key)}">${label}</button>`).join("")}
+  </div>`;
+}
+
 function queueTable(rows = queueRows(), limit = 50, compact = false) {
   const visible = rows.slice(0, limit);
   if (!visible.length) return emptyState("No matching conversations", "Change the filters or search terms. Nothing is hiding under the rug.");
@@ -385,6 +395,19 @@ function queueTable(rows = queueRows(), limit = 50, compact = false) {
           `).join("")}
         </tbody>
       </table>
+      <div class="queue-cards" aria-label="Conversations">
+        ${visible.map((row) => `
+          <button type="button" class="queue-card" data-conversation-id="${escapeHtml(row.id)}">
+            <span class="queue-card-head">
+              <span class="channel-avatar channel-${escapeHtml(row.channel)}">${escapeHtml(channelLabel(row.channel).charAt(0))}</span>
+              <span class="queue-card-title"><strong>${escapeHtml(row.display_name || row.primary_email || "Unknown contact")}</strong><span>${escapeHtml(row.subject || row.summary_text || "Conversation")}</span></span>
+              ${priorityPill(row.priority_label)}
+            </span>
+            <span class="queue-card-tags"><span class="channel-label channel-label-${escapeHtml(row.channel)}">${escapeHtml(channelLabel(row.channel))}</span><span class="interaction-label interaction-${escapeHtml(socialInteractionType(row) || row.channel)}">${escapeHtml(interactionLabel(row))}</span>${statusPill(row.operational_status)}</span>
+            <span class="queue-card-meta"><span><b>Response</b>${escapeHtml(row.response_due_at ? formatDateTime(row.response_due_at) : secondsToAge(row.age_seconds))}${row.response_overdue ? ` <em>Overdue</em>` : ""}</span><span><b>Owner</b>${row.owner_type === "person" ? "Me" : row.owner_type === "automation" ? "Automated" : "Assigned"}</span><span><b>AI</b>${escapeHtml(titleCase(row.intent || "Unanalysed"))}</span></span>
+          </button>
+        `).join("")}
+      </div>
     </div>
   `;
 }
@@ -406,7 +429,7 @@ function dashboardView() {
         <div class="channel-bars">
           ${channelCounts.map(([channel, count]) => `<div><span>${escapeHtml(channelLabel(channel))}</span><div><i style="width:${Math.round((count / maximum) * 100)}%"></i></div><b>${count}</b></div>`).join("") || `<p class="muted">No queue records yet.</p>`}
         </div>
-        <div class="health-strip"><span class="service-dot ${state.error ? "warning" : "live"}"></span><div><strong>${state.error ? "Gateway attention required" : "Console data loaded"}</strong><small>${config.demoMode ? "Explicit demo mode" : "Protected AIMS API"}</small></div></div>
+        <div class="health-strip"><span class="service-dot ${state.error ? "warning" : "live"}"></span><div><strong>${state.error ? "Gateway attention required" : "Console data loaded"}</strong><small>Protected AIMS API</small></div></div>
       </section>
     </div>
   `);
@@ -416,7 +439,7 @@ function inboxView() {
   return shell(`
     ${pageHeader("Unified inbox", "Filter and triage every supported channel without losing the thread.", `<button class="button secondary" data-action="refresh">Refresh queue</button>`)}
     <section class="panel inbox-panel">
-      <header class="panel-header stacked"><div><strong>${queueRows().length} conversations</strong><span>Live filters remain local until refresh, preventing accidental query storms.</span></div>${filterBar()}</header>
+      <header class="panel-header stacked"><div><strong>${queueRows().length} conversations</strong><span>Live filters remain local until refresh, preventing accidental query storms.</span></div>${quickFilterBar()}${filterBar()}</header>
       ${queueTable()}
     </section>
   `);
@@ -448,26 +471,6 @@ function socialGroupView(type) {
 function dmsView() { return socialGroupView("dm"); }
 function commentsView() { return socialGroupView("comment"); }
 
-function emailGroupView(accountKey) {
-  const rows = queueRows({ emailAccountKey: accountKey });
-  const isAdmin = accountKey === "admin";
-  const title = isAdmin ? "Admin email" : "Newsletter email";
-  const address = isAdmin ? "admin@jonathan-harris.online" : "newsletter@jonathan-harris.online";
-  const copy = isAdmin
-    ? "A separate one.com admin mailbox inside the Unified Inbox. Replies are operator-controlled."
-    : "A separate one.com newsletter mailbox inside the Unified Inbox. Replies are operator-controlled.";
-  return shell(`
-    ${pageHeader(title, copy, `<button class="button secondary" data-action="refresh">Refresh ${isAdmin ? "admin" : "newsletter"} inbox</button>`)}
-    <section class="panel inbox-panel email-group-panel">
-      <header class="panel-header stacked"><div><strong>${rows.length} conversations</strong><span>${escapeHtml(address)} · manual replies only</span></div>${filterBar(false, ["email"])}</header>
-      ${queueTable(rows)}
-    </section>
-  `);
-}
-
-function adminEmailView() { return emailGroupView("admin"); }
-function newsletterEmailView() { return emailGroupView("newsletter"); }
-
 function pendingApprovals() {
   const approvals = [];
   for (const row of state.queue) {
@@ -495,12 +498,37 @@ function approvalsView() {
 }
 
 function contactsView() {
-  const contacts = [...new Map(state.queue.map((row) => [row.contact_id, row])).values()];
+  const contacts = [...new Map(state.queue
+    .filter((row) => row.contact_id && !(row.display_name === "Deleted contact" && !row.primary_email))
+    .map((row) => [row.contact_id, row])).values()];
+  const role = state.bootstrap?.identity?.role || "read_only";
+  const canEdit = roleAllows(role, "identity");
+  const canDelete = roleAllows(role, "retention");
+  const profile = state.contactProfile?.profile || state.contactProfile || null;
+  const contact = profile?.contact || null;
+  const editor = contact ? `
+    <section class="panel contact-editor">
+      <header class="panel-header stacked"><div><strong>Manage contact</strong><span>${profile.conversations?.length || 0} linked conversation${profile.conversations?.length === 1 ? "" : "s"}</span></div><button class="icon-button" type="button" data-action="close-contact" aria-label="Close contact editor">${icons.close}</button></header>
+      <form id="contact-edit-form" class="contact-edit-form">
+        <label><span>Name</span><input name="displayName" maxlength="300" value="${escapeHtml(contact.display_name || "")}" ${canEdit ? "" : "disabled"}></label>
+        <label><span>Email</span><input name="primaryEmail" type="email" maxlength="320" value="${escapeHtml(contact.primary_email || "")}" ${canEdit ? "" : "disabled"}></label>
+        <label><span>Phone</span><input name="phone" maxlength="100" value="${escapeHtml(contact.phone || "")}" ${canEdit ? "" : "disabled"}></label>
+        <div class="contact-edit-actions">
+          <span>Deleting a contact keeps linked conversations intact and reassigns them to a non-personal placeholder.</span>
+          <div class="button-row">
+            ${canDelete ? `<button class="button danger" type="button" data-action="delete-contact" ${state.contactBusy ? "disabled" : ""}>Delete contact</button>` : ""}
+            ${canEdit ? `<button class="button primary" type="submit" ${state.contactBusy ? "disabled" : ""}>Save changes</button>` : ""}
+          </div>
+        </div>
+      </form>
+    </section>
+  ` : state.contactBusy ? `<section class="panel contact-editor"><p class="muted">Loading contact…</p></section>` : "";
   return shell(`
-    ${pageHeader("Contacts", "Channel identities and conversation history remain anchored to one contact record.")}
+    ${pageHeader("Contacts", "Edit contact details without breaking the conversation history anchored to each record.")}
+    ${editor}
     <section class="panel contacts-panel">
       <div class="contact-grid">
-        ${contacts.map((row) => `<button class="contact-card" data-conversation-id="${escapeHtml(row.id)}"><div class="avatar large">${escapeHtml((row.display_name || "U").charAt(0))}</div><div><strong>${escapeHtml(row.display_name || "Unknown contact")}</strong><span>${escapeHtml(row.primary_email || `${channelLabel(row.channel)} identity`)}</span><small>${escapeHtml(channelLabel(row.channel))} · ${escapeHtml(titleCase(row.intent || "unclassified"))}</small></div><span>${icons.arrow}</span></button>`).join("") || emptyState("No contacts", "Contacts will appear after the first accepted conversation.")}
+        ${contacts.map((row) => `<article class="contact-card"><div class="avatar large">${escapeHtml((row.display_name || "U").charAt(0))}</div><div><strong>${escapeHtml(row.display_name || "Unknown contact")}</strong><span>${escapeHtml(row.primary_email || `${channelLabel(row.channel)} identity`)}</span><small>${escapeHtml(channelLabel(row.channel))} · ${escapeHtml(titleCase(row.intent || "unclassified"))}</small></div><div class="contact-card-actions"><button class="button secondary compact" type="button" data-contact-id="${escapeHtml(row.contact_id)}">Manage</button><button class="icon-button" type="button" data-conversation-id="${escapeHtml(row.id)}" aria-label="Open latest conversation">${icons.arrow}</button></div></article>`).join("") || emptyState("No contacts", "Contacts will appear after the first accepted conversation.")}
       </div>
     </section>
   `);
@@ -512,7 +540,6 @@ function workflowsView() {
     ${pageHeader("Workflows", "A readable control surface for AIMS workflow definitions, runs and delayed actions.")}
     <div class="workflow-grid">
       ${Object.entries(workflowGroups).map(([name, count]) => `<article class="workflow-card"><div class="workflow-node">${icons.workflow}</div><div><strong>${escapeHtml(titleCase(name))}</strong><span>${count} active conversation${count === 1 ? "" : "s"}</span><small>Definition and transition controls connect through the protected gateway.</small></div><button class="button secondary" data-view="inbox">Inspect queue</button></article>`).join("") || emptyState("No workflow activity", "Definitions will appear after the backend returns workflow records.")}
-      <article class="workflow-card muted-card"><div class="workflow-node">+</div><div><strong>Definition editor</strong><span>Reserved for reviewer and admin roles</span><small>The API contract exists. The visual editor lands after live workflow canaries.</small></div><button class="button secondary" disabled>Not enabled</button></article>
     </div>
   `);
 }
@@ -527,7 +554,7 @@ function quarantineView() {
 }
 
 function analyticsView() {
-  const metrics = state.metrics || demoMetrics;
+  const metrics = state.metrics || {};
   const byChannel = metrics.volume?.byChannel || {};
   const maximum = Math.max(1, ...Object.values(byChannel));
   return shell(`
@@ -553,7 +580,7 @@ function settingsView() {
   return shell(`
     ${pageHeader("Settings", "Deployment-visible configuration only. Secrets remain in the gateway and AIMS.", `<button class="button secondary" data-action="load-social-status">Refresh social status</button>`)}
     <div class="settings-grid">
-      <section class="panel settings-card"><h3>Console connection</h3><dl><div><dt>API gateway</dt><dd>${escapeHtml(config.apiBaseUrl)}</dd></div><div><dt>Mode</dt><dd>${config.demoMode ? "Explicit demo" : "Live"}</dd></div><div><dt>API version</dt><dd>${escapeHtml(state.bootstrap?.apiVersion || "Unknown")}</dd></div></dl></section>
+      <section class="panel settings-card"><h3>Console connection</h3><dl><div><dt>API gateway</dt><dd>${escapeHtml(config.apiBaseUrl)}</dd></div><div><dt>Mode</dt><dd>Live</dd></div><div><dt>API version</dt><dd>${escapeHtml(state.bootstrap?.apiVersion || "Unknown")}</dd></div></dl></section>
       <section class="panel settings-card"><h3>Verified identity</h3><dl><div><dt>Actor</dt><dd>${escapeHtml(identity.actor || "Unknown")}</dd></div><div><dt>Role</dt><dd>${escapeHtml(titleCase(identity.role || "read_only"))}</dd></div><div><dt>Strategy</dt><dd>${escapeHtml(identity.strategy || "Unknown")}</dd></div></dl></section>
       <section class="panel settings-card social-settings-card"><h3>Social channel setup</h3>
         <div class="social-status-strip"><span class="pill ${social.monitorOnly ? "pill-pending" : "pill-open"}">${social.monitorOnly ? "Monitoring only" : "Outbound enabled"}</span><span>${social.pollWorkerEnabled ? "Poll worker enabled" : "Poll worker disabled"}</span></div>
@@ -592,12 +619,13 @@ function workspaceView() {
   const assignedToMe = operations.owner_type === "person";
   return shell(`
     <section class="workspace-header">
-      <button class="back-button" data-view="${workspaceInboxView()}">‹ <span>${workspaceInboxView() === "dms" ? "DMs" : workspaceInboxView() === "comments" ? "Comments" : workspaceInboxView() === "admin-email" ? "Admin email" : workspaceInboxView() === "newsletter-email" ? "Newsletter email" : "Inbox"}</span></button>
-      <div><div class="workspace-title"><h1>${escapeHtml(conversation.subject || "Conversation")}</h1>${statusPill(operations.operational_status || conversation.status)}</div><p>${escapeHtml(contact.display_name || contact.primary_email || "Unknown contact")} · ${escapeHtml(channelLabel(conversation.channel))} · Updated ${escapeHtml(formatRelativeTime(conversation.last_message_at))}</p></div>
+      <button class="back-button" data-view="${workspaceInboxView()}">‹ <span>${workspaceInboxView() === "dms" ? "DMs" : workspaceInboxView() === "comments" ? "Comments" : "Inbox"}</span></button>
+      <div><nav class="workspace-breadcrumb" aria-label="Breadcrumb"><button type="button" data-view="inbox">Unified inbox</button><span>/</span>${workspaceInboxView() !== "inbox" ? `<button type="button" data-view="${workspaceInboxView()}">${workspaceInboxView() === "dms" ? "DMs" : "Comments"}</button><span>/</span>` : ""}<strong>${escapeHtml(conversation.subject || "Conversation")}</strong></nav><div class="workspace-title"><h1>${escapeHtml(conversation.subject || "Conversation")}</h1>${statusPill(operations.operational_status || conversation.status)}</div><p>${escapeHtml(contact.display_name || contact.primary_email || "Unknown contact")} · ${escapeHtml(channelLabel(conversation.channel))} · Updated ${escapeHtml(formatRelativeTime(conversation.last_message_at))}</p></div>
       <div class="workspace-actions">
         ${canReply ? `<button class="button secondary" data-action="analyse">Run AI analysis</button>` : ""}
         ${currentStatus === "archived" ? `<span class="archive-state">Archived</span>` : themedSelect({ id: "workspace-status", value: currentStatus, ariaLabel: "Conversation status", disabled: !roleAllows(role, "status"), className: "workspace-status-select", options: ["open", "pending", "snoozed", "resolved", "blocked", "quarantined", "escalated"].map((status) => ({ value: status, label: titleCase(status) })) })}
         ${currentStatus === "resolved" && roleAllows(role, "status") ? `<button class="button secondary archive-button" type="button" data-action="archive-conversation">Archive completed</button>` : ""}
+        ${roleAllows(role, "retention") ? `<button class="button danger" type="button" data-action="delete-conversation">Delete conversation</button>` : ""}
       </div>
     </section>
     <div class="workspace-grid">
@@ -614,14 +642,17 @@ function workspaceView() {
           </form>
         ` : `<div class="read-only-banner">Read-only role. Reply and mutation controls are disabled.</div>`}
       </section>
+      <nav class="workspace-context-tabs" aria-label="Conversation context">
+        ${[["details", "Details"], ["ai", "AI"], ...(socialThread ? [["actions", "Actions"]] : []), ["notes", "Notes"]].map(([key, label]) => `<button type="button" data-workspace-context="${key}" class="${state.workspaceContextTab === key ? "active" : ""}" aria-pressed="${state.workspaceContextTab === key}">${label}</button>`).join("")}
+      </nav>
       <aside class="workspace-aside">
-        <section class="panel detail-card">
+        <section class="panel detail-card ${state.workspaceContextTab === "details" ? "context-active" : ""}" data-context-section="details">
           <header><strong>Contact</strong></header>
           <div class="contact-hero"><div class="avatar large">${escapeHtml((contact.display_name || "U").charAt(0).toUpperCase())}</div><div><strong>${escapeHtml(contact.display_name || "Unknown contact")}</strong><span>${escapeHtml(contact.primary_email || "No email recorded")}</span><small>${escapeHtml(contact.phone || conversation.provider || "")}</small></div></div>
           <dl><div><dt>Handling</dt><dd>${assignedToMe ? "Assigned to me" : "Automated"}</dd></div><div><dt>Response target</dt><dd>${escapeHtml(operations.response_due_at ? formatDateTime(operations.response_due_at) : "Not set")}</dd></div><div><dt>Workflow</dt><dd>${escapeHtml(titleCase(conversation.workflow || "unassigned"))}</dd></div></dl>
           ${roleAllows(role, "assign") ? `<div class="handling-control"><span>Who handles this?</span><div class="handling-segment" role="group" aria-label="Conversation handling"><button type="button" data-handling-mode="automation" class="${assignedToMe ? "" : "active"}" aria-pressed="${!assignedToMe}">Automated</button><button type="button" data-handling-mode="person" class="${assignedToMe ? "active" : ""}" aria-pressed="${assignedToMe}">Assigned to me</button></div><small>${assignedToMe ? `${escapeHtml(actor)} is handling this conversation. AIMS autonomous replies are paused.` : "AIMS can analyse and reply under the active automation policies."}</small></div>` : ""}
         </section>
-        ${socialThread ? `<section class="panel detail-card social-control-card">
+        ${socialThread ? `<section class="panel detail-card social-control-card ${state.workspaceContextTab === "actions" ? "context-active" : ""}" data-context-section="actions">
           <header><strong>${socialThread.thread_type === "dm" ? "DM controls" : "Comment controls"}</strong><span class="channel-label channel-label-${escapeHtml(socialThread.platform)}">${escapeHtml(channelLabel(socialThread.platform))}</span></header>
           <dl><div><dt>Interaction</dt><dd>${escapeHtml(socialThread.thread_type === "dm" ? "Direct message" : "Comment")}</dd></div><div><dt>Provider status</dt><dd>${escapeHtml(titleCase(socialThread.provider_status || "unknown"))}</dd></div><div><dt>Account</dt><dd>${escapeHtml(socialThread.account_id || "Unknown")}</dd></div></dl>
           ${socialMonitorOnly ? `<p class="social-lock-note">Monitoring-only mode is active. Provider mutations remain locked until the live intake canaries are accepted.</p>` : canReply ? `<div class="social-action-grid">
@@ -633,14 +664,14 @@ function workspaceView() {
           </div>` : ""}
           ${!socialMonitorOnly && executableModerationApprovals.length ? `<div class="approved-action-list"><strong>Approved actions ready</strong>${executableModerationApprovals.map((approval) => `<button class="button primary compact" data-social-approved-id="${escapeHtml(approval.id)}">Execute ${escapeHtml(titleCase(approval.action_type || "action"))}</button>`).join("")}</div>` : ""}
         </section>` : ""}
-        <section class="panel detail-card ai-card">
+        <section class="panel detail-card ai-card ${state.workspaceContextTab === "ai" ? "context-active" : ""}" data-context-section="ai">
           <header><strong>AIMS analysis</strong><span class="ai-state risk-${escapeHtml(aiState.risk_level || "unknown")}">${escapeHtml(titleCase(aiState.risk_level || "Unanalysed"))}</span></header>
           <p class="ai-summary">${escapeHtml(aiState.summary_text || "No current summary has been returned.")}</p>
           <dl><div><dt>Intent</dt><dd>${escapeHtml(titleCase(aiState.intent || "Unknown"))}</dd></div><div><dt>Priority</dt><dd>${escapeHtml(titleCase(aiState.priority_label || "Unknown"))}${aiState.priority_score !== undefined ? ` (${escapeHtml(aiState.priority_score)})` : ""}</dd></div><div><dt>Sentiment</dt><dd>${escapeHtml(titleCase(aiState.sentiment || "Unknown"))}</dd></div><div><dt>Next action</dt><dd>${escapeHtml(aiState.next_action || "Not set")}</dd></div></dl>
           ${drafts.length ? `<div class="draft-box"><strong>Latest draft</strong><p>${escapeHtml(drafts[0].body_text || drafts[0].content || "")}</p></div>` : ""}
           ${pendingApproval ? `<div class="approval-box"><strong>Approval required</strong><p>${escapeHtml(pendingApproval.rationale || `Review ${titleCase(pendingApproval.action_type || "action")} scope and evidence.`)}</p>${canApprove ? `<div><button class="button secondary" data-approval-id="${escapeHtml(pendingApproval.id)}" data-decision="reject">Reject</button><button class="button primary" data-approval-id="${escapeHtml(pendingApproval.id)}" data-decision="approve">Approve</button></div>` : ""}</div>` : ""}
         </section>
-        ${attachments.length ? `<section class="panel detail-card attachment-card">
+        ${attachments.length ? `<section class="panel detail-card attachment-card ${state.workspaceContextTab === "details" ? "context-active" : ""}" data-context-section="details">
           <header><strong>Attachments</strong><span>${attachments.length}</span></header>
           <div class="attachment-list">
             ${attachments.map((attachment) => {
@@ -657,7 +688,7 @@ function workspaceView() {
             }).join("")}
           </div>
         </section>` : ""}
-        <section class="panel detail-card">
+        <section class="panel detail-card ${state.workspaceContextTab === "notes" ? "context-active" : ""}" data-context-section="notes">
           <header><strong>Private notes</strong><span>${workspace.notes?.length || 0}</span></header>
           <div class="notes-list">${(workspace.notes || []).slice(0, 4).map((note) => `<article><strong>${escapeHtml(note.author || note.created_by || "Operator")}</strong><p>${escapeHtml(note.body_text || "")}</p><small>${escapeHtml(formatRelativeTime(note.created_at))}</small></article>`).join("") || `<p class="muted">No private notes.</p>`}</div>
           ${roleAllows(role, "note") ? `<form id="note-form" class="note-form"><textarea name="bodyText" rows="2" placeholder="Add a private note" required></textarea><button class="button secondary" type="submit">Add note</button></form>` : ""}
@@ -698,8 +729,8 @@ async function downloadAttachment(attachmentId, button) {
 
 function errorView() {
   return shell(`
-    ${pageHeader("Connection not ready", "The console did not replace a failed live request with demo data.")}
-    <section class="connection-error panel"><div class="error-orb">!</div><h2>${escapeHtml(state.error?.message || "AIMS gateway could not be reached.")}</h2><p>Check the gateway URL, HIVE session verification and AIMS Comms Hub readiness. Demo mode remains available only through an explicit <code>?demo=1</code> query.</p><div><button class="button primary" data-action="refresh">Try again</button><a class="button secondary" href="?demo=1">Open explicit demo</a></div></section>
+    ${pageHeader("Connection not ready", "The live AIMS gateway could not be loaded.")}
+    <section class="connection-error panel"><div class="error-orb">!</div><h2>${escapeHtml(state.error?.message || "AIMS gateway could not be reached.")}</h2><p>Check the gateway URL, HIVE session verification and AIMS Comms Hub readiness.</p><div><button class="button primary" data-action="refresh">Try again</button></div></section>
   `);
 }
 
@@ -715,8 +746,6 @@ function render() {
     inbox: inboxView,
     dms: dmsView,
     comments: commentsView,
-    "admin-email": adminEmailView,
-    "newsletter-email": newsletterEmailView,
     workspace: workspaceView,
     approvals: approvalsView,
     contacts: contactsView,
@@ -746,7 +775,7 @@ function bindEvents() {
   }));
   root.querySelector("#global-search")?.addEventListener("input", (event) => {
     state.search = event.target.value;
-    if (!["dashboard", "inbox", "dms", "comments", "admin-email", "newsletter-email"].includes(state.view)) state.view = "inbox";
+    if (!["dashboard", "inbox", "dms", "comments"].includes(state.view)) state.view = "inbox";
     render();
     requestAnimationFrame(() => {
       const input = root.querySelector("#global-search");
@@ -754,16 +783,31 @@ function bindEvents() {
       input?.setSelectionRange(state.search.length, state.search.length);
     });
   });
-  root.querySelector('[data-action="clear-filters"]')?.addEventListener("click", () => { state.filters = { status: "", channel: "", priority: "", ownerId: "", tag: "", overdue: false, aiStatus: "" }; render(); });
+  root.querySelector('[data-action="clear-filters"]')?.addEventListener("click", () => { state.filters = { status: "", channel: "", priority: "", ownerId: "", ownerMode: "", tag: "", overdue: false, aiStatus: "" }; render(); });
+  root.querySelectorAll("[data-quick-filter]").forEach((button) => button.addEventListener("click", () => {
+    const key = button.dataset.quickFilter;
+    state.filters = { status: "", channel: "", priority: "", ownerId: "", ownerMode: "", tag: "", overdue: false, aiStatus: "" };
+    if (key === "overdue") state.filters.overdue = true;
+    if (key === "open") state.filters.status = "open";
+    if (key === "high") state.filters.priority = "high";
+    if (key === "mine") state.filters.ownerMode = "person";
+    render();
+  }));
+  root.querySelectorAll("[data-workspace-context]").forEach((button) => button.addEventListener("click", () => { state.workspaceContextTab = button.dataset.workspaceContext || "details"; render(); }));
   root.querySelectorAll('[data-action="refresh"]').forEach((button) => button.addEventListener("click", loadBootstrap));
   root.querySelector('[data-action="open-sidebar"]')?.addEventListener("click", () => { state.sidebarOpen = true; render(); });
   root.querySelectorAll('[data-action="close-sidebar"]').forEach((button) => button.addEventListener("click", () => { state.sidebarOpen = false; render(); }));
   root.querySelectorAll('[data-action="toggle-notifications"]').forEach((button) => button.addEventListener("click", () => { state.notificationOpen = !state.notificationOpen; render(); }));
   root.querySelectorAll("[data-notification-id]").forEach((button) => button.addEventListener("click", () => openNotification(button)));
+  root.querySelectorAll("[data-contact-id]").forEach((button) => button.addEventListener("click", () => openContact(button.dataset.contactId)));
+  root.querySelector('[data-action="close-contact"]')?.addEventListener("click", closeContact);
+  root.querySelector("#contact-edit-form")?.addEventListener("submit", submitContactEdit);
+  root.querySelector('[data-action="delete-contact"]')?.addEventListener("click", deleteContact);
   bindThemedSelects();
   root.querySelector("#workspace-status")?.addEventListener("change", updateWorkspaceStatus);
   root.querySelectorAll("[data-handling-mode]").forEach((button) => button.addEventListener("click", () => changeHandlingMode(button.dataset.handlingMode)));
   root.querySelector('[data-action="archive-conversation"]')?.addEventListener("click", archiveConversation);
+  root.querySelector('[data-action="delete-conversation"]')?.addEventListener("click", deleteConversation);
   root.querySelector("#note-form")?.addEventListener("submit", submitNote);
   root.querySelector("#reply-form")?.addEventListener("submit", submitReply);
   root.querySelector('[data-action="analyse"]')?.addEventListener("click", analyseConversation);
@@ -857,18 +901,19 @@ function navigate(view) {
   else if (view === "analytics" && !state.metrics) loadMetrics();
   else if (view === "settings" && !state.socialStatus) loadSocialStatus({ keepView: true });
   else render();
-  history.replaceState(null, "", `${location.pathname}${config.demoMode ? "?demo=1" : ""}#${view}`);
+  history.replaceState(null, "", `${location.pathname}${location.search}#${view}`);
 }
 
 async function openConversation(conversationId) {
   state.selectedConversationId = conversationId;
+  state.workspaceContextTab = "details";
   state.view = "workspace";
   state.workspace = null;
   state.loading = true;
   state.notificationOpen = false;
   render();
   try {
-    state.workspace = config.demoMode ? demoWorkspace(conversationId) : await client.workspace(conversationId);
+    state.workspace = await client.workspace(conversationId);
     state.error = null;
   } catch (error) {
     toast(error.message || "Conversation could not be loaded.", "error");
@@ -878,15 +923,97 @@ async function openConversation(conversationId) {
   }
 }
 
+async function openContact(contactId) {
+  if (!contactId) return;
+  state.selectedContactId = contactId;
+  state.contactProfile = null;
+  state.contactBusy = true;
+  state.view = "contacts";
+  history.replaceState(null, "", `${location.pathname}${location.search}#contacts`);
+  render();
+  try {
+    state.contactProfile = await client.contact(contactId);
+    state.error = null;
+  } catch (error) {
+    toast(error.message || "Contact could not be loaded.", "error");
+  } finally {
+    state.contactBusy = false;
+    render();
+  }
+}
+
+function closeContact() {
+  state.selectedContactId = "";
+  state.contactProfile = null;
+  state.contactBusy = false;
+  render();
+}
+
+async function submitContactEdit(event) {
+  event.preventDefault();
+  if (!state.selectedContactId || state.contactBusy) return;
+  const data = new FormData(event.currentTarget);
+  state.contactBusy = true;
+  render();
+  try {
+    const result = await client.updateContact(state.selectedContactId, {
+      displayName: String(data.get("displayName") || "").trim(),
+      primaryEmail: String(data.get("primaryEmail") || "").trim(),
+      phone: String(data.get("phone") || "").trim(),
+    });
+    state.contactProfile = result;
+    const updated = result?.profile?.contact || result?.contact || null;
+    if (updated) {
+      for (const row of state.queue.filter((item) => item.contact_id === state.selectedContactId)) {
+        row.display_name = updated.display_name;
+        row.primary_email = updated.primary_email;
+        row.phone = updated.phone;
+      }
+    }
+    toast("Contact changes saved.");
+  } catch (error) {
+    toast(error.message || "Contact could not be updated.", "error");
+  } finally {
+    state.contactBusy = false;
+    render();
+  }
+}
+
+async function deleteContact() {
+  if (!state.selectedContactId || state.contactBusy) return;
+  const profile = state.contactProfile?.profile || state.contactProfile || {};
+  const contact = profile.contact || {};
+  const label = contact.display_name || contact.primary_email || "this contact";
+  const linked = Number(profile.conversations?.length || 0);
+  const confirmed = globalThis.confirm?.(`Delete ${label}? ${linked} linked conversation${linked === 1 ? "" : "s"} will be preserved but detached from this contact. This cannot be undone.`);
+  if (!confirmed) return;
+  state.contactBusy = true;
+  render();
+  try {
+    await client.deleteContact(state.selectedContactId);
+    state.selectedContactId = "";
+    state.contactProfile = null;
+    await loadBootstrap();
+    state.view = "contacts";
+    history.replaceState(null, "", `${location.pathname}${location.search}#contacts`);
+    toast("Contact deleted. Linked conversations were preserved.");
+  } catch (error) {
+    toast(error.message || "Contact could not be deleted.", "error");
+  } finally {
+    state.contactBusy = false;
+    render();
+  }
+}
+
 async function loadBootstrap() {
   state.loading = true;
   state.error = null;
   try {
-    const payload = config.demoMode ? demoBootstrap : await client.bootstrap();
+    const payload = await client.bootstrap();
     state.bootstrap = payload;
     state.queue = payload.queue || payload.conversations || [];
     state.notifications = payload.notifications || [];
-    if (!config.demoMode) state.socialStatus = await client.socialStatus().catch(() => state.socialStatus);
+    state.socialStatus = await client.socialStatus().catch(() => state.socialStatus);
     const requestedView = location.hash.slice(1);
     state.view = requestedView && routableViews.has(requestedView) ? requestedView : state.view;
   } catch (error) {
@@ -899,7 +1026,7 @@ async function loadBootstrap() {
 
 async function loadQuarantine() {
   try {
-    state.quarantine = config.demoMode ? demoQuarantine : (await client.quarantine({ status: "quarantined", limit: 100 })).items || [];
+    state.quarantine = (await client.quarantine({ status: "quarantined", limit: 100 })).items || [];
     state.view = "quarantine";
     render();
   } catch (error) { toast(error.message || "Quarantine could not be loaded.", "error"); }
@@ -907,7 +1034,7 @@ async function loadQuarantine() {
 
 async function loadMetrics() {
   try {
-    state.metrics = config.demoMode ? demoMetrics : (await client.metrics()).metrics;
+    state.metrics = (await client.metrics()).metrics;
     state.view = "analytics";
     render();
   } catch (error) { toast(error.message || "Metrics could not be loaded.", "error"); }
@@ -916,7 +1043,7 @@ async function loadMetrics() {
 async function updateWorkspaceStatus(event) {
   const status = event.target.value;
   try {
-    if (!config.demoMode) await client.updateStatus(state.selectedConversationId, status, { expectedVersion: state.workspace?.workspace?.operations?.version ?? null });
+    await client.updateStatus(state.selectedConversationId, status, { expectedVersion: state.workspace?.workspace?.operations?.version ?? null });
     const operations = state.workspace?.workspace?.operations;
     if (operations) operations.operational_status = status;
     const queueItem = state.queue.find((row) => row.id === state.selectedConversationId);
@@ -934,7 +1061,7 @@ async function changeHandlingMode(mode) {
     expectedVersion: state.workspace?.workspace?.operations?.version ?? null,
   };
   try {
-    const result = config.demoMode ? null : await client.assign(state.selectedConversationId, assignment);
+    const result = await client.assign(state.selectedConversationId, assignment);
     const operations = state.workspace?.workspace?.operations;
     if (operations) Object.assign(operations, result?.result || result || {}, { owner_id: assignment.ownerId, owner_type: assignment.ownerType });
     const queueItem = state.queue.find((row) => row.id === state.selectedConversationId);
@@ -947,12 +1074,31 @@ async function archiveConversation() {
   const operations = state.workspace?.workspace?.operations;
   if ((operations?.operational_status || "") !== "resolved") return toast("Only completed conversations can be archived.", "error");
   try {
-    const result = config.demoMode ? null : await client.updateStatus(state.selectedConversationId, "archived", { expectedVersion: operations?.version ?? null, reason: "manual_archive" });
+    const result = await client.updateStatus(state.selectedConversationId, "archived", { expectedVersion: operations?.version ?? null, reason: "manual_archive" });
     if (operations) Object.assign(operations, result?.result || result || {}, { operational_status: "archived" });
     const queueItem = state.queue.find((row) => row.id === state.selectedConversationId);
     if (queueItem) queueItem.operational_status = "archived";
     toast("Completed conversation archived.");
   } catch (error) { toast(error.message || "Conversation could not be archived.", "error"); }
+}
+
+async function deleteConversation() {
+  if (!state.selectedConversationId) return;
+  const workspace = state.workspace?.workspace || state.workspace || {};
+  const subject = workspace.conversation?.subject || "this conversation";
+  const targetView = workspaceInboxView();
+  const confirmed = globalThis.confirm?.(`Permanently delete ${subject} and all associated messages/history? This cannot be undone.`);
+  if (!confirmed) return;
+  try {
+    await client.deleteConversation(state.selectedConversationId);
+    state.queue = state.queue.filter((row) => row.id !== state.selectedConversationId);
+    state.workspace = null;
+    state.selectedConversationId = "";
+    navigate(targetView);
+    toast("Conversation and message history deleted.");
+  } catch (error) {
+    toast(error.message || "Conversation could not be deleted.", "error");
+  }
 }
 
 async function submitNote(event) {
@@ -962,7 +1108,7 @@ async function submitNote(event) {
   const bodyText = String(data.get("bodyText") || "").trim();
   if (!bodyText) return;
   try {
-    const result = config.demoMode ? { note: { id: `note-${Date.now()}`, author: state.bootstrap.identity.actor, body_text: bodyText, created_at: new Date().toISOString() } } : await client.addNote(state.selectedConversationId, { bodyText, mentions: [] });
+    const result = await client.addNote(state.selectedConversationId, { bodyText, mentions: [] });
     state.workspace.workspace.notes = [result.note, ...(state.workspace.workspace.notes || [])];
     form.reset();
     toast("Private note added.");
@@ -977,7 +1123,7 @@ async function submitReply(event) {
   if (!message) return;
   const conversation = state.workspace?.workspace?.conversation || {};
   try {
-    if (!config.demoMode) {
+    {
       if (conversation.channel === "chat") await client.sendChat(state.selectedConversationId, message);
       else if (conversation.channel === "email") {
         const result = await client.sendEmail(state.selectedConversationId, { message, bodyText: message });
@@ -994,17 +1140,11 @@ async function submitReply(event) {
     }
     conversation.messages = [...(conversation.messages || []), { id: `local-${Date.now()}`, direction: "outbound", sender: state.bootstrap.identity.actor, body_text: message, received_at: new Date().toISOString() }];
     form.reset();
-    toast(config.demoMode ? "Demo reply added locally." : "Reply sent through AIMS.");
+    toast("Reply sent through AIMS.");
   } catch (error) { toast(error.message || "Reply could not be sent.", "error"); }
 }
 
 async function loadSocialStatus({ keepView = false } = {}) {
-  if (config.demoMode) {
-    state.socialStatus = { monitoring: { monitorOnly: true, pollWorkerEnabled: true, channels: { facebook: { enabled: true, directMessages: true, comments: true, privateCommentReplies: true, markRead: true, conversationStatus: true, hideComments: true, deleteComments: true }, instagram: { enabled: true, directMessages: true, comments: true, privateCommentReplies: true, markRead: true, conversationStatus: true, hideComments: true, deleteComments: true }, youtube: { enabled: true, directMessages: false, comments: true, moderation: true, deleteComments: true } } } };
-    if (!keepView) state.view = "settings";
-    render();
-    return;
-  }
   try {
     state.socialStatus = await client.socialStatus();
     if (!keepView) state.view = "settings";
@@ -1016,7 +1156,7 @@ async function reconcileSocial() {
   if (state.socialBusy) return;
   state.socialBusy = true; render();
   try {
-    if (!config.demoMode) await client.reconcileSocialWebhooks();
+    await client.reconcileSocialWebhooks();
     await loadSocialStatus({ keepView: true });
     toast("Facebook, Instagram and YouTube webhook families reconciled.");
   } catch (error) { toast(error.message || "Social webhooks could not be reconciled.", "error"); }
@@ -1027,7 +1167,7 @@ async function pollSocial() {
   if (state.socialBusy) return;
   state.socialBusy = true; render();
   try {
-    const result = config.demoMode ? { processedJobs: 5 } : await client.drainSocialPoll(10);
+    const result = await client.drainSocialPoll(10);
     await loadBootstrap();
     toast(`Social poll completed${result?.processedJobs !== undefined ? `: ${result.processedJobs} jobs` : ""}.`);
   } catch (error) { toast(error.message || "Social poll could not be completed.", "error"); }
@@ -1038,7 +1178,7 @@ async function runSocialAction(button) {
   const action = button.dataset.socialAction;
   const body = action === "status" ? { status: button.dataset.socialStatus || "archived" } : {};
   try {
-    if (!config.demoMode) await client.socialAction(state.selectedConversationId, action, body);
+    await client.socialAction(state.selectedConversationId, action, body);
     toast(action === "read" ? "Provider conversation marked read." : "Provider conversation updated.");
     await openConversation(state.selectedConversationId);
   } catch (error) { toast(error.message || "Social action could not be completed.", "error"); }
@@ -1048,7 +1188,7 @@ async function requestSocialModeration(button) {
   const action = button.dataset.socialApproval;
   const body = action === "moderate" ? { moderationStatus: button.dataset.moderationStatus || "heldForReview" } : {};
   try {
-    if (!config.demoMode) await client.requestSocialApproval(state.selectedConversationId, action, body);
+    await client.requestSocialApproval(state.selectedConversationId, action, body);
     toast(`${titleCase(action)} action sent for approval.`);
     await openConversation(state.selectedConversationId);
   } catch (error) { toast(error.message || "Social approval could not be requested.", "error"); }
@@ -1063,7 +1203,7 @@ async function executeApprovedSocialModeration(button) {
   const idempotencyKey = String(metadata.idempotencyKey || "");
   if (!idempotencyKey) return toast("Approved action is missing its idempotency key.", "error");
   try {
-    if (!config.demoMode) await client.socialAction(
+    await client.socialAction(
       state.selectedConversationId,
       approval.action_type,
       { ...(metadata.actionBody || {}), approvalId: approval.id },
@@ -1076,15 +1216,15 @@ async function executeApprovedSocialModeration(button) {
 
 async function analyseConversation() {
   try {
-    if (!config.demoMode) await client.analyse(state.selectedConversationId, { operation: "operator_refresh", scheduleFollowUp: true });
-    toast(config.demoMode ? "Demo analysis is already present." : "AIMS analysis started.");
+    await client.analyse(state.selectedConversationId, { operation: "operator_refresh", scheduleFollowUp: true });
+    toast("AIMS analysis started.");
   } catch (error) { toast(error.message || "Analysis could not be started.", "error"); }
 }
 
 
 async function decideApproval(approvalId, decision) {
   try {
-    if (!config.demoMode) await client.decideApproval(approvalId, decision, "Decision recorded in AIMS UI");
+    await client.decideApproval(approvalId, decision, "Decision recorded in AIMS UI");
     toast(`Approval ${decision === "approve" ? "granted" : "rejected"}.`);
     await openConversation(state.selectedConversationId);
   } catch (error) { toast(error.message || "Approval decision could not be recorded.", "error"); }
@@ -1092,7 +1232,7 @@ async function decideApproval(approvalId, decision) {
 
 async function replayQuarantine(id) {
   try {
-    if (!config.demoMode) await client.replayQuarantine(id);
+    await client.replayQuarantine(id);
     state.quarantine = state.quarantine.filter((item) => item.id !== id);
     toast("Replay accepted with idempotency protection.");
   } catch (error) { toast(error.message || "Quarantine item could not be replayed.", "error"); }
@@ -1102,7 +1242,7 @@ async function openNotification(button) {
   const id = button.dataset.notificationId;
   const conversationId = button.dataset.conversationId;
   try {
-    if (!config.demoMode) await client.markNotification(id, "read");
+    await client.markNotification(id, "read");
     const notification = state.notifications.find((item) => item.id === id);
     if (notification) notification.status = "read";
   } catch {}
