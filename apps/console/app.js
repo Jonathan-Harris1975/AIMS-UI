@@ -40,6 +40,9 @@ const state = {
   notifications: [],
   workspace: null,
   selectedConversationId: "",
+  selectedContactId: "",
+  contactProfile: null,
+  contactBusy: false,
   filters: { status: "", channel: "", priority: "", ownerId: "", tag: "", overdue: false, aiStatus: "" },
   search: "",
   loading: false,
@@ -493,12 +496,37 @@ function approvalsView() {
 }
 
 function contactsView() {
-  const contacts = [...new Map(state.queue.map((row) => [row.contact_id, row])).values()];
+  const contacts = [...new Map(state.queue
+    .filter((row) => row.contact_id && !(row.display_name === "Deleted contact" && !row.primary_email))
+    .map((row) => [row.contact_id, row])).values()];
+  const role = state.bootstrap?.identity?.role || "read_only";
+  const canEdit = roleAllows(role, "identity");
+  const canDelete = roleAllows(role, "retention");
+  const profile = state.contactProfile?.profile || state.contactProfile || null;
+  const contact = profile?.contact || null;
+  const editor = contact ? `
+    <section class="panel contact-editor">
+      <header class="panel-header stacked"><div><strong>Manage contact</strong><span>${profile.conversations?.length || 0} linked conversation${profile.conversations?.length === 1 ? "" : "s"}</span></div><button class="icon-button" type="button" data-action="close-contact" aria-label="Close contact editor">${icons.close}</button></header>
+      <form id="contact-edit-form" class="contact-edit-form">
+        <label><span>Name</span><input name="displayName" maxlength="300" value="${escapeHtml(contact.display_name || "")}" ${canEdit ? "" : "disabled"}></label>
+        <label><span>Email</span><input name="primaryEmail" type="email" maxlength="320" value="${escapeHtml(contact.primary_email || "")}" ${canEdit ? "" : "disabled"}></label>
+        <label><span>Phone</span><input name="phone" maxlength="100" value="${escapeHtml(contact.phone || "")}" ${canEdit ? "" : "disabled"}></label>
+        <div class="contact-edit-actions">
+          <span>Deleting a contact keeps linked conversations intact and reassigns them to a non-personal placeholder.</span>
+          <div class="button-row">
+            ${canDelete ? `<button class="button danger" type="button" data-action="delete-contact" ${state.contactBusy ? "disabled" : ""}>Delete contact</button>` : ""}
+            ${canEdit ? `<button class="button primary" type="submit" ${state.contactBusy ? "disabled" : ""}>Save changes</button>` : ""}
+          </div>
+        </div>
+      </form>
+    </section>
+  ` : state.contactBusy ? `<section class="panel contact-editor"><p class="muted">Loading contact…</p></section>` : "";
   return shell(`
-    ${pageHeader("Contacts", "Channel identities and conversation history remain anchored to one contact record.")}
+    ${pageHeader("Contacts", "Edit contact details without breaking the conversation history anchored to each record.")}
+    ${editor}
     <section class="panel contacts-panel">
       <div class="contact-grid">
-        ${contacts.map((row) => `<button class="contact-card" data-conversation-id="${escapeHtml(row.id)}"><div class="avatar large">${escapeHtml((row.display_name || "U").charAt(0))}</div><div><strong>${escapeHtml(row.display_name || "Unknown contact")}</strong><span>${escapeHtml(row.primary_email || `${channelLabel(row.channel)} identity`)}</span><small>${escapeHtml(channelLabel(row.channel))} · ${escapeHtml(titleCase(row.intent || "unclassified"))}</small></div><span>${icons.arrow}</span></button>`).join("") || emptyState("No contacts", "Contacts will appear after the first accepted conversation.")}
+        ${contacts.map((row) => `<article class="contact-card"><div class="avatar large">${escapeHtml((row.display_name || "U").charAt(0))}</div><div><strong>${escapeHtml(row.display_name || "Unknown contact")}</strong><span>${escapeHtml(row.primary_email || `${channelLabel(row.channel)} identity`)}</span><small>${escapeHtml(channelLabel(row.channel))} · ${escapeHtml(titleCase(row.intent || "unclassified"))}</small></div><div class="contact-card-actions"><button class="button secondary compact" type="button" data-contact-id="${escapeHtml(row.contact_id)}">Manage</button><button class="icon-button" type="button" data-conversation-id="${escapeHtml(row.id)}" aria-label="Open latest conversation">${icons.arrow}</button></div></article>`).join("") || emptyState("No contacts", "Contacts will appear after the first accepted conversation.")}
       </div>
     </section>
   `);
@@ -595,6 +623,7 @@ function workspaceView() {
         ${canReply ? `<button class="button secondary" data-action="analyse">Run AI analysis</button>` : ""}
         ${currentStatus === "archived" ? `<span class="archive-state">Archived</span>` : themedSelect({ id: "workspace-status", value: currentStatus, ariaLabel: "Conversation status", disabled: !roleAllows(role, "status"), className: "workspace-status-select", options: ["open", "pending", "snoozed", "resolved", "blocked", "quarantined", "escalated"].map((status) => ({ value: status, label: titleCase(status) })) })}
         ${currentStatus === "resolved" && roleAllows(role, "status") ? `<button class="button secondary archive-button" type="button" data-action="archive-conversation">Archive completed</button>` : ""}
+        ${roleAllows(role, "retention") ? `<button class="button danger" type="button" data-action="delete-conversation">Delete conversation</button>` : ""}
       </div>
     </section>
     <div class="workspace-grid">
@@ -757,10 +786,15 @@ function bindEvents() {
   root.querySelectorAll('[data-action="close-sidebar"]').forEach((button) => button.addEventListener("click", () => { state.sidebarOpen = false; render(); }));
   root.querySelectorAll('[data-action="toggle-notifications"]').forEach((button) => button.addEventListener("click", () => { state.notificationOpen = !state.notificationOpen; render(); }));
   root.querySelectorAll("[data-notification-id]").forEach((button) => button.addEventListener("click", () => openNotification(button)));
+  root.querySelectorAll("[data-contact-id]").forEach((button) => button.addEventListener("click", () => openContact(button.dataset.contactId)));
+  root.querySelector('[data-action="close-contact"]')?.addEventListener("click", closeContact);
+  root.querySelector("#contact-edit-form")?.addEventListener("submit", submitContactEdit);
+  root.querySelector('[data-action="delete-contact"]')?.addEventListener("click", deleteContact);
   bindThemedSelects();
   root.querySelector("#workspace-status")?.addEventListener("change", updateWorkspaceStatus);
   root.querySelectorAll("[data-handling-mode]").forEach((button) => button.addEventListener("click", () => changeHandlingMode(button.dataset.handlingMode)));
   root.querySelector('[data-action="archive-conversation"]')?.addEventListener("click", archiveConversation);
+  root.querySelector('[data-action="delete-conversation"]')?.addEventListener("click", deleteConversation);
   root.querySelector("#note-form")?.addEventListener("submit", submitNote);
   root.querySelector("#reply-form")?.addEventListener("submit", submitReply);
   root.querySelector('[data-action="analyse"]')?.addEventListener("click", analyseConversation);
@@ -875,6 +909,88 @@ async function openConversation(conversationId) {
   }
 }
 
+async function openContact(contactId) {
+  if (!contactId) return;
+  state.selectedContactId = contactId;
+  state.contactProfile = null;
+  state.contactBusy = true;
+  state.view = "contacts";
+  history.replaceState(null, "", `${location.pathname}${location.search}#contacts`);
+  render();
+  try {
+    state.contactProfile = await client.contact(contactId);
+    state.error = null;
+  } catch (error) {
+    toast(error.message || "Contact could not be loaded.", "error");
+  } finally {
+    state.contactBusy = false;
+    render();
+  }
+}
+
+function closeContact() {
+  state.selectedContactId = "";
+  state.contactProfile = null;
+  state.contactBusy = false;
+  render();
+}
+
+async function submitContactEdit(event) {
+  event.preventDefault();
+  if (!state.selectedContactId || state.contactBusy) return;
+  const data = new FormData(event.currentTarget);
+  state.contactBusy = true;
+  render();
+  try {
+    const result = await client.updateContact(state.selectedContactId, {
+      displayName: String(data.get("displayName") || "").trim(),
+      primaryEmail: String(data.get("primaryEmail") || "").trim(),
+      phone: String(data.get("phone") || "").trim(),
+    });
+    state.contactProfile = result;
+    const updated = result?.profile?.contact || result?.contact || null;
+    if (updated) {
+      for (const row of state.queue.filter((item) => item.contact_id === state.selectedContactId)) {
+        row.display_name = updated.display_name;
+        row.primary_email = updated.primary_email;
+        row.phone = updated.phone;
+      }
+    }
+    toast("Contact changes saved.");
+  } catch (error) {
+    toast(error.message || "Contact could not be updated.", "error");
+  } finally {
+    state.contactBusy = false;
+    render();
+  }
+}
+
+async function deleteContact() {
+  if (!state.selectedContactId || state.contactBusy) return;
+  const profile = state.contactProfile?.profile || state.contactProfile || {};
+  const contact = profile.contact || {};
+  const label = contact.display_name || contact.primary_email || "this contact";
+  const linked = Number(profile.conversations?.length || 0);
+  const confirmed = globalThis.confirm?.(`Delete ${label}? ${linked} linked conversation${linked === 1 ? "" : "s"} will be preserved but detached from this contact. This cannot be undone.`);
+  if (!confirmed) return;
+  state.contactBusy = true;
+  render();
+  try {
+    await client.deleteContact(state.selectedContactId);
+    state.selectedContactId = "";
+    state.contactProfile = null;
+    await loadBootstrap();
+    state.view = "contacts";
+    history.replaceState(null, "", `${location.pathname}${location.search}#contacts`);
+    toast("Contact deleted. Linked conversations were preserved.");
+  } catch (error) {
+    toast(error.message || "Contact could not be deleted.", "error");
+  } finally {
+    state.contactBusy = false;
+    render();
+  }
+}
+
 async function loadBootstrap() {
   state.loading = true;
   state.error = null;
@@ -950,6 +1066,25 @@ async function archiveConversation() {
     if (queueItem) queueItem.operational_status = "archived";
     toast("Completed conversation archived.");
   } catch (error) { toast(error.message || "Conversation could not be archived.", "error"); }
+}
+
+async function deleteConversation() {
+  if (!state.selectedConversationId) return;
+  const workspace = state.workspace?.workspace || state.workspace || {};
+  const subject = workspace.conversation?.subject || "this conversation";
+  const targetView = workspaceInboxView();
+  const confirmed = globalThis.confirm?.(`Permanently delete ${subject} and all associated messages/history? This cannot be undone.`);
+  if (!confirmed) return;
+  try {
+    await client.deleteConversation(state.selectedConversationId);
+    state.queue = state.queue.filter((row) => row.id !== state.selectedConversationId);
+    state.workspace = null;
+    state.selectedConversationId = "";
+    navigate(targetView);
+    toast("Conversation and message history deleted.");
+  } catch (error) {
+    toast(error.message || "Conversation could not be deleted.", "error");
+  }
 }
 
 async function submitNote(event) {
