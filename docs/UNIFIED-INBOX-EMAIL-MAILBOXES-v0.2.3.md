@@ -1,10 +1,9 @@
-# Unified Inbox email mailboxes — AIMS-UI v0.2.3
+# Unified Inbox email automation scope — AIMS-UI v0.2.3
 
-Unified Inbox now includes two additional nested operator queues alongside DMs and Comments:
+The Unified Inbox exposes only communication channels managed by AIMS. For email, that means `info@jonathan-harris.online`.
 
-- **Admin email** → `admin@jonathan-harris.online`
-- **Newsletter email** → `newsletter@jonathan-harris.online`
+`admin@jonathan-harris.online` and `newsletter@jonathan-harris.online` are intentionally outside AIMS Comms Hub automation. Their former nested operator queues have therefore been removed from the console. They are not presented as manual-reply lanes because doing so would make AIMS part of their handling path.
 
-Both queues filter the shared Comms Hub queue by `email_account_key`, preserve the normal workspace view, and route the Back control to the correct specialist inbox.
+DMs and Comments remain separate Unified Inbox child queues. Managed `info@` conversations continue to use the normal Inbox/workspace route and the existing AIMS reply controls.
 
-Admin and Newsletter show a manual-reply-only operator message. The existing email reply composer is reused and AIMS remains authoritative for the manual-only and first-response timing rules. If AIMS schedules a first response, the UI reports the due time instead of claiming that the message was already sent.
+The backend is authoritative for the exclusion, so removing the UI routes is defence in depth rather than the sole control.
