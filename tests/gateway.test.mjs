@@ -282,7 +282,8 @@ test("console HTML receives a restrictive CSP", async () => {
     ASSETS: { fetch: async () => new Response("<html></html>", { headers: { "content-type": "text/html; charset=utf-8" } }) },
   });
   const csp = response.headers.get("content-security-policy") || "";
-  assert.match(csp, /script-src 'self' 'sha256-/);
+  assert.match(csp, /script-src 'self'(?:;|$)/);
+  assert.doesNotMatch(csp, /'unsafe-inline'[^;]*;?\s*script-src|script-src[^;]*'unsafe-inline'/);
   assert.match(csp, /script-src-attr 'none'/);
   assert.match(csp, /object-src 'none'/);
   assert.match(csp, /base-uri 'self'/);
