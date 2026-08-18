@@ -23,5 +23,5 @@ createServer(async (request, response) => {
     response.end(error.status === 403 ? "Forbidden" : "Not found");
   }
 }).listen(port, "127.0.0.1", () => {
-  console.log(`AIMS UI preview: http://127.0.0.1:${port}/apps/console/?demo=1`);
+  console.log(`AIMS UI preview: http://127.0.0.1:${port}/apps/console/`);
 });

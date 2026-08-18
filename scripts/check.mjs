@@ -16,6 +16,19 @@ const required = [
 
 for (const file of required) await access(join(root, file));
 
+const forbiddenArtifacts = [
+  "apps/console/mock-data.js",
+  "apps/widget/demo.html",
+];
+for (const file of forbiddenArtifacts) {
+  try {
+    await access(join(root, file));
+    throw new Error(`Production bundle must not contain ${file}`);
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+  }
+}
+
 async function walk(directory) {
   const found = [];
   for (const entry of await readdir(directory, { withFileTypes: true })) {
@@ -47,6 +60,19 @@ for (const file of files.filter((item) => [".js", ".mjs", ".html", ".toml", ".md
   const source = await readFile(file, "utf8");
   for (const pattern of forbidden) {
     if (pattern.test(source)) throw new Error(`Possible embedded secret in ${relative(root, file)}`);
+  }
+}
+
+const productionRuntimeFiles = files.filter((item) => {
+  const rel = relative(root, item).replaceAll("\\", "/");
+  return rel.startsWith("apps/") || rel.startsWith("workers/");
+});
+const forbiddenRuntimeMarkers = ["demoMode", "?demo=1", "demo-token", "mock-data.js"];
+for (const file of productionRuntimeFiles) {
+  if (![".js", ".mjs", ".html"].includes(extname(file))) continue;
+  const source = await readFile(file, "utf8");
+  for (const marker of forbiddenRuntimeMarkers) {
+    if (source.includes(marker)) throw new Error(`Production demo marker ${marker} found in ${relative(root, file)}`);
   }
 }
 
