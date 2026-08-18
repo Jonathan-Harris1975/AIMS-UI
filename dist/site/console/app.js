@@ -12,17 +12,22 @@ const config = Object.freeze({
   hiveHomeUrl: String(supplied.hiveHomeUrl || "https://hive.jonathan-harris.online").replace(/\/+$/, ""),
 });
 
-function acceptHiveHandoff() {
+async function acceptHiveHandoff() {
   const fragment = location.hash.startsWith("#") ? location.hash.slice(1) : location.hash;
   const params = new URLSearchParams(fragment);
   const token = params.get("handoff");
   if (!token) return false;
-  sessionStorage.setItem("aims-ui-console-token", token);
   history.replaceState(null, "", `${location.pathname}${location.search}#dashboard`);
+  const response = await fetch(`${config.apiBaseUrl}/auth/handoff`, {
+    method: "POST",
+    credentials: "include",
+    headers: { authorization: `Bearer ${token}`, accept: "application/json" },
+  });
+  if (!response.ok) throw new Error("The HIVE handoff could not establish an operator session.");
   return true;
 }
 
-acceptHiveHandoff();
+await acceptHiveHandoff();
 
 if (config.embedded && window.parent !== window) {
   window.parent.postMessage({ type: "aims-comms-ready" }, "https://hive.jonathan-harris.online");
@@ -30,7 +35,6 @@ if (config.embedded && window.parent !== window) {
 
 const client = new AimsCommsClient({
   baseUrl: config.apiBaseUrl,
-  tokenProvider: () => sessionStorage.getItem("aims-ui-console-token") || "",
 });
 
 const state = {
