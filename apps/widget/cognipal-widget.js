@@ -47,7 +47,6 @@ function clearStoredSession(siteId) {
 
 export function resolveWidgetConfig(element = null, script = document.currentScript) {
   const data = { ...(script?.dataset || {}), ...(element?.dataset || {}) };
-  const query = new URLSearchParams(location.search);
   return Object.freeze({
     apiBase: safeBase(data.apiBase || globalThis.COGNIPAL_WIDGET_CONFIG?.apiBase || ""),
     siteId: String(data.siteId || globalThis.COGNIPAL_WIDGET_CONFIG?.siteId || location.hostname || "jonathan-harris.online"),
@@ -56,7 +55,6 @@ export function resolveWidgetConfig(element = null, script = document.currentScr
     title: String(data.title || globalThis.COGNIPAL_WIDGET_CONFIG?.title || "CogniPal"),
     greeting: String(data.greeting || globalThis.COGNIPAL_WIDGET_CONFIG?.greeting || "Hello. I’m CogniPal. What would you like to explore?"),
     privacyUrl: String(data.privacyUrl || globalThis.COGNIPAL_WIDGET_CONFIG?.privacyUrl || "/privacy/"),
-    demoMode: data.demo === "1" || query.get("demo") === "1" || globalThis.COGNIPAL_WIDGET_CONFIG?.demoMode === true,
   });
 }
 
@@ -98,46 +96,6 @@ class HttpTransport {
       headers: { authorization: `Bearer ${session.token}`, "idempotency-key": input.clientMessageId },
       body: JSON.stringify(input),
     });
-  }
-}
-
-class DemoTransport {
-  constructor(config) {
-    this.config = config;
-    this.items = [];
-    this.mode = "automation";
-  }
-
-  async createSession() {
-    await new Promise((resolve) => setTimeout(resolve, 280));
-    return {
-      sessionId: newId("demo_session"),
-      visitorId: newId("visitor"),
-      token: "demo-token",
-      expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
-    };
-  }
-
-  async messages() {
-    return { messages: [...this.items], mode: this.mode };
-  }
-
-  async send(_session, input) {
-    const visitor = { id: input.clientMessageId, role: "visitor", text: input.message, createdAt: new Date().toISOString(), status: "accepted" };
-    if (!this.items.some((item) => item.id === visitor.id)) this.items.push(visitor);
-    setTimeout(() => {
-      this.items.push({
-        id: newId("assistant"),
-        role: "assistant",
-        text: input.message.toLowerCase().includes("human")
-          ? "I’ve marked this for a human review. Your conversation will remain here while the AIMS team picks it up."
-          : "Thanks. This demonstration shows the CogniPal conversation flow. In live mode, AIMS will route, ground and audit the response.",
-        createdAt: new Date().toISOString(),
-        status: "delivered",
-      });
-      this.onChange?.();
-    }, 1100);
-    return { ok: true, accepted: true, message: visitor };
   }
 }
 
@@ -229,8 +187,7 @@ export class CogniPalWidget extends HTMLElement {
 
   connectedCallback() {
     this.config = resolveWidgetConfig(this);
-    this.transport = this.config.demoMode ? new DemoTransport(this.config) : new HttpTransport(this.config);
-    if (this.transport instanceof DemoTransport) this.transport.onChange = () => this.refreshMessages();
+    this.transport = new HttpTransport(this.config);
     this.session = readStoredSession(this.config.siteId);
     this.consented = Boolean(this.session);
     this.render();
@@ -431,7 +388,7 @@ export class CogniPalWidget extends HTMLElement {
         <section class="cp-panel ${this.open ? "open" : ""}" role="dialog" aria-modal="false" aria-label="CogniPal chat" tabindex="-1">
           <header class="cp-header">
             <span class="cp-avatar"><img src="${escapeHtml(this.config.iconUrl)}" alt=""></span>
-            <div class="cp-heading"><strong>${escapeHtml(this.config.title)}</strong><span>${this.mode === "human" ? "Human support active" : this.config.demoMode ? "Demonstration mode" : "AIMS website assistant"}</span></div>
+            <div class="cp-heading"><strong>${escapeHtml(this.config.title)}</strong><span>${this.mode === "human" ? "Human support active" : "AIMS website assistant"}</span></div>
             <button class="cp-icon-button" data-action="toggle" aria-label="Minimise chat"><svg viewBox="0 0 24 24"><path d="M5 11h14v2H5z"/></svg></button>
           </header>
           <main class="cp-body">${this.content()}</main>
