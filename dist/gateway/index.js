@@ -2,6 +2,8 @@ const encoder = new TextEncoder();
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 const MAX_MESSAGE_LENGTH = 4000;
 const WIDGET_RATE_LIMIT_PER_MINUTE = 12;
+const CONSOLE_SESSION_COOKIE_NAME = "__Host-aims_console_session";
+const CONSOLE_SESSION_MAX_AGE_SECONDS = 600;
 const ALLOWED_ROLES = new Set(["admin", "reviewer", "operator", "read_only"]);
 
 function json(payload, { status = 200, headers = {} } = {}) {
@@ -245,6 +247,24 @@ export async function verifyHiveHandoffToken(token, secret, { now = Date.now() }
   }
 }
 
+function readCookie(request, name) {
+  const raw = request.headers.get("cookie") || "";
+  for (const part of raw.split(";")) {
+    const [key, ...rest] = part.trim().split("=");
+    if (key === name) return decodeURIComponent(rest.join("="));
+  }
+  return "";
+}
+
+function consoleSessionCookie(token, maxAge = CONSOLE_SESSION_MAX_AGE_SECONDS) {
+  const bounded = Math.max(1, Math.min(CONSOLE_SESSION_MAX_AGE_SECONDS, Number(maxAge) || CONSOLE_SESSION_MAX_AGE_SECONDS));
+  return `${CONSOLE_SESSION_COOKIE_NAME}=${encodeURIComponent(token)}; Path=/; Max-Age=${bounded}; HttpOnly; Secure; SameSite=Strict`;
+}
+
+function clearConsoleSessionCookie() {
+  return `${CONSOLE_SESSION_COOKIE_NAME}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict`;
+}
+
 function bearerToken(request) {
   return normalise(request.headers.get("authorization")).replace(/^Bearer\s+/i, "");
 }
@@ -481,13 +501,37 @@ async function providerSetMode(request, env, sessionId) {
   return json({ ok: true, sessionId, mode });
 }
 
+async function exchangeHiveHandoff(request, env) {
+  const origin = await requireConsoleOrigin(request, env);
+  if (request.method !== "POST") {
+    return withCors(json({ error: "method_not_allowed", message: "Use POST to establish a console session." }, { status: 405, headers: { allow: "POST" } }), origin, { credentials: true });
+  }
+  const token = bearerToken(request);
+  if (!token || !normalise(env.HIVE_COMMS_HANDOFF_SECRET)) {
+    return withCors(json({ error: "hive_handoff_invalid", message: "HIVE handoff token is missing or invalid." }, { status: 401, headers: { "set-cookie": clearConsoleSessionCookie() } }), origin, { credentials: true });
+  }
+  const identity = await verifyHiveHandoffToken(token, env.HIVE_COMMS_HANDOFF_SECRET);
+  if (!identity) {
+    return withCors(json({ error: "hive_handoff_invalid", message: "HIVE handoff token is invalid or expired." }, { status: 401, headers: { "set-cookie": clearConsoleSessionCookie() } }), origin, { credentials: true });
+  }
+  const encodedBody = token.split(".")[0];
+  let maxAge = CONSOLE_SESSION_MAX_AGE_SECONDS;
+  try {
+    const payload = JSON.parse(new TextDecoder().decode(base64UrlDecode(encodedBody)));
+    maxAge = Math.max(1, Math.min(CONSOLE_SESSION_MAX_AGE_SECONDS, Number(payload.exp) - Math.floor(Date.now() / 1000)));
+  } catch {}
+  return withCors(json({ ok: true, authenticated: true, actor: identity.actor, role: identity.role }, {
+    headers: { "set-cookie": consoleSessionCookie(token, maxAge) },
+  }), origin, { credentials: true });
+}
+
 async function verifyHiveIdentity(request, env) {
   if (normalise(env.ENVIRONMENT).toLowerCase() !== "production" && env.DEV_CONSOLE_ACTOR) {
     const role = ALLOWED_ROLES.has(env.DEV_CONSOLE_ROLE) ? env.DEV_CONSOLE_ROLE : "admin";
     return { actor: env.DEV_CONSOLE_ACTOR, role };
   }
 
-  const token = bearerToken(request);
+  const token = bearerToken(request) || readCookie(request, CONSOLE_SESSION_COOKIE_NAME);
   if (token && env.HIVE_COMMS_HANDOFF_SECRET) {
     const identity = await verifyHiveHandoffToken(token, env.HIVE_COMMS_HANDOFF_SECRET);
     if (identity) return identity;
@@ -612,6 +656,7 @@ export default {
         });
       }
       if (isCogniPalIntakePath(url.pathname, request.method)) return proxyCogniPalIntake(request, env, url);
+      if (url.pathname === "/console/api/auth/handoff") return exchangeHiveHandoff(request, env);
       if (url.pathname.startsWith("/console/api")) return proxyConsole(request, env, url);
       if (request.method === "POST" && url.pathname === "/widget/session") return createWidgetSession(request, env);
       const widgetMatch = url.pathname.match(/^\/widget\/sessions\/([^/]+)\/messages$/);
@@ -628,10 +673,14 @@ export default {
       if (env.ASSETS && request.method === "GET") {
         const assetResponse = await env.ASSETS.fetch(request);
         const headers = new Headers(assetResponse.headers);
-        headers.set("content-security-policy", "frame-ancestors 'self' https://hive.jonathan-harris.online");
+        const contentType = headers.get("content-type") || "";
+        if (contentType.includes("text/html")) {
+          headers.set("content-security-policy", "default-src 'self'; script-src 'self' 'sha256-WJl6PSHxN8dkRz3pvT7ieyXN1ud8R4J4ev5zgl4PlmQ='; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-src https://hive.jonathan-harris.online; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self' https://hive.jonathan-harris.online; upgrade-insecure-requests");
+        }
         headers.delete("x-frame-options");
         headers.set("cross-origin-resource-policy", "cross-origin");
         headers.set("referrer-policy", "same-origin");
+        headers.set("permissions-policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()");
         headers.set("x-content-type-options", "nosniff");
         return new Response(assetResponse.body, { status: assetResponse.status, statusText: assetResponse.statusText, headers });
       }
