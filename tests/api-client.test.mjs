@@ -115,3 +115,28 @@ test("social action can reuse the approval idempotency key for scoped execution"
   await client.socialAction("cnv-1", "delete", { approvalId: "apr-1" }, { idempotencyKey: "approval-action-123" });
   assert.equal(captured.headers.get("idempotency-key"), "approval-action-123");
 });
+
+test("client exposes contact management, conversation deletion and archive endpoints", async () => {
+  const calls = [];
+  const client = new AimsCommsClient({
+    baseUrl: "https://example.test/comms-hub",
+    fetchImpl: async (url, options) => {
+      calls.push([String(url), options.method, options.body ? JSON.parse(options.body) : null]);
+      return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } });
+    },
+  });
+  await client.contact("ctc_test");
+  await client.updateContact("ctc_test", { displayName: "Jane" });
+  await client.deleteContact("ctc_test");
+  await client.deleteConversation("cnv_test");
+  await client.archives({ channel: "email" });
+  await client.archivedConversation("cnv_test");
+
+  assert.match(calls[0][0], /\/contacts\/ctc_test$/);
+  assert.equal(calls[1][1], "PATCH");
+  assert.deepEqual(calls[1][2], { displayName: "Jane" });
+  assert.equal(calls[2][1], "DELETE");
+  assert.equal(calls[3][1], "DELETE");
+  assert.match(calls[4][0], /\/archives\/conversations\?channel=email$/);
+  assert.match(calls[5][0], /\/archives\/conversations\/cnv_test$/);
+});
