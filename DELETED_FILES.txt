@@ -1,8 +1,0 @@
-Files removed by the production remediation pass.
-Delete these paths from the repository when applying this update ZIP.
-
-AIMS-UI-main/apps/console/mock-data.js
-AIMS-UI-main/apps/widget/demo.html
-AIMS-UI-main/dist/site/build-manifest.json
-AIMS-UI-main/dist/site/console/mock-data.js
-AIMS-UI-main/dist/site/widget/demo.html
