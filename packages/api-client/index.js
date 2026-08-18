@@ -104,6 +104,28 @@ export class AimsCommsClient {
   bootstrap() { return this.request("/ui/bootstrap"); }
   queue(filters = {}) { return this.request("/queue", { query: filters }); }
   workspace(conversationId) { return this.request(`/workspace/${encodeURIComponent(conversationId)}`); }
+  contact(contactId) { return this.request(`/contacts/${encodeURIComponent(contactId)}`); }
+  updateContact(contactId, changes) {
+    return this.request(`/contacts/${encodeURIComponent(contactId)}`, {
+      method: "PATCH",
+      body: changes,
+      idempotent: true,
+    });
+  }
+  deleteContact(contactId) {
+    return this.request(`/contacts/${encodeURIComponent(contactId)}`, {
+      method: "DELETE",
+      idempotent: true,
+    });
+  }
+  deleteConversation(conversationId) {
+    return this.request(`/conversations/${encodeURIComponent(conversationId)}`, {
+      method: "DELETE",
+      idempotent: true,
+    });
+  }
+  archives(query = {}) { return this.request("/archives/conversations", { query }); }
+  archivedConversation(conversationId) { return this.request(`/archives/conversations/${encodeURIComponent(conversationId)}`); }
   metrics(query = {}) { return this.request("/metrics", { query }); }
   notifications(query = {}) { return this.request("/notifications", { query }); }
   markNotification(id, status = "read") { return this.request(`/notifications/${encodeURIComponent(id)}`, { method: "PATCH", body: { status } }); }
