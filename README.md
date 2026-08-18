@@ -19,7 +19,7 @@ Implemented:
 - Unified queue filters for status, channel, priority, owner, tag, overdue and AI state.
 - Conversation workspace with chronological thread, contact context, AI context, notes, status, assignment, reply and chat takeover controls.
 - Notification, approval, quarantine, workflow, analytics and settings surfaces.
-- Explicit live API mode and explicit demo mode. The console never silently falls back to demo data.
+- Live API mode only. Failed gateway requests remain visible as connection errors and never fall back to invented data.
 - Shadow-DOM CogniPal widget with consent, persistent session, polling, cold-start state, retries and accessible keyboard controls.
 - Gateway-side HIVE identity verification and HMAC delegation to AIMS.
 - Gateway-side public chat sessions, CogniPal-compatible webhook signing, AIMS outbound relay and D1 message persistence.
@@ -48,10 +48,9 @@ npm run dev
 
 Open:
 
-- Console: `http://127.0.0.1:4173/apps/console/?demo=1`
-- Widget demonstration: `http://127.0.0.1:4173/apps/widget/demo.html?demo=1`
+- Console: `http://127.0.0.1:4173/apps/console/`
 
-Demo mode is opt-in. Without `?demo=1`, the console attempts the configured live gateway and reports a connection failure rather than inventing data.
+The console always uses the configured live gateway and reports connection failures rather than inventing data.
 
 ## Build output
 
@@ -73,7 +72,6 @@ For the `chat.jonathan-harris.online` custom domain, deploy the gateway as a Clo
 <script>
   window.AIMS_UI_CONFIG = {
     apiBaseUrl: "https://chat.jonathan-harris.online/console/api",
-    demoMode: false,
     productName: "AIMS Comms Hub"
   };
 </script>

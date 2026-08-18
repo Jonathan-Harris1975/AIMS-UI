@@ -10,7 +10,7 @@
 - Unified queue, approvals, contacts, workflows, quarantine, analytics and settings views.
 - Conversation workspace with notes, assignment, status, replies and human takeover.
 - Responsive desktop and mobile layouts.
-- Explicit demo mode with no silent live-to-demo fallback.
+- Live gateway only, with no mock-data or silent fallback path in the production bundle.
 
 ## Validation completed
 
