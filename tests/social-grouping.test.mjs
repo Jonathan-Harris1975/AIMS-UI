@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-test("console groups DMs, comments, admin email and newsletter email as Unified inbox child queues", async () => {
+test("console groups DMs and comments as Unified inbox child queues while excluded mailboxes stay absent", async () => {
   const app = await readFile(new URL("../apps/console/app.js", import.meta.url), "utf8");
   const primary = app.match(/const navItems = \[[\s\S]*?\n\];/)?.[0] || "";
   const children = app.match(/const inboxSubItems = \[[\s\S]*?\n\];/)?.[0] || "";
@@ -11,8 +11,8 @@ test("console groups DMs, comments, admin email and newsletter email as Unified 
   assert.doesNotMatch(primary, /\["comments", "Comments"/);
   assert.match(children, /\["dms", "DMs", icons\.dm\]/);
   assert.match(children, /\["comments", "Comments", icons\.comment\]/);
-  assert.match(children, /\["admin-email", "Admin email", icons\.email\]/);
-  assert.match(children, /\["newsletter-email", "Newsletter email", icons\.email\]/);
+  assert.doesNotMatch(children, /admin-email|newsletter-email|Admin email|Newsletter email/);
+  assert.doesNotMatch(app, /function emailGroupView|function adminEmailView|function newsletterEmailView/);
   assert.match(app, /socialInteractionType\(row\)/);
   assert.match(app, /queueRows\(\{ interactionType: type, socialOnly: true \}\)/);
   assert.match(app, /client\.socialAction\(state\.selectedConversationId, "reply"/);
@@ -21,7 +21,7 @@ test("console groups DMs, comments, admin email and newsletter email as Unified 
   assert.match(app, /data-social-approved-id/);
 });
 
-test("embedded and sidebar navigation expose all specialist queues beneath Unified inbox", async () => {
+test("embedded and sidebar navigation expose specialist social queues beneath Unified inbox", async () => {
   const app = await readFile(new URL("../apps/console/app.js", import.meta.url), "utf8");
   const styles = await readFile(new URL("../apps/console/styles.css", import.meta.url), "utf8");
 
@@ -42,14 +42,10 @@ test("DM and comment queues cannot inherit incompatible Email channel filters", 
   assert.match(app, /filterBar\(false, allowedChannels\)/);
 });
 
-
-test("admin and newsletter inbox views filter the email account and retain manual reply routing", async () => {
+test("Admin and Newsletter inboxes remain outside the AIMS-UI automation surface", async () => {
   const app = await readFile(new URL("../apps/console/app.js", import.meta.url), "utf8");
-  assert.match(app, /function emailGroupView\(accountKey\)/);
-  assert.match(app, /queueRows\(\{ emailAccountKey: accountKey \}\)/);
-  assert.match(app, /row\.email_account_key/);
-  assert.match(app, /manual replies only/);
-  assert.match(app, /workspaceInboxView\(\) === "admin-email"/);
-  assert.match(app, /workspaceInboxView\(\) === "newsletter-email"/);
+  assert.doesNotMatch(app, /admin-email|newsletter-email|manual replies only/);
+  assert.doesNotMatch(app, /queueRows\(\{ emailAccountKey:/);
+  assert.match(app, /else if \(conversation\.channel === "email"\)/);
   assert.match(app, /client\.sendEmail\(state\.selectedConversationId/);
 });
