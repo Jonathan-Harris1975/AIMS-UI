@@ -78,6 +78,13 @@ for (const file of productionRuntimeFiles) {
 
 const consoleIndex = await readFile(join(root, "apps/console/index.html"), "utf8");
 if (!consoleIndex.includes('lang="en-GB"')) throw new Error("Console document language must be en-GB.");
+if (/<script\b(?![^>]*\bsrc=)[^>]*>/i.test(consoleIndex)) throw new Error("Console HTML must not contain inline scripts or import maps.");
+const consoleApp = await readFile(join(root, "apps/console/app.js"), "utf8");
+for (const bareSpecifier of ["@aims/api", "@aims/shared", "@aims/contracts"]) {
+  if (consoleApp.includes(`from "${bareSpecifier}"`) || consoleApp.includes(`from '${bareSpecifier}'`)) {
+    throw new Error(`Console app must not depend on an inline import map for ${bareSpecifier}.`);
+  }
+}
 const widget = await readFile(join(root, "apps/widget/cognipal-widget.js"), "utf8");
 if (!widget.includes("attachShadow")) throw new Error("CogniPal widget must retain Shadow DOM isolation.");
 if (!widget.includes("https://assets.jonathan-harris.online/CogniPal.jpg")) throw new Error("CogniPal icon default is missing.");

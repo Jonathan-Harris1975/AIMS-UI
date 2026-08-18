@@ -24,12 +24,16 @@ await copyFile(join(root, "packages", "theme", "tokens.css"), join(consoleDir, "
 
 const consoleIndexPath = join(consoleDir, "index.html");
 let consoleIndex = await readFile(consoleIndexPath, "utf8");
-consoleIndex = consoleIndex
-  .replace('href="../../packages/theme/tokens.css"', 'href="./lib/tokens.css"')
-  .replace('"@aims/api": "/packages/api-client/index.js"', '"@aims/api": "./lib/api-client.js"')
-  .replace('"@aims/shared": "/packages/shared/format.js"', '"@aims/shared": "./lib/format.js"')
-  .replace('"@aims/contracts": "/packages/shared/contracts.js"', '"@aims/contracts": "./lib/contracts.js"');
+consoleIndex = consoleIndex.replace('href="../../packages/theme/tokens.css"', 'href="./lib/tokens.css"');
 await writeFile(consoleIndexPath, consoleIndex);
+
+const consoleAppPath = join(consoleDir, "app.js");
+let consoleApp = await readFile(consoleAppPath, "utf8");
+consoleApp = consoleApp
+  .replace('from "../../packages/api-client/index.js";', 'from "./lib/api-client.js";')
+  .replace('from "../../packages/shared/format.js";', 'from "./lib/format.js";')
+  .replace('from "../../packages/shared/contracts.js";', 'from "./lib/contracts.js";');
+await writeFile(consoleAppPath, consoleApp);
 
 const consoleStylesPath = join(consoleDir, "styles.css");
 let consoleStyles = await readFile(consoleStylesPath, "utf8");
@@ -49,19 +53,20 @@ const rootIndex = `<!doctype html>
   <meta name="robots" content="noindex,nofollow,noarchive,nosnippet">
   <meta http-equiv="cache-control" content="no-store">
   <title>AIMS Communications Interface</title>
-  <script>
-    (() => {
-      const target = new URL('/console/', location.origin);
-      target.search = location.search;
-      target.hash = location.hash;
-      location.replace(target.toString());
-    })();
-  </script>
 </head>
-<body></body>
+<body>
+  <noscript><a href="/console/">Open AIMS Communications Interface</a></noscript>
+  <script type="module" src="/root-redirect.js"></script>
+</body>
 </html>
 `;
+const rootRedirect = `const target = new URL('/console/', location.origin);
+target.search = location.search;
+target.hash = location.hash;
+location.replace(target.toString());
+`;
 await writeFile(join(siteDir, "index.html"), rootIndex);
+await writeFile(join(siteDir, "root-redirect.js"), rootRedirect);
 
 await cp(join(root, "apps", "widget"), join(siteDir, "widget"), { recursive: true });
 await cp(join(root, "workers", "gateway"), join(dist, "gateway"), { recursive: true });
