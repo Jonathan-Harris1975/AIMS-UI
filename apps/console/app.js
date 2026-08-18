@@ -43,7 +43,8 @@ const state = {
   selectedContactId: "",
   contactProfile: null,
   contactBusy: false,
-  filters: { status: "", channel: "", priority: "", ownerId: "", tag: "", overdue: false, aiStatus: "" },
+  filters: { status: "", channel: "", priority: "", ownerId: "", ownerMode: "", tag: "", overdue: false, aiStatus: "" },
+  workspaceContextTab: "details",
   search: "",
   loading: false,
   error: null,
@@ -140,6 +141,7 @@ function queueRows({ interactionType = "", socialOnly = false } = {}) {
     if (state.filters.channel && row.channel !== state.filters.channel) return false;
     if (state.filters.priority && row.priority_label !== state.filters.priority) return false;
     if (state.filters.ownerId && row.owner_id !== state.filters.ownerId) return false;
+    if (state.filters.ownerMode && row.owner_type !== state.filters.ownerMode) return false;
     if (state.filters.overdue && !row.response_overdue) return false;
     if (state.filters.aiStatus && row.ai_status !== state.filters.aiStatus && row.latest_ai_status !== state.filters.aiStatus) return false;
     if (socialOnly && !isSocialChannel(row.channel)) return false;
@@ -355,6 +357,21 @@ function filterBar(compact = false, allowedChannels = null) {
   `;
 }
 
+function quickFilterBar() {
+  const active = (key) => {
+    if (key === "all") return !state.filters.status && !state.filters.priority && !state.filters.overdue && !state.filters.ownerMode;
+    if (key === "overdue") return state.filters.overdue;
+    if (key === "open") return state.filters.status === "open";
+    if (key === "high") return state.filters.priority === "high";
+    if (key === "mine") return state.filters.ownerMode === "person";
+    return false;
+  };
+  return `<div class="quick-filters" aria-label="Quick inbox filters">
+    <span>Quick views</span>
+    ${[["all", "All"], ["overdue", "Overdue"], ["open", "Open"], ["high", "High priority"], ["mine", "Assigned to me"]].map(([key, label]) => `<button type="button" class="quick-filter ${active(key) ? "active" : ""}" data-quick-filter="${key}" aria-pressed="${active(key)}">${label}</button>`).join("")}
+  </div>`;
+}
+
 function queueTable(rows = queueRows(), limit = 50, compact = false) {
   const visible = rows.slice(0, limit);
   if (!visible.length) return emptyState("No matching conversations", "Change the filters or search terms. Nothing is hiding under the rug.");
@@ -378,6 +395,19 @@ function queueTable(rows = queueRows(), limit = 50, compact = false) {
           `).join("")}
         </tbody>
       </table>
+      <div class="queue-cards" aria-label="Conversations">
+        ${visible.map((row) => `
+          <button type="button" class="queue-card" data-conversation-id="${escapeHtml(row.id)}">
+            <span class="queue-card-head">
+              <span class="channel-avatar channel-${escapeHtml(row.channel)}">${escapeHtml(channelLabel(row.channel).charAt(0))}</span>
+              <span class="queue-card-title"><strong>${escapeHtml(row.display_name || row.primary_email || "Unknown contact")}</strong><span>${escapeHtml(row.subject || row.summary_text || "Conversation")}</span></span>
+              ${priorityPill(row.priority_label)}
+            </span>
+            <span class="queue-card-tags"><span class="channel-label channel-label-${escapeHtml(row.channel)}">${escapeHtml(channelLabel(row.channel))}</span><span class="interaction-label interaction-${escapeHtml(socialInteractionType(row) || row.channel)}">${escapeHtml(interactionLabel(row))}</span>${statusPill(row.operational_status)}</span>
+            <span class="queue-card-meta"><span><b>Response</b>${escapeHtml(row.response_due_at ? formatDateTime(row.response_due_at) : secondsToAge(row.age_seconds))}${row.response_overdue ? ` <em>Overdue</em>` : ""}</span><span><b>Owner</b>${row.owner_type === "person" ? "Me" : row.owner_type === "automation" ? "Automated" : "Assigned"}</span><span><b>AI</b>${escapeHtml(titleCase(row.intent || "Unanalysed"))}</span></span>
+          </button>
+        `).join("")}
+      </div>
     </div>
   `;
 }
@@ -409,7 +439,7 @@ function inboxView() {
   return shell(`
     ${pageHeader("Unified inbox", "Filter and triage every supported channel without losing the thread.", `<button class="button secondary" data-action="refresh">Refresh queue</button>`)}
     <section class="panel inbox-panel">
-      <header class="panel-header stacked"><div><strong>${queueRows().length} conversations</strong><span>Live filters remain local until refresh, preventing accidental query storms.</span></div>${filterBar()}</header>
+      <header class="panel-header stacked"><div><strong>${queueRows().length} conversations</strong><span>Live filters remain local until refresh, preventing accidental query storms.</span></div>${quickFilterBar()}${filterBar()}</header>
       ${queueTable()}
     </section>
   `);
@@ -590,7 +620,7 @@ function workspaceView() {
   return shell(`
     <section class="workspace-header">
       <button class="back-button" data-view="${workspaceInboxView()}">‹ <span>${workspaceInboxView() === "dms" ? "DMs" : workspaceInboxView() === "comments" ? "Comments" : "Inbox"}</span></button>
-      <div><div class="workspace-title"><h1>${escapeHtml(conversation.subject || "Conversation")}</h1>${statusPill(operations.operational_status || conversation.status)}</div><p>${escapeHtml(contact.display_name || contact.primary_email || "Unknown contact")} · ${escapeHtml(channelLabel(conversation.channel))} · Updated ${escapeHtml(formatRelativeTime(conversation.last_message_at))}</p></div>
+      <div><nav class="workspace-breadcrumb" aria-label="Breadcrumb"><button type="button" data-view="inbox">Unified inbox</button><span>/</span>${workspaceInboxView() !== "inbox" ? `<button type="button" data-view="${workspaceInboxView()}">${workspaceInboxView() === "dms" ? "DMs" : "Comments"}</button><span>/</span>` : ""}<strong>${escapeHtml(conversation.subject || "Conversation")}</strong></nav><div class="workspace-title"><h1>${escapeHtml(conversation.subject || "Conversation")}</h1>${statusPill(operations.operational_status || conversation.status)}</div><p>${escapeHtml(contact.display_name || contact.primary_email || "Unknown contact")} · ${escapeHtml(channelLabel(conversation.channel))} · Updated ${escapeHtml(formatRelativeTime(conversation.last_message_at))}</p></div>
       <div class="workspace-actions">
         ${canReply ? `<button class="button secondary" data-action="analyse">Run AI analysis</button>` : ""}
         ${currentStatus === "archived" ? `<span class="archive-state">Archived</span>` : themedSelect({ id: "workspace-status", value: currentStatus, ariaLabel: "Conversation status", disabled: !roleAllows(role, "status"), className: "workspace-status-select", options: ["open", "pending", "snoozed", "resolved", "blocked", "quarantined", "escalated"].map((status) => ({ value: status, label: titleCase(status) })) })}
@@ -612,14 +642,17 @@ function workspaceView() {
           </form>
         ` : `<div class="read-only-banner">Read-only role. Reply and mutation controls are disabled.</div>`}
       </section>
+      <nav class="workspace-context-tabs" aria-label="Conversation context">
+        ${[["details", "Details"], ["ai", "AI"], ...(socialThread ? [["actions", "Actions"]] : []), ["notes", "Notes"]].map(([key, label]) => `<button type="button" data-workspace-context="${key}" class="${state.workspaceContextTab === key ? "active" : ""}" aria-pressed="${state.workspaceContextTab === key}">${label}</button>`).join("")}
+      </nav>
       <aside class="workspace-aside">
-        <section class="panel detail-card">
+        <section class="panel detail-card ${state.workspaceContextTab === "details" ? "context-active" : ""}" data-context-section="details">
           <header><strong>Contact</strong></header>
           <div class="contact-hero"><div class="avatar large">${escapeHtml((contact.display_name || "U").charAt(0).toUpperCase())}</div><div><strong>${escapeHtml(contact.display_name || "Unknown contact")}</strong><span>${escapeHtml(contact.primary_email || "No email recorded")}</span><small>${escapeHtml(contact.phone || conversation.provider || "")}</small></div></div>
           <dl><div><dt>Handling</dt><dd>${assignedToMe ? "Assigned to me" : "Automated"}</dd></div><div><dt>Response target</dt><dd>${escapeHtml(operations.response_due_at ? formatDateTime(operations.response_due_at) : "Not set")}</dd></div><div><dt>Workflow</dt><dd>${escapeHtml(titleCase(conversation.workflow || "unassigned"))}</dd></div></dl>
           ${roleAllows(role, "assign") ? `<div class="handling-control"><span>Who handles this?</span><div class="handling-segment" role="group" aria-label="Conversation handling"><button type="button" data-handling-mode="automation" class="${assignedToMe ? "" : "active"}" aria-pressed="${!assignedToMe}">Automated</button><button type="button" data-handling-mode="person" class="${assignedToMe ? "active" : ""}" aria-pressed="${assignedToMe}">Assigned to me</button></div><small>${assignedToMe ? `${escapeHtml(actor)} is handling this conversation. AIMS autonomous replies are paused.` : "AIMS can analyse and reply under the active automation policies."}</small></div>` : ""}
         </section>
-        ${socialThread ? `<section class="panel detail-card social-control-card">
+        ${socialThread ? `<section class="panel detail-card social-control-card ${state.workspaceContextTab === "actions" ? "context-active" : ""}" data-context-section="actions">
           <header><strong>${socialThread.thread_type === "dm" ? "DM controls" : "Comment controls"}</strong><span class="channel-label channel-label-${escapeHtml(socialThread.platform)}">${escapeHtml(channelLabel(socialThread.platform))}</span></header>
           <dl><div><dt>Interaction</dt><dd>${escapeHtml(socialThread.thread_type === "dm" ? "Direct message" : "Comment")}</dd></div><div><dt>Provider status</dt><dd>${escapeHtml(titleCase(socialThread.provider_status || "unknown"))}</dd></div><div><dt>Account</dt><dd>${escapeHtml(socialThread.account_id || "Unknown")}</dd></div></dl>
           ${socialMonitorOnly ? `<p class="social-lock-note">Monitoring-only mode is active. Provider mutations remain locked until the live intake canaries are accepted.</p>` : canReply ? `<div class="social-action-grid">
@@ -631,14 +664,14 @@ function workspaceView() {
           </div>` : ""}
           ${!socialMonitorOnly && executableModerationApprovals.length ? `<div class="approved-action-list"><strong>Approved actions ready</strong>${executableModerationApprovals.map((approval) => `<button class="button primary compact" data-social-approved-id="${escapeHtml(approval.id)}">Execute ${escapeHtml(titleCase(approval.action_type || "action"))}</button>`).join("")}</div>` : ""}
         </section>` : ""}
-        <section class="panel detail-card ai-card">
+        <section class="panel detail-card ai-card ${state.workspaceContextTab === "ai" ? "context-active" : ""}" data-context-section="ai">
           <header><strong>AIMS analysis</strong><span class="ai-state risk-${escapeHtml(aiState.risk_level || "unknown")}">${escapeHtml(titleCase(aiState.risk_level || "Unanalysed"))}</span></header>
           <p class="ai-summary">${escapeHtml(aiState.summary_text || "No current summary has been returned.")}</p>
           <dl><div><dt>Intent</dt><dd>${escapeHtml(titleCase(aiState.intent || "Unknown"))}</dd></div><div><dt>Priority</dt><dd>${escapeHtml(titleCase(aiState.priority_label || "Unknown"))}${aiState.priority_score !== undefined ? ` (${escapeHtml(aiState.priority_score)})` : ""}</dd></div><div><dt>Sentiment</dt><dd>${escapeHtml(titleCase(aiState.sentiment || "Unknown"))}</dd></div><div><dt>Next action</dt><dd>${escapeHtml(aiState.next_action || "Not set")}</dd></div></dl>
           ${drafts.length ? `<div class="draft-box"><strong>Latest draft</strong><p>${escapeHtml(drafts[0].body_text || drafts[0].content || "")}</p></div>` : ""}
           ${pendingApproval ? `<div class="approval-box"><strong>Approval required</strong><p>${escapeHtml(pendingApproval.rationale || `Review ${titleCase(pendingApproval.action_type || "action")} scope and evidence.`)}</p>${canApprove ? `<div><button class="button secondary" data-approval-id="${escapeHtml(pendingApproval.id)}" data-decision="reject">Reject</button><button class="button primary" data-approval-id="${escapeHtml(pendingApproval.id)}" data-decision="approve">Approve</button></div>` : ""}</div>` : ""}
         </section>
-        ${attachments.length ? `<section class="panel detail-card attachment-card">
+        ${attachments.length ? `<section class="panel detail-card attachment-card ${state.workspaceContextTab === "details" ? "context-active" : ""}" data-context-section="details">
           <header><strong>Attachments</strong><span>${attachments.length}</span></header>
           <div class="attachment-list">
             ${attachments.map((attachment) => {
@@ -655,7 +688,7 @@ function workspaceView() {
             }).join("")}
           </div>
         </section>` : ""}
-        <section class="panel detail-card">
+        <section class="panel detail-card ${state.workspaceContextTab === "notes" ? "context-active" : ""}" data-context-section="notes">
           <header><strong>Private notes</strong><span>${workspace.notes?.length || 0}</span></header>
           <div class="notes-list">${(workspace.notes || []).slice(0, 4).map((note) => `<article><strong>${escapeHtml(note.author || note.created_by || "Operator")}</strong><p>${escapeHtml(note.body_text || "")}</p><small>${escapeHtml(formatRelativeTime(note.created_at))}</small></article>`).join("") || `<p class="muted">No private notes.</p>`}</div>
           ${roleAllows(role, "note") ? `<form id="note-form" class="note-form"><textarea name="bodyText" rows="2" placeholder="Add a private note" required></textarea><button class="button secondary" type="submit">Add note</button></form>` : ""}
@@ -750,7 +783,17 @@ function bindEvents() {
       input?.setSelectionRange(state.search.length, state.search.length);
     });
   });
-  root.querySelector('[data-action="clear-filters"]')?.addEventListener("click", () => { state.filters = { status: "", channel: "", priority: "", ownerId: "", tag: "", overdue: false, aiStatus: "" }; render(); });
+  root.querySelector('[data-action="clear-filters"]')?.addEventListener("click", () => { state.filters = { status: "", channel: "", priority: "", ownerId: "", ownerMode: "", tag: "", overdue: false, aiStatus: "" }; render(); });
+  root.querySelectorAll("[data-quick-filter]").forEach((button) => button.addEventListener("click", () => {
+    const key = button.dataset.quickFilter;
+    state.filters = { status: "", channel: "", priority: "", ownerId: "", ownerMode: "", tag: "", overdue: false, aiStatus: "" };
+    if (key === "overdue") state.filters.overdue = true;
+    if (key === "open") state.filters.status = "open";
+    if (key === "high") state.filters.priority = "high";
+    if (key === "mine") state.filters.ownerMode = "person";
+    render();
+  }));
+  root.querySelectorAll("[data-workspace-context]").forEach((button) => button.addEventListener("click", () => { state.workspaceContextTab = button.dataset.workspaceContext || "details"; render(); }));
   root.querySelectorAll('[data-action="refresh"]').forEach((button) => button.addEventListener("click", loadBootstrap));
   root.querySelector('[data-action="open-sidebar"]')?.addEventListener("click", () => { state.sidebarOpen = true; render(); });
   root.querySelectorAll('[data-action="close-sidebar"]').forEach((button) => button.addEventListener("click", () => { state.sidebarOpen = false; render(); }));
@@ -863,6 +906,7 @@ function navigate(view) {
 
 async function openConversation(conversationId) {
   state.selectedConversationId = conversationId;
+  state.workspaceContextTab = "details";
   state.view = "workspace";
   state.workspace = null;
   state.loading = true;

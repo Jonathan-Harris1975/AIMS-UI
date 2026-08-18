@@ -504,3 +504,81 @@ svg { width: 20px; height: 20px; fill: currentColor; }
   .themed-select-option { min-height: 46px; font-size: 14px; }
   .handling-segment button { min-height: 42px; }
 }
+
+/* UI/UX audit remediation: readable hierarchy, keyboard clarity and deliberate mobile triage. */
+:focus-visible {
+  outline: 2px solid var(--aims-accent-strong);
+  outline-offset: 2px;
+}
+.nav-item:focus-visible, .icon-button:focus-visible, .button:focus-visible, .text-button:focus-visible,
+.back-button:focus-visible, .queue-card:focus-visible, .quick-filter:focus-visible,
+.workspace-context-tabs button:focus-visible {
+  outline: 2px solid var(--aims-accent-strong);
+  outline-offset: 2px;
+}
+
+.panel-header span, .summary-card small, .service-card small, .user-card small { font-size: 12px; }
+.queue-table th { font-size: 11px; }
+.conversation-cell strong { font-size: 13px; }
+.conversation-cell span, .age, .owner { font-size: 12px; }
+.conversation-cell small, .channel-label, .interaction-label, .priority, .pill, .ai-state { font-size: 11px; }
+.contact-card span, .contact-card small, .contact-edit-form label, .contact-edit-actions > span { font-size: 12px; }
+.detail-card > header strong { font-size: 14px; }
+.contact-hero span, .contact-hero small, .detail-card dl div, .handling-control > span, .handling-control > small { font-size: 12px; }
+.message header strong { font-size: 12px; }
+.message time { font-size: 11px; }
+.reply-composer span, .draft-box strong, .approval-box strong, .draft-box p, .approval-box p,
+.notes-list strong, .notes-list small, .attachment-meta small, .attachment-status,
+.social-status-strip, .social-lock-note, .approved-action-list > strong { font-size: 12px; }
+
+.quick-filters { width: 100%; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.quick-filters > span { margin-right: 2px; color: var(--aims-text-soft); font-size: 12px; font-weight: 750; }
+.quick-filter { min-height: 34px; border: 1px solid var(--aims-border); border-radius: 999px; padding: 0 12px; background: var(--aims-panel-subtle); color: var(--aims-text-soft); cursor: pointer; font-size: 12px; font-weight: 700; }
+.quick-filter:hover { color: var(--aims-text); border-color: var(--aims-border-strong); }
+.quick-filter.active { color: var(--aims-accent-strong); background: var(--aims-accent-soft); border-color: rgba(103,232,249,.34); }
+
+.queue-cards { display: none; }
+.queue-card { width: 100%; border: 1px solid var(--aims-border); border-radius: 13px; background: var(--aims-panel); padding: 13px; color: var(--aims-text); text-align: left; }
+.queue-card-head { display: grid; grid-template-columns: auto minmax(0,1fr) auto; gap: 10px; align-items: center; }
+.queue-card-title { min-width: 0; display: grid; gap: 3px; }
+.queue-card-title strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.queue-card-title > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--aims-text-soft); font-size: 12px; }
+.queue-card-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 11px; }
+.queue-card-meta { display: grid; grid-template-columns: 1.3fr .8fr 1fr; gap: 8px; margin-top: 11px; padding-top: 10px; border-top: 1px solid var(--aims-border); }
+.queue-card-meta > span { min-width: 0; display: grid; gap: 3px; color: var(--aims-text-soft); font-size: 12px; overflow-wrap: anywhere; }
+.queue-card-meta b { color: var(--aims-text-faint); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+.queue-card-meta em { color: var(--aims-danger); font-style: normal; font-weight: 800; }
+
+.workspace-breadcrumb { display: flex; align-items: center; gap: 6px; min-width: 0; margin-bottom: 5px; color: var(--aims-text-faint); font-size: 12px; }
+.workspace-breadcrumb button { border: 0; background: transparent; padding: 0; color: var(--aims-accent-strong); cursor: pointer; font: inherit; }
+.workspace-breadcrumb strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--aims-text-soft); font-weight: 600; }
+.workspace-context-tabs { display: none; }
+.ai-card { background: linear-gradient(180deg, rgba(36,200,240,.055), var(--aims-panel) 38%); box-shadow: inset 3px 0 0 rgba(103,232,249,.32); }
+.empty-mark { box-shadow: 0 0 0 7px rgba(103,232,249,.055); }
+
+@media (max-width: 640px) {
+  body { font-size: 14px; }
+  .queue-table { display: none; }
+  .queue-cards { display: grid; gap: 10px; padding: 12px; }
+  .queue-card { min-height: 44px; }
+  .queue-card-meta { grid-template-columns: 1fr 1fr; }
+  .queue-card-meta > span:last-child { grid-column: 1 / -1; }
+  .quick-filters { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+  .quick-filters::-webkit-scrollbar { display: none; }
+  .quick-filters > span, .quick-filter { flex: 0 0 auto; }
+  .workspace-grid { display: block; }
+  .workspace-context-tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); gap: 4px; margin: 0 0 10px; padding: 4px; border: 1px solid var(--aims-border); border-radius: 12px; background: var(--aims-panel); }
+  .workspace-context-tabs button { min-height: 42px; border: 0; border-radius: 9px; background: transparent; color: var(--aims-text-soft); font-size: 12px; font-weight: 750; cursor: pointer; }
+  .workspace-context-tabs button.active { background: var(--aims-accent-soft); color: var(--aims-accent-strong); }
+  .workspace-aside { margin-top: 10px; }
+  .workspace-aside [data-context-section] { display: none; }
+  .workspace-aside [data-context-section].context-active { display: block; }
+  .workspace-aside [data-context-section="details"].context-active + [data-context-section="details"].context-active { margin-top: 10px; }
+  .button, .icon-button, .back-button, .themed-select-trigger, .check-filter, .quick-filter { min-height: 44px; }
+  .icon-button { width: 44px; height: 44px; }
+  .contact-edit-form input, .reply-composer textarea, .note-form textarea { min-height: 44px; }
+}
+
+@media (pointer: coarse) {
+  .row-arrow, .notification-item, .nav-item, .nav-subitem, .embedded-nav-item, .embedded-inbox-subnav-item { min-height: 44px; }
+}
