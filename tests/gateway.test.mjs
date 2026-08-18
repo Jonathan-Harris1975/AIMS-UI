@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
-import {
+import gateway, {
   cogniPalWebhookSignature,
   consoleTargetPath,
   createSessionToken,
@@ -182,4 +182,38 @@ test("CogniPal intake proxy preserves the exact signed body and HMAC headers", a
   });
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { ok: true, messages: [] });
+});
+
+
+test("HIVE handoff is exchanged for an HttpOnly host-only console cookie", async () => {
+  const secret = "test-hive-handoff-secret";
+  const token = await createHiveHandoffToken({ actor: "hive-owner", role: "operator", ttlSeconds: 300 }, secret);
+  const response = await gateway.fetch(new Request("https://chat.jonathan-harris.online/console/api/auth/handoff", {
+    method: "POST",
+    headers: {
+      origin: "https://chat.jonathan-harris.online",
+      authorization: `Bearer ${token}`,
+    },
+  }), {
+    HIVE_COMMS_HANDOFF_SECRET: secret,
+    CONSOLE_ALLOWED_ORIGINS: "https://chat.jonathan-harris.online",
+  });
+  assert.equal(response.status, 200);
+  const cookie = response.headers.get("set-cookie") || "";
+  assert.match(cookie, /__Host-aims_console_session=/);
+  assert.match(cookie, /HttpOnly/);
+  assert.match(cookie, /Secure/);
+  assert.match(cookie, /SameSite=Strict/);
+  assert.equal(cookie.includes("Domain="), false);
+});
+
+test("console HTML receives a restrictive CSP", async () => {
+  const response = await gateway.fetch(new Request("https://chat.jonathan-harris.online/console/"), {
+    ASSETS: { fetch: async () => new Response("<html></html>", { headers: { "content-type": "text/html; charset=utf-8" } }) },
+  });
+  const csp = response.headers.get("content-security-policy") || "";
+  assert.match(csp, /script-src 'self' 'sha256-/);
+  assert.match(csp, /script-src-attr 'none'/);
+  assert.match(csp, /object-src 'none'/);
+  assert.match(csp, /base-uri 'self'/);
 });
