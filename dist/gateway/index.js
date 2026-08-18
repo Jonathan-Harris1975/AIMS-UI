@@ -687,7 +687,7 @@ export default {
         const headers = new Headers(assetResponse.headers);
         const contentType = headers.get("content-type") || "";
         if (contentType.includes("text/html")) {
-          headers.set("content-security-policy", "default-src 'self'; script-src 'self' 'sha256-WJl6PSHxN8dkRz3pvT7ieyXN1ud8R4J4ev5zgl4PlmQ='; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-src https://hive.jonathan-harris.online; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self' https://hive.jonathan-harris.online; upgrade-insecure-requests");
+          headers.set("content-security-policy", "default-src 'self'; script-src 'self'; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-src https://hive.jonathan-harris.online; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self' https://hive.jonathan-harris.online; upgrade-insecure-requests");
         }
         headers.delete("x-frame-options");
         headers.set("cross-origin-resource-policy", "cross-origin");
