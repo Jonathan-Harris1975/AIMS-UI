@@ -18,7 +18,7 @@ test("module loader mounts one widget from module-script data attributes", async
   globalThis.document = {
     currentScript: null,
     baseURI: "https://example.test/",
-    scripts: [{ src: moduleUrl, dataset: { demo: "1", siteId: "example.test" } }],
+    scripts: [{ src: moduleUrl, dataset: { siteId: "example.test" } }],
     readyState: "complete",
     querySelector() { return null; },
     createElement(name) { return { localName: name, dataset: {} }; },
