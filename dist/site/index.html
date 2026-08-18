@@ -6,14 +6,9 @@
   <meta name="robots" content="noindex,nofollow,noarchive,nosnippet">
   <meta http-equiv="cache-control" content="no-store">
   <title>AIMS Communications Interface</title>
-  <script>
-    (() => {
-      const target = new URL('/console/', location.origin);
-      target.search = location.search;
-      target.hash = location.hash;
-      location.replace(target.toString());
-    })();
-  </script>
 </head>
-<body></body>
+<body>
+  <noscript><a href="/console/">Open AIMS Communications Interface</a></noscript>
+  <script type="module" src="/root-redirect.js"></script>
+</body>
 </html>
