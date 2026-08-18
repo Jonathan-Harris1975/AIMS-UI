@@ -12,6 +12,15 @@ const config = Object.freeze({
   hiveHomeUrl: String(supplied.hiveHomeUrl || "https://hive.jonathan-harris.online").replace(/\/+$/, ""),
 });
 
+function hiveParentOrigin() {
+  try { return new URL(config.hiveHomeUrl).origin; } catch { return "https://hive.jonathan-harris.online"; }
+}
+
+function notifyHiveParent(message) {
+  if (!config.embedded || window.parent === window) return;
+  window.parent.postMessage(message, hiveParentOrigin());
+}
+
 async function acceptHiveHandoff() {
   const fragment = location.hash.startsWith("#") ? location.hash.slice(1) : location.hash;
   const params = new URLSearchParams(fragment);
@@ -23,14 +32,24 @@ async function acceptHiveHandoff() {
     credentials: "include",
     headers: { authorization: `Bearer ${token}`, accept: "application/json" },
   });
-  if (!response.ok) throw new Error("The HIVE handoff could not establish an operator session.");
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    const detail = String(payload?.message || "The HIVE handoff could not establish an operator session.");
+    const error = new Error(detail);
+    error.code = String(payload?.error || "hive_handoff_failed");
+    throw error;
+  }
   return true;
 }
 
-await acceptHiveHandoff();
-
-if (config.embedded && window.parent !== window) {
-  window.parent.postMessage({ type: "aims-comms-ready" }, "https://hive.jonathan-harris.online");
+try {
+  await acceptHiveHandoff();
+  notifyHiveParent({ type: "aims-comms-ready" });
+} catch (error) {
+  const code = String(error?.code || "hive_handoff_failed");
+  const message = String(error?.message || "AIMS Comms Hub could not establish the secure HIVE handoff.");
+  notifyHiveParent({ type: "aims-comms-error", code, detail: message });
+  throw error;
 }
 
 const client = new AimsCommsClient({
