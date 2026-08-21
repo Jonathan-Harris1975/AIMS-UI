@@ -28,3 +28,16 @@ test('CogniPal announces asynchronous state without changing transport behaviour
   assert.match(widget, /class="cp-typing" role="status" aria-label="CogniPal is thinking"/)
   assert.match(widget, /\.cp-send \{ width:44px; height:44px;/)
 })
+
+
+test('console exposes named navigation, search and overlay semantics', async () => {
+  const app = await readFile(new URL('../apps/console/app.js', import.meta.url), 'utf8')
+  const styles = await readFile(new URL('../apps/console/styles.css', import.meta.url), 'utf8')
+  assert.match(app, /href="#aims-main-content"/)
+  assert.match(app, /aria-label="Search conversations"/)
+  assert.match(app, /id="notification-panel" role="dialog"/)
+  assert.match(app, /aria-current="page"/)
+  assert.match(app, /aria-busy="true"/)
+  assert.match(styles, /\.skip-link/)
+  assert.match(styles, /height: 100dvh/)
+})
