@@ -142,7 +142,7 @@ button,input,textarea { font:inherit; }
 .cp-message.visitor .cp-bubble { color:#fff; background:var(--cp-accent); border-bottom-right-radius:5px; }
 .cp-message.assistant .cp-bubble,.cp-message.operator .cp-bubble { background:#fff; border:1px solid var(--cp-line); border-bottom-left-radius:5px; }
 .cp-message.system .cp-bubble { color:#52647b; background:#eaf0f8; border-radius:10px; font-size:12px; }
-.cp-meta { padding:0 3px; color:#8490a1; font-size:10px; }
+.cp-meta { padding:0 3px; color:#6f7d90; font-size:11px; }
 .cp-message.visitor .cp-meta { text-align:right; }
 .cp-typing { display:flex; gap:4px; align-items:center; width:max-content; padding:11px 13px; background:#fff; border:1px solid var(--cp-line); border-radius:15px 15px 15px 5px; }
 .cp-typing i { width:6px; height:6px; border-radius:50%; background:#8896a9; animation:cp-dot 1s infinite ease-in-out; }
@@ -155,11 +155,11 @@ button,input,textarea { font:inherit; }
 .cp-footer { border-top:1px solid var(--cp-line); padding:10px 11px 9px; background:#fff; }
 .cp-composer { display:grid; grid-template-columns:1fr auto; gap:8px; align-items:end; }
 .cp-composer textarea { resize:none; min-height:42px; max-height:112px; border:1px solid var(--cp-line); border-radius:12px; padding:10px 12px; color:var(--cp-ink); background:#fbfcfe; line-height:1.45; }
-.cp-send { width:42px; height:42px; border:0; border-radius:12px; background:var(--cp-accent); color:#fff; cursor:pointer; display:grid; place-items:center; }
+.cp-send { width:44px; height:44px; border:0; border-radius:12px; background:var(--cp-accent); color:#fff; cursor:pointer; display:grid; place-items:center; }
 .cp-send:disabled { opacity:.45; cursor:not-allowed; }
 .cp-send svg { width:19px; height:19px; fill:currentColor; }
-.cp-footnote { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:6px; padding:0 3px; color:#8a95a5; font-size:9px; }
-.cp-footnote button { color:#65758b; border:0; padding:0; background:none; cursor:pointer; font-size:9px; }
+.cp-footnote { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:6px; padding:0 3px; color:#6f7d90; font-size:11px; }
+.cp-footnote button { min-height:32px; color:#52647b; border:0; padding:4px 2px; background:none; cursor:pointer; font-size:11px; text-decoration:underline; text-underline-offset:3px; }
 .cp-alert { margin-bottom:8px; padding:8px 10px; border-radius:9px; color:#8d2d2d; background:#fff0f0; border:1px solid #f0caca; font-size:11px; }
 .cp-sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
 @media (max-width:520px) { .cp-root { right:8px; bottom:8px; }.cp-root.left { left:8px; }.cp-panel { width:calc(100vw - 16px); height:calc(100dvh - 88px); border-radius:17px; }.cp-launcher { width:58px; height:58px; } }
@@ -368,16 +368,16 @@ export class CogniPalWidget extends HTMLElement {
         <small>By continuing, you agree to the <a href="${escapeHtml(this.config.privacyUrl)}" target="_blank" rel="noopener noreferrer">privacy notice</a>.</small>
       </section>`;
     }
-    if (this.loading && !this.session) return `<section class="cp-empty"><div class="cp-typing"><i></i><i></i><i></i></div><h2>Opening CogniPal</h2><p>Creating a private conversation session.</p></section>`;
+    if (this.loading && !this.session) return `<section class="cp-empty" role="status" aria-live="polite"><div class="cp-typing" aria-hidden="true"><i></i><i></i><i></i></div><h2>Opening CogniPal</h2><p>Creating a private conversation session.</p></section>`;
     if (this.error && !this.session) return `<section class="cp-error"><h2>Connection interrupted</h2><p>${escapeHtml(this.error)}</p><button class="cp-button secondary" data-action="retry">Try again</button></section>`;
-    return `<div class="cp-thread" role="log" aria-live="polite">
+    return `<div class="cp-thread" role="log" aria-live="polite" aria-relevant="additions text">
       ${["human", "takeover_requested"].includes(this.mode) ? `<div class="cp-mode">A human operator is handling this conversation.</div>` : ""}
       ${this.messages.map((item) => `<article class="cp-message ${escapeHtml(item.role || "assistant")}">
         <div class="cp-bubble">${escapeHtml(item.text || item.body_text || "")}</div>
         <div class="cp-meta">${item.role === "visitor" ? "You" : item.role === "operator" ? "AIMS team" : "CogniPal"}${item.status === "failed" ? " · not sent" : ""}</div>
       </article>`).join("")}
-      ${this.waking ? `<div class="cp-wake"><span></span>Waking CogniPal and checking the AIMS route…</div>` : ""}
-      ${this.sending && !this.waking ? `<div class="cp-typing" aria-label="CogniPal is thinking"><i></i><i></i><i></i></div>` : ""}
+      ${this.waking ? `<div class="cp-wake" role="status"><span aria-hidden="true"></span>Waking CogniPal and checking the AIMS route…</div>` : ""}
+      ${this.sending && !this.waking ? `<div class="cp-typing" role="status" aria-label="CogniPal is thinking"><i aria-hidden="true"></i><i aria-hidden="true"></i><i aria-hidden="true"></i></div>` : ""}
     </div>`;
   }
 
@@ -399,7 +399,7 @@ export class CogniPalWidget extends HTMLElement {
               <textarea id="cp-message" maxlength="${MAX_MESSAGE_LENGTH}" rows="1" placeholder="Write a message…" ${this.sending ? "disabled" : ""}></textarea>
               <button class="cp-send" type="submit" aria-label="Send message" ${this.sending ? "disabled" : ""}><svg viewBox="0 0 24 24"><path d="m3 20 18-8L3 4v6l12 2-12 2v6Z"/></svg></button>
             </form>
-            <div class="cp-footnote"><span data-count>0/${MAX_MESSAGE_LENGTH}</span><button type="button" data-action="reset">End conversation</button></div>
+            <div class="cp-footnote"><span data-count aria-live="polite">0/${MAX_MESSAGE_LENGTH}</span><button type="button" data-action="reset">End conversation</button></div>
           </footer>` : ""}
         </section>
         <button class="cp-launcher" data-action="toggle" aria-label="${this.open ? "Close" : "Open"} CogniPal chat" aria-expanded="${this.open}">
