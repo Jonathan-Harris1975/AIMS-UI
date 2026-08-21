@@ -311,11 +311,11 @@ function shell(content) {
 function notificationPanel() {
   if (!state.notificationOpen) return "";
   return `
-    <aside class="notification-panel" aria-label="Notifications">
+    <aside class="notification-panel" aria-label="Notifications" role="region" aria-live="polite">
       <header><div><strong>Notifications</strong><span>${state.notifications.length} recent</span></div><button class="icon-button" data-action="toggle-notifications" aria-label="Close notifications">${icons.close}</button></header>
       <div class="notification-list">
         ${state.notifications.length ? state.notifications.map((item) => `
-          <button class="notification-item severity-${escapeHtml(item.severity || "info")}" data-notification-id="${escapeHtml(item.id)}" data-conversation-id="${escapeHtml(item.conversation_id || "")}">
+          <button type="button" class="notification-item severity-${escapeHtml(item.severity || "info")}" data-notification-id="${escapeHtml(item.id)}" data-conversation-id="${escapeHtml(item.conversation_id || "")}">
             <span class="notification-dot"></span>
             <span><strong>${escapeHtml(item.title || titleCase(item.type))}</strong><small>${escapeHtml(item.body_text || "")}</small><time>${escapeHtml(formatRelativeTime(item.created_at))}</time></span>
           </button>
@@ -404,7 +404,7 @@ function queueTable(rows = queueRows(), limit = 50, compact = false) {
         <thead><tr><th>Conversation</th><th>Channel</th><th>Type</th><th>Priority</th><th>Status</th><th>Age</th><th>Owner</th><th>AI</th><th><span class="sr-only">Open</span></th></tr></thead>
         <tbody>
           ${visible.map((row) => `
-            <tr data-conversation-id="${escapeHtml(row.id)}" tabindex="0">
+            <tr data-conversation-id="${escapeHtml(row.id)}" tabindex="0" aria-label="Open conversation with ${escapeHtml(row.display_name || row.primary_email || "Unknown contact")}">
               <td><div class="conversation-cell"><div class="channel-avatar channel-${escapeHtml(row.channel)}">${escapeHtml(channelLabel(row.channel).charAt(0))}</div><div><strong>${escapeHtml(row.display_name || row.primary_email || "Unknown contact")}</strong><span>${escapeHtml(row.subject || row.summary_text || "Conversation")}</span><small>${escapeHtml(row.summary_text || "")}</small></div></div></td>
               <td><span class="channel-label channel-label-${escapeHtml(row.channel)}">${escapeHtml(channelLabel(row.channel))}</span></td>
               <td><span class="interaction-label interaction-${escapeHtml(socialInteractionType(row) || row.channel)}">${escapeHtml(interactionLabel(row))}</span></td>
@@ -789,7 +789,7 @@ function bindEvents() {
     if (id) openConversation(id);
   }));
   root.querySelectorAll("tr[data-conversation-id]").forEach((row) => row.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" || event.key === " ") openConversation(row.dataset.conversationId);
+    if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openConversation(row.dataset.conversationId); }
   }));
   root.querySelectorAll("[data-filter]").forEach((control) => control.addEventListener("change", () => {
     const key = control.dataset.filter;
