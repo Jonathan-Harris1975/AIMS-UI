@@ -1,7 +1,7 @@
 {
   "name": "AIMS UI",
   "version": "0.2.3",
-  "builtAt": "2026-08-18T17:41:30.842Z",
+  "builtAt": "2026-08-21T10:57:58.270Z",
   "applications": {
     "site": "site",
     "console": "site/console/index.html",
