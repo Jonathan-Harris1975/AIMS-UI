@@ -620,3 +620,39 @@ button, .button, .nav-item, .nav-subitem, .queue-card, .contact-card, .notificat
     transition-duration: .01ms !important;
   }
 }
+
+/* 2026-08 accessibility and interaction polish. */
+.skip-link {
+  position: fixed;
+  left: 12px;
+  top: 10px;
+  z-index: 100;
+  transform: translateY(-160%);
+  border: 1px solid var(--aims-border-strong);
+  border-radius: 9px;
+  background: var(--aims-panel);
+  color: var(--aims-text);
+  padding: 9px 12px;
+  font-weight: 750;
+  text-decoration: none;
+  box-shadow: var(--aims-shadow-soft);
+  transition: transform .15s ease;
+}
+.skip-link:focus { transform: translateY(0); }
+.sidebar { height: 100dvh; }
+.main:focus { outline: none; }
+.notification-panel:focus { outline: 2px solid var(--aims-accent-strong); outline-offset: 3px; }
+.async-status { margin: 10px 0 0; color: var(--aims-text-soft); font-size: 12px; line-height: 1.5; }
+.social-capability-grid strong { font-size: 12px; }
+.social-capability-grid span, .reply-mode { font-size: 12px; }
+.social-capability-grid small, .social-platform-summary b { font-size: 11px; }
+.reply-composer textarea:focus-visible, .note-form textarea:focus-visible, .contact-edit-form input:focus-visible {
+  border-color: var(--aims-border-strong);
+  box-shadow: var(--aims-focus-ring);
+  outline: 0;
+}
+[aria-busy="true"] { cursor: progress; }
+
+@media (max-width: 900px) {
+  .layout.sidebar-open .sidebar { overscroll-behavior: contain; }
+}

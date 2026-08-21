@@ -220,8 +220,9 @@ function shell(content) {
   const unread = state.notifications.filter((item) => item.status !== "read").length;
   return `
     <div class="layout ${state.sidebarOpen ? "sidebar-open" : ""} ${config.embedded ? "embedded" : ""}">
+      <a class="skip-link" href="#aims-main-content">Skip to main content</a>
       <button class="scrim" data-action="close-sidebar" aria-label="Close navigation"></button>
-      <aside class="sidebar">
+      <aside class="sidebar" id="aims-sidebar" aria-label="AIMS navigation">
         <div class="brand">
           <div class="brand-mark"><span>A</span></div>
           <div><strong>AIMS</strong><small>Comms Hub</small></div>
@@ -230,19 +231,19 @@ function shell(content) {
         <nav aria-label="Primary">
           ${navItems.map(([key, label, icon]) => key === "inbox" ? `
             <div class="nav-group ${isInboxFamilyView() ? "open" : ""}">
-              <button class="nav-item ${isInboxFamilyView() ? "active" : ""}" data-view="inbox" aria-expanded="${isInboxFamilyView() ? "true" : "false"}">
+              <button class="nav-item ${isInboxFamilyView() ? "active" : ""}" data-view="inbox" aria-expanded="${isInboxFamilyView() ? "true" : "false"}" ${state.view === "inbox" ? 'aria-current="page"' : ""}>
                 ${icon}<span>${escapeHtml(label)}</span><span class="nav-group-chevron">⌄</span>
               </button>
               <div class="nav-submenu" aria-label="Unified inbox sections">
                 ${inboxSubItems.slice(1).map(([subKey, subLabel, subIcon]) => `
-                  <button class="nav-subitem ${activeInboxSubView() === subKey ? "active" : ""}" data-view="${subKey}">
+                  <button class="nav-subitem ${activeInboxSubView() === subKey ? "active" : ""}" data-view="${subKey}" ${activeInboxSubView() === subKey ? 'aria-current="page"' : ""}>
                     ${subIcon}<span>${escapeHtml(subLabel)}</span>
                   </button>
                 `).join("")}
               </div>
             </div>
           ` : `
-            <button class="nav-item ${state.view === key ? "active" : ""}" data-view="${key}">
+            <button class="nav-item ${state.view === key ? "active" : ""}" data-view="${key}" ${state.view === key ? 'aria-current="page"' : ""}>
               ${icon}<span>${escapeHtml(label)}</span>
               ${key === "approvals" && pendingApprovals().length ? `<b>${pendingApprovals().length}</b>` : ""}
             </button>
@@ -260,18 +261,18 @@ function shell(content) {
           </div>
         </div>
       </aside>
-      <main class="main">
+      <main class="main" id="aims-main-content" tabindex="-1">
         ${config.embedded ? `
         <nav class="embedded-nav" aria-label="Communications sections">
           <div class="embedded-nav-scroll">
             ${navItems.map(([key, label, icon]) => `
-              <button class="embedded-nav-item ${key === "inbox" ? (isInboxFamilyView() ? "active" : "") : (state.view === key ? "active" : "")}" data-view="${key}">
+              <button class="embedded-nav-item ${key === "inbox" ? (isInboxFamilyView() ? "active" : "") : (state.view === key ? "active" : "")}" data-view="${key}" ${(key === "inbox" ? state.view === "inbox" : state.view === key) ? 'aria-current="page"' : ""}>
                 ${icon}<span>${escapeHtml(label)}</span>
                 ${key === "approvals" && pendingApprovals().length ? `<b>${pendingApprovals().length}</b>` : ""}
               </button>
             `).join("")}
           </div>
-          <button class="embedded-notification-button" data-action="toggle-notifications" aria-label="Notifications">
+          <button class="embedded-notification-button" data-action="toggle-notifications" aria-label="Notifications" aria-expanded="${state.notificationOpen}" aria-controls="notification-panel">
             ${icons.bell}${unread ? `<span>${unread}</span>` : ""}
           </button>
         </nav>
@@ -279,7 +280,7 @@ function shell(content) {
           <nav class="embedded-inbox-subnav" aria-label="Unified inbox sections">
             <div class="embedded-inbox-subnav-scroll">
               ${inboxSubItems.map(([subKey, subLabel, subIcon]) => `
-                <button class="embedded-inbox-subnav-item ${activeInboxSubView() === subKey ? "active" : ""}" data-view="${subKey}">
+                <button class="embedded-inbox-subnav-item ${activeInboxSubView() === subKey ? "active" : ""}" data-view="${subKey}" ${activeInboxSubView() === subKey ? 'aria-current="page"' : ""}>
                   ${subIcon}<span>${escapeHtml(subLabel)}</span>
                 </button>
               `).join("")}
@@ -288,14 +289,14 @@ function shell(content) {
         ` : ""}
         ` : `
         <header class="topbar">
-          <button class="icon-button mobile-only aims-menu-trigger" data-action="open-sidebar" aria-label="Open AIMS navigation">${icons.menu}</button>
+          <button class="icon-button mobile-only aims-menu-trigger" data-action="open-sidebar" aria-label="Open AIMS navigation" aria-expanded="${state.sidebarOpen}" aria-controls="aims-sidebar">${icons.menu}</button>
           <div class="mobile-title"><strong>${escapeHtml(config.productName)}</strong><span>${escapeHtml(titleCase(state.view))}</span></div>
           <label class="global-search">
             ${icons.search}
-            <input id="global-search" type="search" value="${escapeHtml(state.search)}" placeholder="Search queue, contact or conversation" autocomplete="off">
+            <input id="global-search" type="search" value="${escapeHtml(state.search)}" placeholder="Search queue, contact or conversation" autocomplete="off" aria-label="Search conversations">
             <kbd>⌘ K</kbd>
           </label>
-          <button class="icon-button notification-button" data-action="toggle-notifications" aria-label="Notifications">
+          <button class="icon-button notification-button" data-action="toggle-notifications" aria-label="Notifications" aria-expanded="${state.notificationOpen}" aria-controls="notification-panel">
             ${icons.bell}${unread ? `<span>${unread}</span>` : ""}
           </button>
         </header>
@@ -303,7 +304,7 @@ function shell(content) {
         <div class="content">${content}</div>
       </main>
       ${notificationPanel()}
-      ${state.toast ? `<div class="toast toast-${escapeHtml(state.toast.tone)}" role="status">${escapeHtml(state.toast.message)}</div>` : ""}
+      ${state.toast ? `<div class="toast toast-${escapeHtml(state.toast.tone)}" role="${state.toast.tone === "error" ? "alert" : "status"}" aria-live="${state.toast.tone === "error" ? "assertive" : "polite"}" aria-atomic="true">${escapeHtml(state.toast.message)}</div>` : ""}
     </div>
   `;
 }
@@ -311,8 +312,8 @@ function shell(content) {
 function notificationPanel() {
   if (!state.notificationOpen) return "";
   return `
-    <aside class="notification-panel" aria-label="Notifications" role="region" aria-live="polite">
-      <header><div><strong>Notifications</strong><span>${state.notifications.length} recent</span></div><button class="icon-button" data-action="toggle-notifications" aria-label="Close notifications">${icons.close}</button></header>
+    <aside class="notification-panel" id="notification-panel" role="dialog" aria-labelledby="notification-panel-title" tabindex="-1">
+      <header><div><strong id="notification-panel-title">Notifications</strong><span>${state.notifications.length} recent</span></div><button class="icon-button" data-action="toggle-notifications" aria-label="Close notifications">${icons.close}</button></header>
       <div class="notification-list">
         ${state.notifications.length ? state.notifications.map((item) => `
           <button type="button" class="notification-item severity-${escapeHtml(item.severity || "info")}" data-notification-id="${escapeHtml(item.id)}" data-conversation-id="${escapeHtml(item.conversation_id || "")}">
@@ -545,7 +546,7 @@ function contactsView() {
         </div>
       </form>
     </section>
-  ` : state.contactBusy ? `<section class="panel contact-editor"><p class="muted">Loading contact…</p></section>` : "";
+  ` : state.contactBusy ? `<section class="panel contact-editor" role="status" aria-live="polite" aria-busy="true"><p class="muted">Loading contact…</p></section>` : "";
   return shell(`
     ${pageHeader("Contacts", "Edit contact details without breaking the conversation history anchored to each record.")}
     ${editor}
@@ -610,7 +611,7 @@ function settingsView() {
         <div class="social-capability-grid">
           ${["facebook", "instagram", "youtube"].map((platform) => { const cap = channels[platform] || {}; return `<article><strong>${escapeHtml(channelLabel(platform))}</strong><span>${cap.enabled ? "Configured" : "Disabled"}</span><small>${cap.directMessages ? "DMs + comments" : "Comments only"}</small></article>`; }).join("")}
         </div>
-        ${canManageSocial ? `<div class="button-row"><button class="button secondary" data-action="reconcile-social" ${state.socialBusy ? "disabled" : ""}>Reconcile webhooks</button><button class="button secondary" data-action="poll-social" ${state.socialBusy ? "disabled" : ""}>Run poll now</button></div>` : ""}
+        ${canManageSocial ? `<div class="button-row"><button class="button secondary" data-action="reconcile-social" ${state.socialBusy ? "disabled aria-busy=\"true\"" : ""}>Reconcile webhooks</button><button class="button secondary" data-action="poll-social" ${state.socialBusy ? "disabled aria-busy=\"true\"" : ""}>Run poll now</button></div>${state.socialBusy ? `<p class="async-status" role="status" aria-live="polite">Updating social provider status…</p>` : ""}` : ""}
       </section>
       <section class="panel settings-card"><h3>Responsive contract</h3><dl><div><dt>Minimum width</dt><dd>${escapeHtml(state.bootstrap?.responsiveContract?.minimumWidth || 320)}px</dd></div><div><dt>Pagination</dt><dd>${escapeHtml(state.bootstrap?.responsiveContract?.pagination || "cursor")}</dd></div><div><dt>Actions</dt><dd>${escapeHtml((state.bootstrap?.responsiveContract?.actions || []).join(", "))}</dd></div></dl></section>
       <section class="panel settings-card"><h3>Security boundary</h3><p>The browser holds no AIMS delegation secret. HIVE identity verification and HMAC signing happen in the edge gateway before AIMS performs its own RBAC checks.</p></section>
@@ -619,7 +620,7 @@ function settingsView() {
 }
 
 function workspaceView() {
-  if (state.loading && !state.workspace) return shell(`${pageHeader("Conversation", "Loading the verified thread and operational context.")}<div class="workspace-skeleton"><i></i><i></i><i></i></div>`);
+  if (state.loading && !state.workspace) return shell(`${pageHeader("Conversation", "Loading the verified thread and operational context.")}<div class="workspace-skeleton" role="status" aria-live="polite" aria-busy="true"><span class="sr-only">Loading conversation</span><i></i><i></i><i></i></div>`);
   if (!state.workspace) return shell(`${pageHeader("Conversation unavailable", "The requested workspace could not be loaded.")} ${emptyState("No conversation selected", "Return to the unified inbox and choose a conversation.")}`);
   const workspace = state.workspace.workspace || state.workspace;
   const conversation = workspace.conversation || {};
@@ -659,7 +660,7 @@ function workspaceView() {
         </div>
         ${canReply ? `
           <form id="reply-form" class="reply-composer">
-            <textarea name="message" rows="3" maxlength="20000" placeholder="Write an operator reply…" required ${socialThread && socialMonitorOnly ? "disabled" : ""}></textarea>
+            <textarea name="message" rows="3" maxlength="20000" placeholder="Write an operator reply…" aria-label="Operator reply" required ${socialThread && socialMonitorOnly ? "disabled" : ""}></textarea>
             ${socialThread?.thread_type === "comment" && socialCapabilities?.privateCommentReplies ? `<label class="reply-mode"><span>Reply mode</span>${themedSelect({ name: "replyMode", value: "public", ariaLabel: "Reply mode", disabled: socialMonitorOnly, options: [{ value: "public", label: "Public comment" }, { value: "private", label: "Private reply" }] })}</label>` : ""}
             <div><span>${socialThread && socialMonitorOnly ? "Monitoring-only mode is active; outbound social actions are locked." : conversation.channel === "email" && ["admin", "newsletter"].includes(String(workspace.emailThread?.account_key || "").toLowerCase()) ? `Manual reply from ${escapeHtml(String(workspace.emailThread?.account_key || ""))}@jonathan-harris.online. Initial-response timing policy still applies.` : `Sent through ${escapeHtml(channelLabel(conversation.channel))}; AIMS applies provider and approval rules.`}</span><button class="button primary" type="submit" ${socialThread && socialMonitorOnly ? "disabled" : ""}>${socialThread?.thread_type === "dm" ? "Send DM" : "Send reply"}</button></div>
           </form>
@@ -714,7 +715,7 @@ function workspaceView() {
         <section class="panel detail-card ${state.workspaceContextTab === "notes" ? "context-active" : ""}" data-context-section="notes">
           <header><strong>Private notes</strong><span>${workspace.notes?.length || 0}</span></header>
           <div class="notes-list">${(workspace.notes || []).slice(0, 4).map((note) => `<article><strong>${escapeHtml(note.author || note.created_by || "Operator")}</strong><p>${escapeHtml(note.body_text || "")}</p><small>${escapeHtml(formatRelativeTime(note.created_at))}</small></article>`).join("") || `<p class="muted">No private notes.</p>`}</div>
-          ${roleAllows(role, "note") ? `<form id="note-form" class="note-form"><textarea name="bodyText" rows="2" placeholder="Add a private note" required></textarea><button class="button secondary" type="submit">Add note</button></form>` : ""}
+          ${roleAllows(role, "note") ? `<form id="note-form" class="note-form"><textarea name="bodyText" rows="2" placeholder="Add a private note" aria-label="Private note" required></textarea><button class="button secondary" type="submit">Add note</button></form>` : ""}
         </section>
       </aside>
     </div>
@@ -753,7 +754,7 @@ async function downloadAttachment(attachmentId, button) {
 function errorView() {
   return shell(`
     ${pageHeader("Connection not ready", "The live AIMS gateway could not be loaded.")}
-    <section class="connection-error panel"><div class="error-orb">!</div><h2>${escapeHtml(state.error?.message || "AIMS gateway could not be reached.")}</h2><p>Check the gateway URL, HIVE session verification and AIMS Comms Hub readiness.</p><div><button class="button primary" data-action="refresh">Try again</button></div></section>
+    <section class="connection-error panel" role="alert"><div class="error-orb">!</div><h2>${escapeHtml(state.error?.message || "AIMS gateway could not be reached.")}</h2><p>Check the gateway URL, HIVE session verification and AIMS Comms Hub readiness.</p><div><button class="button primary" data-action="refresh">Try again</button></div></section>
   `);
 }
 
@@ -818,9 +819,9 @@ function bindEvents() {
   }));
   root.querySelectorAll("[data-workspace-context]").forEach((button) => button.addEventListener("click", () => { state.workspaceContextTab = button.dataset.workspaceContext || "details"; render(); }));
   root.querySelectorAll('[data-action="refresh"]').forEach((button) => button.addEventListener("click", loadBootstrap));
-  root.querySelector('[data-action="open-sidebar"]')?.addEventListener("click", () => { state.sidebarOpen = true; render(); });
-  root.querySelectorAll('[data-action="close-sidebar"]').forEach((button) => button.addEventListener("click", () => { state.sidebarOpen = false; render(); }));
-  root.querySelectorAll('[data-action="toggle-notifications"]').forEach((button) => button.addEventListener("click", () => { state.notificationOpen = !state.notificationOpen; render(); }));
+  root.querySelector('[data-action="open-sidebar"]')?.addEventListener("click", openSidebar);
+  root.querySelectorAll('[data-action="close-sidebar"]').forEach((button) => button.addEventListener("click", closeSidebar));
+  root.querySelectorAll('[data-action="toggle-notifications"]').forEach((button) => button.addEventListener("click", () => toggleNotifications(button)));
   root.querySelectorAll("[data-notification-id]").forEach((button) => button.addEventListener("click", () => openNotification(button)));
   root.querySelectorAll("[data-contact-id]").forEach((button) => button.addEventListener("click", () => openContact(button.dataset.contactId)));
   root.querySelector('[data-action="close-contact"]')?.addEventListener("click", closeContact);
@@ -914,6 +915,33 @@ function bindThemedSelects() {
   root.onclick = (event) => {
     if (!event.target.closest?.("[data-themed-select]")) closeAll();
   };
+}
+
+
+function focusAfterRender(selector) {
+  requestAnimationFrame(() => root.querySelector(selector)?.focus());
+}
+
+function openSidebar() {
+  state.sidebarOpen = true;
+  render();
+  focusAfterRender('[data-action="close-sidebar"]');
+}
+
+function closeSidebar() {
+  state.sidebarOpen = false;
+  render();
+  focusAfterRender('[data-action="open-sidebar"]');
+}
+
+function toggleNotifications(sourceButton = null) {
+  const opening = !state.notificationOpen;
+  const returnSelector = sourceButton?.classList?.contains("embedded-notification-button") || config.embedded
+    ? ".embedded-notification-button"
+    : ".notification-button";
+  state.notificationOpen = opening;
+  render();
+  focusAfterRender(opening ? '#notification-panel [data-action="toggle-notifications"]' : returnSelector);
 }
 
 function navigate(view) {
@@ -1270,7 +1298,7 @@ async function openNotification(button) {
     if (notification) notification.status = "read";
   } catch {}
   if (conversationId) openConversation(conversationId);
-  else { state.notificationOpen = false; render(); }
+  else if (state.notificationOpen) toggleNotifications();
 }
 
 document.addEventListener("keydown", (event) => {
@@ -1278,10 +1306,12 @@ document.addEventListener("keydown", (event) => {
     event.preventDefault();
     root.querySelector("#global-search")?.focus();
   }
-  if (event.key === "Escape" && (state.sidebarOpen || state.notificationOpen)) {
-    state.sidebarOpen = false;
-    state.notificationOpen = false;
-    render();
+  if (event.key === "Escape" && state.notificationOpen) {
+    event.preventDefault();
+    toggleNotifications();
+  } else if (event.key === "Escape" && state.sidebarOpen) {
+    event.preventDefault();
+    closeSidebar();
   }
 });
 
