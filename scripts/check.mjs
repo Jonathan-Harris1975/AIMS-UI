@@ -89,4 +89,15 @@ const widget = await readFile(join(root, "apps/widget/cognipal-widget.js"), "utf
 if (!widget.includes("attachShadow")) throw new Error("CogniPal widget must retain Shadow DOM isolation.");
 if (!widget.includes("https://assets.jonathan-harris.online/CogniPal.jpg")) throw new Error("CogniPal icon default is missing.");
 
+const wrangler = await readFile(join(root, "wrangler.toml"), "utf8");
+if (!/\[observability\]\s*\r?\n\s*enabled\s*=\s*true\b/.test(wrangler)) {
+  throw new Error("Cloudflare Workers observability must be enabled in production.");
+}
+if (!/\[observability\.logs\]\s*\r?\n\s*enabled\s*=\s*true\b/.test(wrangler)) {
+  throw new Error("Cloudflare Workers logs must be enabled in production.");
+}
+if (!/\[observability\.traces\]\s*\r?\n\s*enabled\s*=\s*true\b/.test(wrangler)) {
+  throw new Error("Cloudflare Workers traces must be enabled in production.");
+}
+
 console.log(`Checked ${scripts.length} JavaScript modules and ${required.length} required files.`);
