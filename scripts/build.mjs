@@ -68,7 +68,10 @@ location.replace(target.toString());
 await writeFile(join(siteDir, "index.html"), rootIndex);
 await writeFile(join(siteDir, "root-redirect.js"), rootRedirect);
 
-await cp(join(root, "apps", "widget"), join(siteDir, "widget"), { recursive: true });
+const widgetDir = join(siteDir, "widget");
+await mkdir(widgetDir, { recursive: true });
+await copyFile(join(root, "apps", "widget", "cognipal-widget.js"), join(widgetDir, "cognipal-widget.js"));
+await copyFile(join(root, "apps", "widget", "README.md"), join(widgetDir, "README.md"));
 await cp(join(root, "workers", "gateway"), join(dist, "gateway"), { recursive: true });
 await copyFile(join(root, "README.md"), join(dist, "README.md"));
 await copyFile(join(root, "THIRD_PARTY_NOTICES.md"), join(dist, "THIRD_PARTY_NOTICES.md"));
