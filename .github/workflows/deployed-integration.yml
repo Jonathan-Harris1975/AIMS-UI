@@ -1,0 +1,69 @@
+name: AIMS-UI deployed integration
+
+on:
+  workflow_run:
+    workflows: ["Validate AIMS UI"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact deployed commit SHA to require
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aims-ui-deployed-integration
+  cancel-in-progress: true
+
+jobs:
+  integration:
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.expected_sha || github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+      - name: Verify exact deployed Worker and integration path
+        env:
+          EXPECTED_DEPLOYMENT_SHA: ${{ inputs.expected_sha || github.event.workflow_run.head_sha || github.sha }}
+          AIMS_UI_BASE_URL: ${{ vars.AIMS_UI_BASE_URL || 'https://chat.jonathan-harris.online' }}
+          HIVE_UI_BASE_URL: ${{ vars.HIVE_UI_BASE_URL || 'https://hive.jonathan-harris.online' }}
+          WEBSITE_ORIGIN: ${{ vars.WEBSITE_BASE_URL || 'https://jonathan-harris.online' }}
+          HIVE_UI_ACCESS_KEY: ${{ secrets.HIVE_UI_ACCESS_KEY }}
+        run: npm run test:deployed
+      - name: Record deployed-integration attestation
+        env:
+          EXPECTED_DEPLOYMENT_SHA: ${{ inputs.expected_sha || github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          printf '{"repository":"%s","sha":"%s","workflow_run":"%s","status":"deployed-integration-green"}\n' \
+            "$GITHUB_REPOSITORY" "$EXPECTED_DEPLOYMENT_SHA" "$GITHUB_RUN_ID" > deployed-integration-attestation.json
+      - name: Retain deployed-integration attestation
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: deployed-integration-attestation-${{ inputs.expected_sha || github.event.workflow_run.head_sha || github.sha }}
+          path: deployed-integration-attestation.json
+          retention-days: 90
+      - name: Trigger central ecosystem smoke
+        env:
+          ECOSYSTEM_SMOKE_DISPATCH_TOKEN: ${{ secrets.ECOSYSTEM_SMOKE_DISPATCH_TOKEN }}
+          ECOSYSTEM_SMOKE_REPOSITORY: ${{ vars.ECOSYSTEM_SMOKE_REPOSITORY }}
+          SOURCE_SHA: ${{ inputs.expected_sha || github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test -n "${ECOSYSTEM_SMOKE_DISPATCH_TOKEN:-}" || { echo "ECOSYSTEM_SMOKE_DISPATCH_TOKEN is required" >&2; exit 1; }
+          target="${ECOSYSTEM_SMOKE_REPOSITORY:-${GITHUB_REPOSITORY_OWNER}/MAST}"
+          payload="$(jq -cn --arg ref main --arg repo "$GITHUB_REPOSITORY" --arg sha "$SOURCE_SHA" '{ref:$ref,inputs:{source_repository:$repo,source_sha:$sha}}')"
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "Authorization: Bearer ${ECOSYSTEM_SMOKE_DISPATCH_TOKEN}" \
+            --header "Accept: application/vnd.github+json" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            --data "$payload" \
+            "https://api.github.com/repos/${target}/actions/workflows/ecosystem-smoke.yml/dispatches"
