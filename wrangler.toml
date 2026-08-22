@@ -7,7 +7,7 @@ preview_urls = false
 pattern = "chat.jonathan-harris.online"
 custom_domain = true
 [observability]
-enabled = false
+enabled = true
 head_sampling_rate = 1
 
 [observability.logs]
