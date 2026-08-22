@@ -24,12 +24,11 @@
 - Desktop and mobile renders produced no page errors and no horizontal document overflow.
 - Source and deployment builds completed successfully.
 
-## Deliberately not live
+## Deployment status and remaining verification
 
-- Cloudflare D1 and Worker identifiers are placeholders.
-- HIVE identity verification endpoint must be confirmed.
-- Worker secrets are absent from the repository.
-- Live AIMS provider and deployment canaries remain pending.
-- Website installation remains pending.
+- `wrangler.toml` contains the production Worker route and D1 binding identifiers; they are no longer placeholders.
+- HIVE hand-off and delegated-role behaviour are covered by the repository gateway tests; production secret values remain deployment-only and are not committed.
+- Live AIMS provider and production deployment canaries remain pending and must be run against the deployed Worker before final operational sign-off.
+- The public website uses its own first-party CogniPal assets and Pages Functions; installation is therefore governed by the website repository rather than treated as an unfinished AIMS-UI source task.
 
 - Social grouping: Facebook/Instagram DMs are separated from Facebook/Instagram/YouTube comments using backend `interaction_type`; social setup/status and controlled reply hooks are wired through the gateway.
