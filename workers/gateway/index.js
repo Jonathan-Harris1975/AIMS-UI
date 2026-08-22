@@ -1,3 +1,5 @@
+import { AIMS_UI_BUILD_BRANCH, AIMS_UI_BUILD_SHA } from "./build-meta.js";
+
 const encoder = new TextEncoder();
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 const MAX_MESSAGE_LENGTH = 4000;
@@ -664,6 +666,8 @@ export default {
           ok: true,
           service: "aims-ui-gateway",
           environment: env.ENVIRONMENT || "unknown",
+          releaseSha: AIMS_UI_BUILD_SHA,
+          releaseBranch: AIMS_UI_BUILD_BRANCH,
           configuration,
         });
       }
