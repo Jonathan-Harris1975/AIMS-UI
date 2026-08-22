@@ -11,7 +11,8 @@
     "validate": "npm run check && npm test && npm run build && npm run check:bundle-budget",
     "dev": "node scripts/serve.mjs",
     "secret:scan": "python3 scripts/secret_scan.py",
-    "check:bundle-budget": "node scripts/check-bundle-budget.mjs"
+    "check:bundle-budget": "node scripts/check-bundle-budget.mjs",
+    "test:deployed": "node scripts/deployed-integration.mjs"
   },
   "engines": {
     "node": ">=22"
