@@ -43,9 +43,15 @@ jobs:
       - name: Record deployed-integration attestation
         env:
           EXPECTED_DEPLOYMENT_SHA: ${{ inputs.expected_sha || github.event.workflow_run.head_sha || github.sha }}
+          HIVE_UI_ACCESS_KEY: ${{ secrets.HIVE_UI_ACCESS_KEY }}
         run: |
-          printf '{"repository":"%s","sha":"%s","workflow_run":"%s","status":"deployed-integration-green"}\n' \
-            "$GITHUB_REPOSITORY" "$EXPECTED_DEPLOYMENT_SHA" "$GITHUB_RUN_ID" > deployed-integration-attestation.json
+          if [ -n "${HIVE_UI_ACCESS_KEY:-}" ]; then
+            status="deployed-integration-green-full"
+          else
+            status="deployed-integration-green-aims-ui-only"
+          fi
+          printf '{"repository":"%s","sha":"%s","workflow_run":"%s","status":"%s"}\n' \
+            "$GITHUB_REPOSITORY" "$EXPECTED_DEPLOYMENT_SHA" "$GITHUB_RUN_ID" "$status" > deployed-integration-attestation.json
       - name: Retain deployed-integration attestation
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -56,14 +62,17 @@ jobs:
             deployed-integration.log
           if-no-files-found: warn
           retention-days: 90
-      - name: Trigger central ecosystem smoke
+      - name: Trigger central ecosystem smoke when cross-repository dispatch is configured
         env:
           ECOSYSTEM_SMOKE_DISPATCH_TOKEN: ${{ secrets.ECOSYSTEM_SMOKE_DISPATCH_TOKEN }}
           ECOSYSTEM_SMOKE_REPOSITORY: ${{ vars.ECOSYSTEM_SMOKE_REPOSITORY }}
           SOURCE_SHA: ${{ inputs.expected_sha || github.event.workflow_run.head_sha || github.sha }}
         run: |
           set -euo pipefail
-          test -n "${ECOSYSTEM_SMOKE_DISPATCH_TOKEN:-}" || { echo "ECOSYSTEM_SMOKE_DISPATCH_TOKEN is required" >&2; exit 1; }
+          if [ -z "${ECOSYSTEM_SMOKE_DISPATCH_TOKEN:-}" ]; then
+            echo "::warning::ECOSYSTEM_SMOKE_DISPATCH_TOKEN is not configured in AIMS-UI; the optional cross-repository MAST dispatch was skipped."
+            exit 0
+          fi
           target="${ECOSYSTEM_SMOKE_REPOSITORY:-${GITHUB_REPOSITORY_OWNER}/MAST}"
           payload="$(jq -cn --arg ref main --arg repo "$GITHUB_REPOSITORY" --arg sha "$SOURCE_SHA" '{ref:$ref,inputs:{source_repository:$repo,source_sha:$sha}}')"
           curl --fail-with-body --silent --show-error \
