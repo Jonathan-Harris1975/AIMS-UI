@@ -14,21 +14,22 @@
 
 ## Validation completed
 
-- 14 JavaScript modules passed syntax checks.
-- 11 automated tests passed.
+- 20 JavaScript modules pass the repository source checks.
+- 37 automated tests pass, including API-client, gateway security, D1 schema, social grouping, accessibility and widget-loading contracts.
 - HMAC output matches the existing AIMS Node implementation.
 - CogniPal webhook signature matches the existing AIMS verifier contract.
 - D1 schema applies from an empty SQLite database.
 - Widget module loader, consent, session, send and reply flow passed in Chromium.
 - Console inbox and conversation-workspace navigation passed in Chromium.
 - Desktop and mobile renders produced no page errors and no horizontal document overflow.
-- Source and deployment builds completed successfully.
+- The production build and bundle-budget gate pass; current bundle measurements remain below all configured ceilings.
 
 ## Deployment status and remaining verification
 
 - `wrangler.toml` contains the production Worker route and D1 binding identifiers; they are no longer placeholders.
 - HIVE hand-off and delegated-role behaviour are covered by the repository gateway tests; production secret values remain deployment-only and are not committed.
-- Live AIMS provider and production deployment canaries remain pending and must be run against the deployed Worker before final operational sign-off.
+- The deployed-integration workflow now verifies the exact AIMS-UI release, production bindings, D1-backed widget session path and console CSP without requiring a HIVE credential. When `HIVE_UI_ACCESS_KEY` is configured it additionally exercises the HIVE hand-off and delegated AIMS proxy; the retained attestation distinguishes `deployed-integration-green-full` from `deployed-integration-green-aims-ui-only`.
+- A new deployed-integration run against the updated release remains required before final operational sign-off.
 - The public website uses its own first-party CogniPal assets and Pages Functions; installation is therefore governed by the website repository rather than treated as an unfinished AIMS-UI source task.
 
 - Social grouping: Facebook/Instagram DMs are separated from Facebook/Instagram/YouTube comments using backend `interaction_type`; social setup/status and controlled reply hooks are wired through the gateway.
