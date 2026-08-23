@@ -37,7 +37,9 @@ jobs:
           HIVE_UI_BASE_URL: ${{ vars.HIVE_UI_BASE_URL || 'https://hive.jonathan-harris.online' }}
           WEBSITE_ORIGIN: ${{ vars.WEBSITE_BASE_URL || 'https://jonathan-harris.online' }}
           HIVE_UI_ACCESS_KEY: ${{ secrets.HIVE_UI_ACCESS_KEY }}
-        run: npm run test:deployed
+        run: |
+          set -o pipefail
+          npm run test:deployed | tee deployed-integration.log
       - name: Record deployed-integration attestation
         env:
           EXPECTED_DEPLOYMENT_SHA: ${{ inputs.expected_sha || github.event.workflow_run.head_sha || github.sha }}
@@ -45,10 +47,14 @@ jobs:
           printf '{"repository":"%s","sha":"%s","workflow_run":"%s","status":"deployed-integration-green"}\n' \
             "$GITHUB_REPOSITORY" "$EXPECTED_DEPLOYMENT_SHA" "$GITHUB_RUN_ID" > deployed-integration-attestation.json
       - name: Retain deployed-integration attestation
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: deployed-integration-attestation-${{ inputs.expected_sha || github.event.workflow_run.head_sha || github.sha }}
-          path: deployed-integration-attestation.json
+          path: |
+            deployed-integration-attestation.json
+            deployed-integration.log
+          if-no-files-found: warn
           retention-days: 90
       - name: Trigger central ecosystem smoke
         env:
