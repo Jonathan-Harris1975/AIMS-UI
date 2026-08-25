@@ -9,7 +9,7 @@ run_worker_first = true
 
 [vars]
 ENVIRONMENT = "production"
-AIMS_API_BASE_URL = "https://app.jonathan-harris.online"
+AIMS_API_BASE_URL = "https://zeroth-kara-jonathanharris-3296ed37.koyeb.app"
 HIVE_IDENTITY_VERIFY_URL = "https://hive.jonathan-harris.online/api/auth/comms-identity"
 HIVE_IDENTITY_VERIFY_METHOD = "GET"
 CONSOLE_ALLOWED_ORIGINS = "https://chat.jonathan-harris.online"
