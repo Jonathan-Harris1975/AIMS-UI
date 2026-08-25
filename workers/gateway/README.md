@@ -38,7 +38,7 @@ The gateway verifies the current HIVE session, resolves an actor and Comms Hub r
 3. Copy `wrangler.toml.example` to `wrangler.toml` and set the database identifier and allowed origins.
 4. Add every secret with `wrangler secret put`.
 5. Deploy the Worker.
-6. Set `AIMS_API_BASE_URL` to the live AIMS origin (production: `https://app.jonathan-harris.online`).
+6. Set `AIMS_API_BASE_URL` to the live AIMS origin (production: `https://zeroth-kara-jonathanharris-3296ed37.koyeb.app`).
 7. For the first-party website path, keep the shared `COMMS_HUB_COGINPAL_WEBHOOK_SECRET` in the website Pages project and AIMS. The AIMS-UI gateway only forwards the signed request and does not need that secret.
 8. `COGNIPAL_API_KEY` remains required only for the legacy `/sessions/*` provider-compatible routes.
 
