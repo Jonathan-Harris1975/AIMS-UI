@@ -114,7 +114,7 @@ test("gateway configuration status uses the production DB binding name", () => {
   const fakeDb = { prepare() {} };
   const fakeAssets = { fetch() {} };
   assert.deepEqual(gatewayConfigurationStatus({
-    AIMS_API_BASE_URL: "https://app.jonathan-harris.online",
+    AIMS_API_BASE_URL: "https://zeroth-kara-jonathanharris-3296ed37.koyeb.app",
     AIMS_API_KEY: "api-key",
     COMMS_HUB_RBAC_DELEGATION_SECRET: "delegation-secret",
     HIVE_COMMS_HANDOFF_SECRET: "handoff-secret",
@@ -155,7 +155,7 @@ test("CogniPal intake proxy preserves the exact signed body and HMAC headers", a
   let seen = null;
   const response = await proxyCogniPalIntake(
     request,
-    { AIMS_API_BASE_URL: "https://app.jonathan-harris.online" },
+    { AIMS_API_BASE_URL: "https://zeroth-kara-jonathanharris-3296ed37.koyeb.app" },
     new URL(request.url),
     async (target, init) => {
       seen = {
@@ -173,7 +173,7 @@ test("CogniPal intake proxy preserves the exact signed body and HMAC headers", a
     },
   );
   assert.deepEqual(seen, {
-    target: "https://app.jonathan-harris.online/comms-hub/intake/chat/sync",
+    target: "https://zeroth-kara-jonathanharris-3296ed37.koyeb.app/comms-hub/intake/chat/sync",
     method: "POST",
     body: rawBody,
     timestamp: "1786882265635",
@@ -252,7 +252,7 @@ test("legacy identity verification receives the HttpOnly cookie token as a Beare
         headers: { "content-type": "application/json" },
       });
     }
-    assert.equal(url, "https://app.jonathan-harris.online/comms-hub/ui/bootstrap");
+    assert.equal(url, "https://zeroth-kara-jonathanharris-3296ed37.koyeb.app/comms-hub/ui/bootstrap");
     return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } });
   };
   try {
@@ -264,7 +264,7 @@ test("legacy identity verification receives the HttpOnly cookie token as a Beare
       },
     }), {
       ENVIRONMENT: "production",
-      AIMS_API_BASE_URL: "https://app.jonathan-harris.online",
+      AIMS_API_BASE_URL: "https://zeroth-kara-jonathanharris-3296ed37.koyeb.app",
       AIMS_API_KEY: "aims-api-key",
       COMMS_HUB_RBAC_DELEGATION_SECRET: "delegation-secret",
       HIVE_IDENTITY_VERIFY_METHOD: "GET",
