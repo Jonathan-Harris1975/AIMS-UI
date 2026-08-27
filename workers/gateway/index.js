@@ -106,6 +106,14 @@ function requireD1(env) {
   return env.DB;
 }
 
+const CORE_READINESS_KEYS = Object.freeze([
+  "aimsApiBaseUrl",
+  "aimsApiKey",
+  "delegationSecret",
+  "consoleAllowedOrigins",
+  "assets",
+]);
+
 export function gatewayConfigurationStatus(env = {}) {
   const status = {
     aimsApiBaseUrl: Boolean(baseUrl(env.AIMS_API_BASE_URL)),
@@ -121,19 +129,12 @@ export function gatewayConfigurationStatus(env = {}) {
     d1: Boolean(env.DB && typeof env.DB.prepare === "function"),
     assets: Boolean(env.ASSETS && typeof env.ASSETS.fetch === "function"),
   };
-  status.ready = [
-    status.aimsApiBaseUrl,
-    status.aimsApiKey,
-    status.delegationSecret,
-    status.chatSessionSecret,
-    status.cogniPalWebhookSecret,
-    status.cogniPalApiKey,
-    status.consoleAllowedOrigins,
-    status.widgetAllowedOrigins,
-    status.widgetAllowedSiteIds,
-    status.d1,
-    status.assets,
-  ].every(Boolean);
+  // Readiness represents the production operator console and secure AIMS proxy.
+  // Widget-session/provider compatibility routes are optional capabilities: the
+  // public website uses the first-party signed intake proxy, so their secrets
+  // must not make the AIMS operator UI appear degraded when those routes are
+  // intentionally unused. Their booleans remain visible for diagnostics.
+  status.ready = CORE_READINESS_KEYS.every((key) => status[key] === true);
   return status;
 }
 
@@ -693,8 +694,9 @@ export default {
       }
       if (request.method === "GET" && (url.pathname === "/readyz" || url.pathname === "/health")) {
         const configuration = gatewayConfigurationStatus(env);
-        const missing = Object.entries(configuration)
-          .filter(([key, value]) => key !== "ready" && value !== true)
+        const missing = CORE_READINESS_KEYS.filter((key) => configuration[key] !== true);
+        const optionalMissing = Object.entries(configuration)
+          .filter(([key, value]) => key !== "ready" && !CORE_READINESS_KEYS.includes(key) && value !== true)
           .map(([key]) => key);
         return json({
           ok: configuration.ready,
@@ -706,6 +708,7 @@ export default {
           releaseBranch: AIMS_UI_BUILD_BRANCH,
           configuration,
           missing,
+          optionalMissing,
         }, { status: configuration.ready ? 200 : 503 });
       }
       if (isCogniPalIntakePath(url.pathname, request.method)) return proxyCogniPalIntake(request, env, url);
