@@ -19,6 +19,7 @@ for (const file of required) await access(join(root, file));
 const forbiddenArtifacts = [
   "apps/console/mock-data.js",
   "apps/widget/demo.html",
+  "gateway.test.mjs",
 ];
 for (const file of forbiddenArtifacts) {
   try {
