@@ -680,15 +680,32 @@ export default {
     const url = new URL(request.url);
     try {
       if (request.method === "OPTIONS") return handleOptions(request, env, url);
-      if (request.method === "GET" && url.pathname === "/health") {
+      if (request.method === "GET" && url.pathname === "/livez") {
+        return json({
+          ok: true,
+          healthy: true,
+          status: "healthy",
+          service: "aims-ui-gateway",
+          environment: env.ENVIRONMENT || "unknown",
+          releaseSha: AIMS_UI_BUILD_SHA,
+          releaseBranch: AIMS_UI_BUILD_BRANCH,
+        });
+      }
+      if (request.method === "GET" && (url.pathname === "/readyz" || url.pathname === "/health")) {
         const configuration = gatewayConfigurationStatus(env);
+        const missing = Object.entries(configuration)
+          .filter(([key, value]) => key !== "ready" && value !== true)
+          .map(([key]) => key);
         return json({
           ok: configuration.ready,
+          ready: configuration.ready,
+          status: configuration.ready ? "ready" : "not_ready",
           service: "aims-ui-gateway",
           environment: env.ENVIRONMENT || "unknown",
           releaseSha: AIMS_UI_BUILD_SHA,
           releaseBranch: AIMS_UI_BUILD_BRANCH,
           configuration,
+          missing,
         }, { status: configuration.ready ? 200 : 503 });
       }
       if (isCogniPalIntakePath(url.pathname, request.method)) return proxyCogniPalIntake(request, env, url);
