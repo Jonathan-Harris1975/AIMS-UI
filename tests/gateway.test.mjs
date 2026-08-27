@@ -319,19 +319,18 @@ test("gateway health fails closed until production bindings are complete", async
     AIMS_API_BASE_URL: "https://aims.example.test",
     AIMS_API_KEY: "api-key",
     COMMS_HUB_RBAC_DELEGATION_SECRET: "delegation-secret",
-    CHAT_SESSION_SECRET: "session-secret",
-    COGNIPAL_WEBHOOK_SECRET: "webhook-secret",
-    COGNIPAL_API_KEY: "cognipal-api-key",
     CONSOLE_ALLOWED_ORIGINS: "https://chat.jonathan-harris.online",
-    WIDGET_ALLOWED_ORIGINS: "https://jonathan-harris.online",
-    WIDGET_ALLOWED_SITE_IDS: "jonathan-harris.online",
-    DB: { prepare() {} },
     ASSETS: { fetch() {} },
   });
   assert.equal(response.status, 200);
   const body = await response.json();
   assert.equal(body.ok, true);
   assert.equal(body.configuration.ready, true);
+  assert.deepEqual(body.missing, []);
+  assert.ok(body.optionalMissing.includes("chatSessionSecret"));
+  assert.ok(body.optionalMissing.includes("cogniPalWebhookSecret"));
+  assert.ok(body.optionalMissing.includes("cogniPalApiKey"));
+  assert.ok(body.optionalMissing.includes("d1"));
   assert.equal(body.service, "aims-ui-gateway");
   assert.equal(typeof body.releaseSha, "string");
   assert.ok(body.releaseSha.length > 0);
