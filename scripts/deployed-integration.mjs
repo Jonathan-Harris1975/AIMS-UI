@@ -95,7 +95,9 @@ async function main() {
   const expectedSha = required('EXPECTED_DEPLOYMENT_SHA')
   const hiveUiAccessKey = String(process.env.HIVE_UI_ACCESS_KEY || '').trim()
 
-  const gatewayHealth = await waitForExpectedRelease(new URL('/health', aimsUiBase), expectedSha)
+  const gatewayLiveness = await waitForExpectedRelease(new URL('/livez', aimsUiBase), expectedSha)
+  assert(gatewayLiveness.body?.healthy === true, 'AIMS-UI gateway liveness did not report healthy')
+  const gatewayHealth = await requestJson(new URL('/readyz', aimsUiBase))
   const configuration = gatewayHealth.body?.configuration || {}
   assert(configuration.aimsApiBaseUrl === true, 'AIMS_API_BASE_URL is not configured in the deployed gateway')
   assert(configuration.aimsApiKey === true, 'AIMS_API_KEY is not configured in the deployed gateway')
