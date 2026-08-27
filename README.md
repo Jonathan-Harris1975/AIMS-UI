@@ -53,6 +53,8 @@ The Cloudflare Worker serves the operator assets and API gateway on `chat.jonath
 
 The Worker requires its production D1 binding plus the AIMS/HIVE hand-off and delegation secrets documented in `workers/gateway/README.md` and `wrangler.toml`.
 
+`GET /health` is fail-closed: it returns `503` until the AIMS proxy, console/widget origins, D1/assets bindings and CogniPal session/signing credentials required by the production gateway are present.
+
 ## Widget
 
 The widget is isolated in Shadow DOM, persists its session, supports polling/retry/cold-start states and includes keyboard/accessibility controls. Website installation is governed in the website repository; the current public website uses its own first-party CogniPal assets and Pages Functions rather than depending on this repository alone for installation.

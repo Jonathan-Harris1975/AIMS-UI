@@ -1,0 +1,5 @@
+Delete this obsolete file from the repository root after applying these updates:
+
+gateway.test.mjs
+
+The maintained gateway tests are in tests/gateway.test.mjs and are run by npm test.
