@@ -296,12 +296,26 @@ test("console HTML receives a restrictive CSP", async () => {
   assert.match(csp, /base-uri 'self'/);
 });
 
-test("gateway health fails closed until production bindings are complete", async () => {
-  const incomplete = await gateway.fetch(new Request("https://chat.jonathan-harris.online/health"), {});
-  assert.equal(incomplete.status, 503);
-  assert.equal((await incomplete.json()).ok, false);
+test("gateway liveness is independent of optional runtime configuration", async () => {
+  const response = await gateway.fetch(new Request("https://chat.jonathan-harris.online/livez"), {});
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.ok, true);
+  assert.equal(body.healthy, true);
+  assert.equal(body.status, "healthy");
+  assert.equal(body.service, "aims-ui-gateway");
+});
 
-  const response = await gateway.fetch(new Request("https://chat.jonathan-harris.online/health"), {
+test("gateway health fails closed until production bindings are complete", async () => {
+  const incomplete = await gateway.fetch(new Request("https://chat.jonathan-harris.online/readyz"), {});
+  assert.equal(incomplete.status, 503);
+  const incompleteBody = await incomplete.json();
+  assert.equal(incompleteBody.ok, false);
+  assert.equal(incompleteBody.ready, false);
+  assert.equal(incompleteBody.status, "not_ready");
+  assert.ok(incompleteBody.missing.includes("aimsApiBaseUrl"));
+
+  const response = await gateway.fetch(new Request("https://chat.jonathan-harris.online/readyz"), {
     AIMS_API_BASE_URL: "https://aims.example.test",
     AIMS_API_KEY: "api-key",
     COMMS_HUB_RBAC_DELEGATION_SECRET: "delegation-secret",
