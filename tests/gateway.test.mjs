@@ -125,8 +125,15 @@ test("gateway configuration status uses the production DB binding name", () => {
     aimsApiKey: true,
     delegationSecret: true,
     hiveHandoffSecret: true,
+    chatSessionSecret: false,
+    cogniPalWebhookSecret: false,
+    cogniPalApiKey: false,
+    consoleAllowedOrigins: false,
+    widgetAllowedOrigins: false,
+    widgetAllowedSiteIds: false,
     d1: true,
     assets: true,
+    ready: false,
   });
 
   assert.equal(gatewayConfigurationStatus({ CHAT_DB: fakeDb }).d1, false);
@@ -287,4 +294,33 @@ test("console HTML receives a restrictive CSP", async () => {
   assert.match(csp, /script-src-attr 'none'/);
   assert.match(csp, /object-src 'none'/);
   assert.match(csp, /base-uri 'self'/);
+});
+
+test("gateway health fails closed until production bindings are complete", async () => {
+  const incomplete = await gateway.fetch(new Request("https://chat.jonathan-harris.online/health"), {});
+  assert.equal(incomplete.status, 503);
+  assert.equal((await incomplete.json()).ok, false);
+
+  const response = await gateway.fetch(new Request("https://chat.jonathan-harris.online/health"), {
+    AIMS_API_BASE_URL: "https://aims.example.test",
+    AIMS_API_KEY: "api-key",
+    COMMS_HUB_RBAC_DELEGATION_SECRET: "delegation-secret",
+    CHAT_SESSION_SECRET: "session-secret",
+    COGNIPAL_WEBHOOK_SECRET: "webhook-secret",
+    COGNIPAL_API_KEY: "cognipal-api-key",
+    CONSOLE_ALLOWED_ORIGINS: "https://chat.jonathan-harris.online",
+    WIDGET_ALLOWED_ORIGINS: "https://jonathan-harris.online",
+    WIDGET_ALLOWED_SITE_IDS: "jonathan-harris.online",
+    DB: { prepare() {} },
+    ASSETS: { fetch() {} },
+  });
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.ok, true);
+  assert.equal(body.configuration.ready, true);
+  assert.equal(body.service, "aims-ui-gateway");
+  assert.equal(typeof body.releaseSha, "string");
+  assert.ok(body.releaseSha.length > 0);
+  assert.equal(typeof body.releaseBranch, "string");
+  assert.ok(body.releaseBranch.length > 0);
 });
