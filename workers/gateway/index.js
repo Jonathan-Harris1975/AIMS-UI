@@ -107,14 +107,34 @@ function requireD1(env) {
 }
 
 export function gatewayConfigurationStatus(env = {}) {
-  return {
+  const status = {
     aimsApiBaseUrl: Boolean(baseUrl(env.AIMS_API_BASE_URL)),
     aimsApiKey: Boolean(normalise(env.AIMS_API_KEY)),
     delegationSecret: Boolean(normalise(env.COMMS_HUB_RBAC_DELEGATION_SECRET)),
     hiveHandoffSecret: Boolean(normalise(env.HIVE_COMMS_HANDOFF_SECRET)),
+    chatSessionSecret: Boolean(normalise(env.CHAT_SESSION_SECRET)),
+    cogniPalWebhookSecret: Boolean(normalise(env.COGNIPAL_WEBHOOK_SECRET)),
+    cogniPalApiKey: Boolean(normalise(env.COGNIPAL_API_KEY)),
+    consoleAllowedOrigins: parseCsv(env.CONSOLE_ALLOWED_ORIGINS).length > 0,
+    widgetAllowedOrigins: parseCsv(env.WIDGET_ALLOWED_ORIGINS).length > 0,
+    widgetAllowedSiteIds: parseCsv(env.WIDGET_ALLOWED_SITE_IDS).length > 0,
     d1: Boolean(env.DB && typeof env.DB.prepare === "function"),
     assets: Boolean(env.ASSETS && typeof env.ASSETS.fetch === "function"),
   };
+  status.ready = [
+    status.aimsApiBaseUrl,
+    status.aimsApiKey,
+    status.delegationSecret,
+    status.chatSessionSecret,
+    status.cogniPalWebhookSecret,
+    status.cogniPalApiKey,
+    status.consoleAllowedOrigins,
+    status.widgetAllowedOrigins,
+    status.widgetAllowedSiteIds,
+    status.d1,
+    status.assets,
+  ].every(Boolean);
+  return status;
 }
 
 function nowIso(now = Date.now()) {
@@ -663,13 +683,13 @@ export default {
       if (request.method === "GET" && url.pathname === "/health") {
         const configuration = gatewayConfigurationStatus(env);
         return json({
-          ok: true,
+          ok: configuration.ready,
           service: "aims-ui-gateway",
           environment: env.ENVIRONMENT || "unknown",
           releaseSha: AIMS_UI_BUILD_SHA,
           releaseBranch: AIMS_UI_BUILD_BRANCH,
           configuration,
-        });
+        }, { status: configuration.ready ? 200 : 503 });
       }
       if (isCogniPalIntakePath(url.pathname, request.method)) return proxyCogniPalIntake(request, env, url);
       if (url.pathname === "/console/api/auth/handoff") return exchangeHiveHandoff(request, env);
