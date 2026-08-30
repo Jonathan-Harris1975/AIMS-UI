@@ -658,3 +658,12 @@ button, .button, .nav-item, .nav-subitem, .queue-card, .contact-card, .notificat
 @media (max-width: 900px) {
   .layout.sidebar-open .sidebar { overscroll-behavior: contain; }
 }
+
+.auto-sent-box { margin-top: 10px; padding: 11px; border-radius: 11px; border: 1px solid var(--aims-border); background: var(--aims-panel-subtle); }
+.auto-sent-box > strong { font-size: 11px; }
+.auto-sent-box dl { margin: 8px 0 6px; display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 6px 10px; }
+.auto-sent-box dl div { min-width: 0; }
+.auto-sent-box dt { color: var(--aims-text-faint); font-size: 9px; text-transform: uppercase; letter-spacing: .04em; }
+.auto-sent-box dd { margin: 2px 0 0; color: var(--aims-text-soft); font-size: 10px; overflow-wrap: anywhere; }
+.auto-sent-box p, .auto-sent-box small { margin: 4px 0 0; color: var(--aims-text-soft); font-size: 10px; line-height: 1.45; }
+.pill-auto-sent { background: var(--aims-success-soft); color: var(--aims-success); border-color: rgba(110,231,183,.28); }

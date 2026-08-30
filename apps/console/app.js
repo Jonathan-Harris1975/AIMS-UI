@@ -198,6 +198,11 @@ function interactionLabel(row) {
   return channelLabel(row.channel);
 }
 
+function auditDetails(event) {
+  if (event?.details && typeof event.details === "object") return event.details;
+  try { return JSON.parse(event?.details_json || "{}"); } catch { return {}; }
+}
+
 function approvalMetadata(approval) {
   if (approval?.metadata && typeof approval.metadata === "object") return approval.metadata;
   try { return JSON.parse(approval?.metadata_json || "{}"); } catch { return {}; }
@@ -406,7 +411,7 @@ function queueTable(rows = queueRows(), limit = 50, compact = false) {
         <tbody>
           ${visible.map((row) => `
             <tr data-conversation-id="${escapeHtml(row.id)}" tabindex="0" aria-label="Open conversation with ${escapeHtml(row.display_name || row.primary_email || "Unknown contact")}">
-              <td><div class="conversation-cell"><div class="channel-avatar channel-${escapeHtml(row.channel)}">${escapeHtml(channelLabel(row.channel).charAt(0))}</div><div><strong>${escapeHtml(row.display_name || row.primary_email || "Unknown contact")}</strong><span>${escapeHtml(row.subject || row.summary_text || "Conversation")}</span><small>${escapeHtml(row.summary_text || "")}</small></div></div></td>
+              <td><div class="conversation-cell"><div class="channel-avatar channel-${escapeHtml(row.channel)}">${escapeHtml(channelLabel(row.channel).charAt(0))}</div><div><strong>${escapeHtml(row.display_name || row.primary_email || "Unknown contact")}</strong><span>${escapeHtml(row.subject || row.summary_text || "Conversation")}</span><small>${escapeHtml(row.summary_text || "")}${row.last_auto_sent_at ? ` · Sent automatically ${escapeHtml(formatRelativeTime(row.last_auto_sent_at))}` : ""}</small></div></div></td>
               <td><span class="channel-label channel-label-${escapeHtml(row.channel)}">${escapeHtml(channelLabel(row.channel))}</span></td>
               <td><span class="interaction-label interaction-${escapeHtml(socialInteractionType(row) || row.channel)}">${escapeHtml(interactionLabel(row))}</span></td>
               <td>${priorityPill(row.priority_label)}</td>
@@ -427,7 +432,7 @@ function queueTable(rows = queueRows(), limit = 50, compact = false) {
               <span class="queue-card-title"><strong>${escapeHtml(row.display_name || row.primary_email || "Unknown contact")}</strong><span>${escapeHtml(row.subject || row.summary_text || "Conversation")}</span></span>
               ${priorityPill(row.priority_label)}
             </span>
-            <span class="queue-card-tags"><span class="channel-label channel-label-${escapeHtml(row.channel)}">${escapeHtml(channelLabel(row.channel))}</span><span class="interaction-label interaction-${escapeHtml(socialInteractionType(row) || row.channel)}">${escapeHtml(interactionLabel(row))}</span>${statusPill(row.operational_status)}</span>
+            <span class="queue-card-tags"><span class="channel-label channel-label-${escapeHtml(row.channel)}">${escapeHtml(channelLabel(row.channel))}</span><span class="interaction-label interaction-${escapeHtml(socialInteractionType(row) || row.channel)}">${escapeHtml(interactionLabel(row))}</span>${statusPill(row.operational_status)}${row.last_auto_sent_at ? `<span class="pill pill-auto-sent">Auto-sent</span>` : ""}</span>
             <span class="queue-card-meta"><span><b>Response</b>${escapeHtml(row.response_due_at ? formatDateTime(row.response_due_at) : secondsToAge(row.age_seconds))}${row.response_overdue ? ` <em>Overdue</em>` : ""}</span><span><b>Owner</b>${row.owner_type === "person" ? "Me" : row.owner_type === "automation" ? "Automated" : "Assigned"}</span><span><b>AI</b>${escapeHtml(titleCase(row.intent || "Unanalysed"))}</span></span>
           </button>
         `).join("")}
@@ -630,6 +635,8 @@ function workspaceView() {
   const drafts = workspace.ai?.drafts || [];
   const approvals = workspace.ai?.approvals || [];
   const pendingApproval = approvals.find((approval) => approval.status === "pending") || null;
+  const latestAutoSent = (workspace.audit || []).find((event) => event.action === "autonomous_reply_sent") || null;
+  const latestAutoSentDetails = auditDetails(latestAutoSent);
   const executableModerationApprovals = approvals.filter((approval) => approval.target_type === "moderation_action" && approval.status === "approved");
   const attachments = conversation.attachments || workspace.attachments || [];
   const socialThread = conversation.socialThread || null;
@@ -693,6 +700,7 @@ function workspaceView() {
           <p class="ai-summary">${escapeHtml(aiState.summary_text || "No current summary has been returned.")}</p>
           <dl><div><dt>Intent</dt><dd>${escapeHtml(titleCase(aiState.intent || "Unknown"))}</dd></div><div><dt>Priority</dt><dd>${escapeHtml(titleCase(aiState.priority_label || "Unknown"))}${aiState.priority_score !== undefined ? ` (${escapeHtml(aiState.priority_score)})` : ""}</dd></div><div><dt>Sentiment</dt><dd>${escapeHtml(titleCase(aiState.sentiment || "Unknown"))}</dd></div><div><dt>Next action</dt><dd>${escapeHtml(aiState.next_action || "Not set")}</dd></div></dl>
           ${drafts.length ? `<div class="draft-box"><strong>Latest draft</strong><p>${escapeHtml(drafts[0].body_text || drafts[0].content || "")}</p></div>` : ""}
+          ${latestAutoSent ? `<div class="auto-sent-box"><strong>Sent automatically</strong><dl><div><dt>Channel</dt><dd>${escapeHtml(channelLabel(latestAutoSentDetails.channel || conversation.channel))}</dd></div><div><dt>Confidence</dt><dd>${escapeHtml(latestAutoSentDetails.confidence !== undefined ? String(Math.round(Number(latestAutoSentDetails.confidence || 0) * 100)) + "%" : "Verified by policy")}</dd></div><div><dt>Grounding</dt><dd>${escapeHtml(Number(latestAutoSentDetails.evidenceCount || 0) > 0 ? "Evidence-backed" : "Deterministic / conversational")}</dd></div><div><dt>Model</dt><dd>${escapeHtml(latestAutoSentDetails.model || "Deterministic")}</dd></div></dl><p>${escapeHtml((latestAutoSentDetails.responseReasons || []).slice(0, 3).map((reason) => titleCase(String(reason).replaceAll(":", " ").replaceAll("_", " "))).join(" · ") || "Safe grounded response")}</p><small>${escapeHtml(formatDateTime(latestAutoSent.occurred_at || latestAutoSent.created_at))}</small></div>` : ""}
           ${pendingApproval ? `<div class="approval-box"><strong>Approval required</strong><p>${escapeHtml(pendingApproval.rationale || `Review ${titleCase(pendingApproval.action_type || "action")} scope and evidence.`)}</p>${canApprove ? `<div><button class="button secondary" data-approval-id="${escapeHtml(pendingApproval.id)}" data-decision="reject">Reject</button><button class="button primary" data-approval-id="${escapeHtml(pendingApproval.id)}" data-decision="approve">Approve</button></div>` : ""}</div>` : ""}
         </section>
         ${attachments.length ? `<section class="panel detail-card attachment-card ${state.workspaceContextTab === "details" ? "context-active" : ""}" data-context-section="details">
