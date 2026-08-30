@@ -41,3 +41,11 @@ test('console exposes named navigation, search and overlay semantics', async () 
   assert.match(styles, /\.skip-link/)
   assert.match(styles, /height: 100dvh/)
 })
+
+test('console surfaces autonomous replies as read-only sent provenance rather than approvals', async () => {
+  const app = await readFile(new URL('../apps/console/app.js', import.meta.url), 'utf8')
+  assert.match(app, /Sent automatically/)
+  assert.match(app, /autonomous_reply_sent/)
+  assert.match(app, /last_auto_sent_at/)
+  assert.match(app, /Evidence-backed|Deterministic \/ conversational/)
+})
