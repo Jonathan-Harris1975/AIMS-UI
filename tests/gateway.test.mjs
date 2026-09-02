@@ -284,6 +284,110 @@ test("legacy identity verification receives the HttpOnly cookie token as a Beare
   }
 });
 
+test("console bootstrap retries one transient upstream gateway failure", async () => {
+  const originalFetch = globalThis.fetch;
+  const requestIds = [];
+  let attempts = 0;
+  globalThis.fetch = async (_target, init = {}) => {
+    attempts += 1;
+    requestIds.push(new Headers(init.headers).get("x-request-id"));
+    if (attempts === 1) {
+      return new Response("<h1>502 Bad Gateway</h1>", {
+        status: 502,
+        headers: { "content-type": "text/html; charset=utf-8" },
+      });
+    }
+    return new Response(JSON.stringify({ ok: true, queue: [], notifications: [] }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+  try {
+    const response = await gateway.fetch(new Request("https://chat.jonathan-harris.online/console/api/ui/bootstrap", {
+      method: "GET",
+      headers: { referer: "https://chat.jonathan-harris.online/console/" },
+    }), {
+      ENVIRONMENT: "development",
+      DEV_CONSOLE_ACTOR: "operator@example.test",
+      DEV_CONSOLE_ROLE: "operator",
+      AIMS_API_BASE_URL: "https://aims.example.test",
+      AIMS_API_KEY: "aims-api-key",
+      COMMS_HUB_RBAC_DELEGATION_SECRET: "delegation-secret",
+      CONSOLE_ALLOWED_ORIGINS: "https://chat.jonathan-harris.online",
+    });
+    assert.equal(response.status, 200);
+    assert.equal(attempts, 2);
+    assert.ok(requestIds[0]);
+    assert.equal(requestIds[0], requestIds[1]);
+    assert.deepEqual(await response.json(), { ok: true, queue: [], notifications: [] });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("console converts a persistent non-JSON upstream 502 into a traceable JSON error", async () => {
+  const originalFetch = globalThis.fetch;
+  let attempts = 0;
+  globalThis.fetch = async () => {
+    attempts += 1;
+    return new Response("<h1>502 Bad Gateway</h1>", {
+      status: 502,
+      headers: { "content-type": "text/html; charset=utf-8", "retry-after": "5" },
+    });
+  };
+  try {
+    const response = await gateway.fetch(new Request("https://chat.jonathan-harris.online/console/api/ui/bootstrap", {
+      method: "GET",
+      headers: { referer: "https://chat.jonathan-harris.online/console/" },
+    }), {
+      ENVIRONMENT: "development",
+      DEV_CONSOLE_ACTOR: "operator@example.test",
+      DEV_CONSOLE_ROLE: "operator",
+      AIMS_API_BASE_URL: "https://aims.example.test",
+      AIMS_API_KEY: "aims-api-key",
+      COMMS_HUB_RBAC_DELEGATION_SECRET: "delegation-secret",
+      CONSOLE_ALLOWED_ORIGINS: "https://chat.jonathan-harris.online",
+    });
+    const body = await response.json();
+    assert.equal(response.status, 502);
+    assert.equal(response.headers.get("retry-after"), "5");
+    assert.match(response.headers.get("content-type") || "", /application\/json/);
+    assert.equal(attempts, 2);
+    assert.equal(body.error, "aims_upstream_unavailable");
+    assert.equal(body.message, "AIMS is temporarily unavailable. Try again shortly.");
+    assert.ok(body.requestId);
+    assert.equal(response.headers.get("x-request-id"), body.requestId);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("gateway catches rejected asynchronous console handlers", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => { throw new Error("upstream connection reset"); };
+  try {
+    const response = await gateway.fetch(new Request("https://chat.jonathan-harris.online/console/api/ui/bootstrap", {
+      method: "GET",
+      headers: { referer: "https://chat.jonathan-harris.online/console/" },
+    }), {
+      ENVIRONMENT: "development",
+      DEV_CONSOLE_ACTOR: "operator@example.test",
+      DEV_CONSOLE_ROLE: "operator",
+      AIMS_API_BASE_URL: "https://aims.example.test",
+      AIMS_API_KEY: "aims-api-key",
+      COMMS_HUB_RBAC_DELEGATION_SECRET: "delegation-secret",
+      CONSOLE_ALLOWED_ORIGINS: "https://chat.jonathan-harris.online",
+    });
+    assert.equal(response.status, 502);
+    assert.deepEqual(await response.json(), {
+      error: "aims_upstream_unreachable",
+      message: "The AIMS gateway could not complete this request.",
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("console HTML receives a restrictive CSP", async () => {
   const response = await gateway.fetch(new Request("https://chat.jonathan-harris.online/console/"), {
     ASSETS: { fetch: async () => new Response("<html></html>", { headers: { "content-type": "text/html; charset=utf-8" } }) },
@@ -315,25 +419,62 @@ test("gateway health fails closed until production bindings are complete", async
   assert.equal(incompleteBody.status, "not_ready");
   assert.ok(incompleteBody.missing.includes("aimsApiBaseUrl"));
 
-  const response = await gateway.fetch(new Request("https://chat.jonathan-harris.online/readyz"), {
-    AIMS_API_BASE_URL: "https://aims.example.test",
-    AIMS_API_KEY: "api-key",
-    COMMS_HUB_RBAC_DELEGATION_SECRET: "delegation-secret",
-    CONSOLE_ALLOWED_ORIGINS: "https://chat.jonathan-harris.online",
-    ASSETS: { fetch() {} },
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (target) => {
+    assert.equal(String(target), "https://aims.example.test/comms-hub/health");
+    return new Response(JSON.stringify({ ok: true, service: "comms-hub" }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+  try {
+    const response = await gateway.fetch(new Request("https://chat.jonathan-harris.online/readyz"), {
+      AIMS_API_BASE_URL: "https://aims.example.test",
+      AIMS_API_KEY: "api-key",
+      COMMS_HUB_RBAC_DELEGATION_SECRET: "delegation-secret",
+      CONSOLE_ALLOWED_ORIGINS: "https://chat.jonathan-harris.online",
+      ASSETS: { fetch() {} },
+    });
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.ok, true);
+    assert.equal(body.configuration.ready, true);
+    assert.deepEqual(body.dependencies.aims, { ok: true, status: 200 });
+    assert.deepEqual(body.missing, []);
+    assert.ok(body.optionalMissing.includes("chatSessionSecret"));
+    assert.ok(body.optionalMissing.includes("cogniPalWebhookSecret"));
+    assert.ok(body.optionalMissing.includes("cogniPalApiKey"));
+    assert.ok(body.optionalMissing.includes("d1"));
+    assert.equal(body.service, "aims-ui-gateway");
+    assert.equal(typeof body.releaseSha, "string");
+    assert.ok(body.releaseSha.length > 0);
+    assert.equal(typeof body.releaseBranch, "string");
+    assert.ok(body.releaseBranch.length > 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("gateway readiness fails when the configured AIMS origin is unavailable", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response("Bad Gateway", {
+    status: 502,
+    headers: { "content-type": "text/plain" },
   });
-  assert.equal(response.status, 200);
-  const body = await response.json();
-  assert.equal(body.ok, true);
-  assert.equal(body.configuration.ready, true);
-  assert.deepEqual(body.missing, []);
-  assert.ok(body.optionalMissing.includes("chatSessionSecret"));
-  assert.ok(body.optionalMissing.includes("cogniPalWebhookSecret"));
-  assert.ok(body.optionalMissing.includes("cogniPalApiKey"));
-  assert.ok(body.optionalMissing.includes("d1"));
-  assert.equal(body.service, "aims-ui-gateway");
-  assert.equal(typeof body.releaseSha, "string");
-  assert.ok(body.releaseSha.length > 0);
-  assert.equal(typeof body.releaseBranch, "string");
-  assert.ok(body.releaseBranch.length > 0);
+  try {
+    const response = await gateway.fetch(new Request("https://chat.jonathan-harris.online/readyz"), {
+      AIMS_API_BASE_URL: "https://retired-aims.example.test",
+      AIMS_API_KEY: "api-key",
+      COMMS_HUB_RBAC_DELEGATION_SECRET: "delegation-secret",
+      CONSOLE_ALLOWED_ORIGINS: "https://chat.jonathan-harris.online",
+      ASSETS: { fetch() {} },
+    });
+    const body = await response.json();
+    assert.equal(response.status, 503);
+    assert.equal(body.ready, false);
+    assert.equal(body.configuration.ready, true);
+    assert.deepEqual(body.dependencies.aims, { ok: false, status: 502 });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
