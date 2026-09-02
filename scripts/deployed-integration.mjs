@@ -97,7 +97,7 @@ async function main() {
 
   const gatewayLiveness = await waitForExpectedRelease(new URL('/livez', aimsUiBase), expectedSha)
   assert(gatewayLiveness.body?.healthy === true, 'AIMS-UI gateway liveness did not report healthy')
-  const gatewayHealth = await requestJson(new URL('/readyz', aimsUiBase))
+  const gatewayHealth = await waitForExpectedRelease(new URL('/readyz', aimsUiBase), expectedSha)
   const configuration = gatewayHealth.body?.configuration || {}
   assert(configuration.aimsApiBaseUrl === true, 'AIMS_API_BASE_URL is not configured in the deployed gateway')
   assert(configuration.aimsApiKey === true, 'AIMS_API_KEY is not configured in the deployed gateway')
@@ -160,7 +160,14 @@ async function main() {
         headers: headersFor(aimsUiBase, { cookie: aimsCookie }),
       })
       assert(commsHealth.body?.ok === true && commsHealth.body?.service === 'comms-hub', 'AIMS delegated Comms Hub health route is not ready')
-      console.log('ok 3 - HIVE handoff and delegated AIMS API proxy')
+
+      const bootstrap = await requestJson(new URL('/console/api/ui/bootstrap', aimsUiBase), {
+        headers: headersFor(aimsUiBase, { cookie: aimsCookie }),
+      })
+      assert(bootstrap.body?.ok === true, 'AIMS Comms Hub bootstrap did not report ready')
+      assert(Array.isArray(bootstrap.body?.queue), 'AIMS Comms Hub bootstrap did not return a queue')
+      assert(Array.isArray(bootstrap.body?.notifications), 'AIMS Comms Hub bootstrap did not return notifications')
+      console.log('ok 3 - HIVE handoff, delegated AIMS API proxy and UI bootstrap')
     } finally {
       await requestJson(new URL('/api/auth/logout', hiveUiBase), {
         method: 'POST',
