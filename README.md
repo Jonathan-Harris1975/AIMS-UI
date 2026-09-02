@@ -53,7 +53,7 @@ The Cloudflare Worker serves the operator assets and API gateway on `chat.jonath
 
 The production operator console requires the AIMS API base URL/key, RBAC delegation secret, console allowlist and static-assets binding. `HIVE_COMMS_HANDOFF_SECRET` is optional when the configured HIVE identity verifier is used. D1, `CHAT_SESSION_SECRET`, `COGNIPAL_WEBHOOK_SECRET` and `COGNIPAL_API_KEY` support the optional legacy/widget compatibility routes and do not gate operator-console readiness.
 
-`GET /livez` is the public liveness probe and returns `200` whenever the deployed gateway worker is running. `GET /readyz` is the fail-closed production-readiness probe: it returns `503` until the AIMS proxy, console/widget origins, D1/assets bindings and CogniPal session/signing credentials required by the production gateway are present. `GET /health` remains a backwards-compatible alias of `/readyz`.
+`GET /livez` is the public liveness probe and returns `200` whenever the deployed gateway worker is running. `GET /readyz` is the fail-closed production-readiness probe: it returns `503` until the operator-console bindings are present and the configured AIMS Comms Hub health endpoint answers successfully. `GET /health` remains a backwards-compatible alias of `/readyz`.
 
 ## Widget
 
