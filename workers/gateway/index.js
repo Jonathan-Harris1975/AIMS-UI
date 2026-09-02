@@ -6,6 +6,10 @@ const MAX_MESSAGE_LENGTH = 4000;
 const WIDGET_RATE_LIMIT_PER_MINUTE = 12;
 const CONSOLE_SESSION_COOKIE_NAME = "__Host-aims_console_session";
 const CONSOLE_SESSION_MAX_AGE_SECONDS = 600;
+const CONSOLE_UPSTREAM_TIMEOUT_MS = 15_000;
+const CONSOLE_UPSTREAM_RETRY_DELAY_MS = 250;
+const CONSOLE_UPSTREAM_MAX_ATTEMPTS = 2;
+const RETRYABLE_UPSTREAM_STATUSES = new Set([502, 503, 504]);
 const ALLOWED_ROLES = new Set(["admin", "reviewer", "operator", "read_only"]);
 
 function json(payload, { status = 200, headers = {} } = {}) {
@@ -179,6 +183,43 @@ function withCors(response, origin, options = {}) {
   const headers = new Headers(response.headers);
   for (const [key, value] of Object.entries(corsHeaders(origin, options))) headers.set(key, value);
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
+
+function sleep(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function fetchWithTimeout(fetchImpl, target, init, timeoutMs = CONSOLE_UPSTREAM_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetchImpl(target, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function isJsonResponse(response) {
+  return /(?:^|[/+])json(?:;|$)/i.test(normalise(response?.headers?.get("content-type")));
+}
+
+export async function probeAimsUpstream(env, { fetchImpl = fetch, timeoutMs = 5_000 } = {}) {
+  const aimsBase = baseUrl(env?.AIMS_API_BASE_URL);
+  if (!aimsBase) return { ok: false, status: null };
+  try {
+    const response = await fetchWithTimeout(fetchImpl, `${aimsBase}/comms-hub/health`, {
+      method: "GET",
+      headers: { accept: "application/json", "x-aims-ui-probe": "readiness" },
+      redirect: "manual",
+    }, timeoutMs);
+    const payload = await response.json().catch(() => null);
+    return {
+      ok: response.ok && payload?.ok === true && payload?.service === "comms-hub",
+      status: response.status,
+    };
+  } catch {
+    return { ok: false, status: null };
+  }
 }
 
 function bytesToHex(bytes) {
@@ -620,6 +661,7 @@ async function proxyConsole(request, env, url) {
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
   }
+  if (!headers.has("x-request-id")) headers.set("x-request-id", crypto.randomUUID());
   headers.set("authorization", `Bearer ${env.AIMS_API_KEY}`);
   headers.set("x-comms-hub-actor", identity.actor);
   headers.set("x-comms-hub-role", identity.role);
@@ -627,20 +669,49 @@ async function proxyConsole(request, env, url) {
   headers.set("x-comms-hub-signature", signature);
 
   const target = `${aimsBase}${targetPath}${url.search}`;
-  let response;
-  try {
-    response = await fetch(target, {
-      method: request.method,
-      headers,
-      body: ["GET", "HEAD"].includes(request.method) ? undefined : request.body,
-      redirect: "manual",
-    });
-  } catch (error) {
+  const requestId = headers.get("x-request-id");
+  const safeToRetry = ["GET", "HEAD"].includes(request.method);
+  const maximumAttempts = safeToRetry ? CONSOLE_UPSTREAM_MAX_ATTEMPTS : 1;
+  const startedAt = Date.now();
+  let response = null;
+  let fetchError = null;
+  for (let attempt = 1; attempt <= maximumAttempts; attempt += 1) {
+    try {
+      response = await fetchWithTimeout(fetch, target, {
+        method: request.method,
+        headers,
+        body: safeToRetry ? undefined : request.body,
+        redirect: "manual",
+      });
+      fetchError = null;
+    } catch (error) {
+      fetchError = error;
+      response = null;
+    }
+
+    const retryableResponse = response && RETRYABLE_UPSTREAM_STATUSES.has(response.status);
+    if (attempt < maximumAttempts && (fetchError || retryableResponse)) {
+      console.warn("aimsUiGateway.consoleProxy.retry", {
+        targetPath,
+        method: request.method,
+        status: response?.status || null,
+        requestId,
+        attempt,
+      });
+      await response?.body?.cancel().catch(() => {});
+      await sleep(CONSOLE_UPSTREAM_RETRY_DELAY_MS);
+      continue;
+    }
+    break;
+  }
+
+  if (!response) {
     console.error("aimsUiGateway.consoleProxy.upstreamFetchFailed", {
       targetPath,
       method: request.method,
-      requestId: headers.get("x-request-id") || null,
-      error: error?.message || String(error),
+      requestId,
+      durationMs: Date.now() - startedAt,
+      error: fetchError?.message || String(fetchError || "unknown fetch failure"),
     });
     throw Object.assign(new Error("AIMS upstream could not be reached."), { status: 502, code: "aims_upstream_unreachable" });
   }
@@ -650,10 +721,35 @@ async function proxyConsole(request, env, url) {
       targetPath,
       method: request.method,
       status: response.status,
-      requestId: headers.get("x-request-id") || response.headers.get("x-request-id") || null,
+      requestId: requestId || response.headers.get("x-request-id") || null,
+      durationMs: Date.now() - startedAt,
     });
+    if (!isJsonResponse(response)) {
+      const status = response.status >= 400 && response.status <= 599 ? response.status : 502;
+      const retryAfter = response.headers.get("retry-after");
+      await response.body?.cancel().catch(() => {});
+      return withCors(json({
+        error: status >= 500 ? "aims_upstream_unavailable" : "aims_upstream_rejected",
+        message: status >= 500
+          ? "AIMS is temporarily unavailable. Try again shortly."
+          : "AIMS rejected the gateway request.",
+        requestId,
+      }, {
+        status,
+        headers: {
+          "x-request-id": requestId,
+          ...(retryAfter ? { "retry-after": retryAfter } : {}),
+        },
+      }), origin, { credentials: true });
+    }
   }
-  return withCors(response, origin, { credentials: true });
+  const responseHeaders = new Headers(response.headers);
+  if (!responseHeaders.has("x-request-id")) responseHeaders.set("x-request-id", requestId);
+  return withCors(new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: responseHeaders,
+  }), origin, { credentials: true });
 }
 
 function handleOptions(request, env, url) {
@@ -694,34 +790,39 @@ export default {
       }
       if (request.method === "GET" && (url.pathname === "/readyz" || url.pathname === "/health")) {
         const configuration = gatewayConfigurationStatus(env);
+        const aimsUpstream = configuration.aimsApiBaseUrl
+          ? await probeAimsUpstream(env)
+          : { ok: false, status: null };
+        const ready = configuration.ready && aimsUpstream.ok;
         const missing = CORE_READINESS_KEYS.filter((key) => configuration[key] !== true);
         const optionalMissing = Object.entries(configuration)
           .filter(([key, value]) => key !== "ready" && !CORE_READINESS_KEYS.includes(key) && value !== true)
           .map(([key]) => key);
         return json({
-          ok: configuration.ready,
-          ready: configuration.ready,
-          status: configuration.ready ? "ready" : "not_ready",
+          ok: ready,
+          ready,
+          status: ready ? "ready" : "not_ready",
           service: "aims-ui-gateway",
           environment: env.ENVIRONMENT || "unknown",
           releaseSha: AIMS_UI_BUILD_SHA,
           releaseBranch: AIMS_UI_BUILD_BRANCH,
           configuration,
+          dependencies: { aims: aimsUpstream },
           missing,
           optionalMissing,
-        }, { status: configuration.ready ? 200 : 503 });
+        }, { status: ready ? 200 : 503 });
       }
-      if (isCogniPalIntakePath(url.pathname, request.method)) return proxyCogniPalIntake(request, env, url);
-      if (url.pathname === "/console/api/auth/handoff") return exchangeHiveHandoff(request, env);
-      if (url.pathname.startsWith("/console/api")) return proxyConsole(request, env, url);
-      if (request.method === "POST" && url.pathname === "/widget/session") return createWidgetSession(request, env);
+      if (isCogniPalIntakePath(url.pathname, request.method)) return await proxyCogniPalIntake(request, env, url);
+      if (url.pathname === "/console/api/auth/handoff") return await exchangeHiveHandoff(request, env);
+      if (url.pathname.startsWith("/console/api")) return await proxyConsole(request, env, url);
+      if (request.method === "POST" && url.pathname === "/widget/session") return await createWidgetSession(request, env);
       const widgetMatch = url.pathname.match(/^\/widget\/sessions\/([^/]+)\/messages$/);
-      if (widgetMatch && request.method === "GET") return listWidgetMessages(request, env, decodeURIComponent(widgetMatch[1]));
-      if (widgetMatch && request.method === "POST") return relayVisitorMessage(request, env, decodeURIComponent(widgetMatch[1]));
+      if (widgetMatch && request.method === "GET") return await listWidgetMessages(request, env, decodeURIComponent(widgetMatch[1]));
+      if (widgetMatch && request.method === "POST") return await relayVisitorMessage(request, env, decodeURIComponent(widgetMatch[1]));
       const providerMessages = url.pathname.match(/^\/sessions\/([^/]+)\/messages$/);
-      if (providerMessages && request.method === "POST") return providerSend(request, env, decodeURIComponent(providerMessages[1]));
+      if (providerMessages && request.method === "POST") return await providerSend(request, env, decodeURIComponent(providerMessages[1]));
       const providerMode = url.pathname.match(/^\/sessions\/([^/]+)\/mode$/);
-      if (providerMode && request.method === "PUT") return providerSetMode(request, env, decodeURIComponent(providerMode[1]));
+      if (providerMode && request.method === "PUT") return await providerSetMode(request, env, decodeURIComponent(providerMode[1]));
 
       // The chat custom domain is attached to this Worker. Serve the console/widget
       // from the Worker static-assets binding for every non-API route instead of
