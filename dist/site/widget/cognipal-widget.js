@@ -100,17 +100,55 @@ class HttpTransport {
 }
 
 const styles = `
-:host { --cp-ink:#17243a; --cp-soft:#66758b; --cp-line:#dce3ec; --cp-panel:#ffffff; --cp-bg:#f5f7fb; --cp-accent:#2e66d3; --cp-accent-dark:#1d4fae; --cp-good:#177a55; --cp-danger:#b33a3a; --cp-shadow:0 20px 55px rgba(28,45,76,.2); font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:var(--cp-ink); }
+:host {
+  --cp-ink:#17243a;
+  --cp-soft:#66758b;
+  --cp-line:#dce3ec;
+  --cp-panel:#ffffff;
+  --cp-bg:#f5f7fb;
+  --cp-accent:#2e66d3;
+  --cp-accent-dark:#1d4fae;
+  --cp-good:#177a55;
+  --cp-danger:#b33a3a;
+  --cp-shadow:0 20px 55px rgba(28,45,76,.2);
+  font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  color:var(--cp-ink);
+}
 * { box-sizing:border-box; }
 button,input,textarea { font:inherit; }
 .cp-root { position:fixed; z-index:2147483000; bottom:20px; right:20px; display:grid; justify-items:end; gap:12px; pointer-events:none; }
 .cp-root.left { left:20px; right:auto; justify-items:start; }
-.cp-launcher { pointer-events:auto; width:62px; height:62px; border-radius:50%; padding:0; border:3px solid #fff; background:#fff; overflow:hidden; box-shadow:0 12px 30px rgba(26,44,75,.24); cursor:pointer; position:relative; transition:transform .16s ease,box-shadow .16s ease; }
+.cp-launcher {
+  pointer-events:auto;
+  width:62px;
+  height:62px;
+  border-radius:50%;
+  padding:0;
+  border:3px solid #fff;
+  background:#fff;
+  overflow:hidden;
+  box-shadow:0 12px 30px rgba(26,44,75,.24);
+  cursor:pointer;
+  position:relative;
+  transition:transform .16s ease,box-shadow .16s ease;
+}
 .cp-launcher:hover { transform:translateY(-2px); box-shadow:0 16px 36px rgba(26,44,75,.28); }
 .cp-launcher:focus-visible,.cp-button:focus-visible,.cp-icon-button:focus-visible,.cp-composer textarea:focus-visible { outline:3px solid rgba(46,102,211,.32); outline-offset:2px; }
 .cp-launcher img { width:100%; height:100%; object-fit:cover; display:block; transform:scale(1.62); transform-origin:center 30%; }
 .cp-launcher .cp-online { position:absolute; width:13px; height:13px; right:1px; bottom:2px; border:2px solid #fff; border-radius:50%; background:#20a772; }
-.cp-panel { pointer-events:auto; width:min(382px,calc(100vw - 24px)); height:min(620px,calc(100vh - 104px)); border:1px solid var(--cp-line); border-radius:20px; background:var(--cp-panel); box-shadow:var(--cp-shadow); overflow:hidden; display:none; grid-template-rows:auto 1fr auto; transform-origin:bottom right; }
+.cp-panel {
+  pointer-events:auto;
+  width:min(382px,calc(100vw - 24px));
+  height:min(620px,calc(100vh - 104px));
+  border:1px solid var(--cp-line);
+  border-radius:20px;
+  background:var(--cp-panel);
+  box-shadow:var(--cp-shadow);
+  overflow:hidden;
+  display:none;
+  grid-template-rows:auto 1fr auto;
+  transform-origin:bottom right;
+}
 .cp-root.left .cp-panel { transform-origin:bottom left; }
 .cp-panel.open { display:grid; animation:cp-in .18s ease-out; }
 @keyframes cp-in { from { opacity:0; transform:translateY(10px) scale(.985); } to { opacity:1; transform:none; } }
@@ -154,7 +192,17 @@ button,input,textarea { font:inherit; }
 .cp-mode { position:sticky; top:-15px; margin:-15px -15px 12px; padding:7px 12px; background:#fff6dc; border-bottom:1px solid #ead49a; color:#745a14; font-size:11px; text-align:center; }
 .cp-footer { border-top:1px solid var(--cp-line); padding:10px 11px 9px; background:#fff; }
 .cp-composer { display:grid; grid-template-columns:1fr auto; gap:8px; align-items:end; }
-.cp-composer textarea { resize:none; min-height:42px; max-height:112px; border:1px solid var(--cp-line); border-radius:12px; padding:10px 12px; color:var(--cp-ink); background:#fbfcfe; line-height:1.45; }
+.cp-composer textarea {
+  resize:none;
+  min-height:42px;
+  max-height:112px;
+  border:1px solid var(--cp-line);
+  border-radius:12px;
+  padding:10px 12px;
+  color:var(--cp-ink);
+  background:#fbfcfe;
+  line-height:1.45;
+}
 .cp-send { width:44px; height:44px; border:0; border-radius:12px; background:var(--cp-accent); color:#fff; cursor:pointer; display:grid; place-items:center; }
 .cp-send:disabled { opacity:.45; cursor:not-allowed; }
 .cp-send svg { width:19px; height:19px; fill:currentColor; }
@@ -162,8 +210,20 @@ button,input,textarea { font:inherit; }
 .cp-footnote button { min-height:32px; color:#52647b; border:0; padding:4px 2px; background:none; cursor:pointer; font-size:11px; text-decoration:underline; text-underline-offset:3px; }
 .cp-alert { margin-bottom:8px; padding:8px 10px; border-radius:9px; color:#8d2d2d; background:#fff0f0; border:1px solid #f0caca; font-size:11px; }
 .cp-sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
-@media (max-width:520px) { .cp-root { right:8px; bottom:8px; }.cp-root.left { left:8px; }.cp-panel { width:calc(100vw - 16px); height:calc(100dvh - 88px); border-radius:17px; }.cp-launcher { width:58px; height:58px; } }
-@media (prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important; scroll-behavior:auto!important; } }
+@media (max-width:520px) {
+  .cp-root { right:8px; bottom:8px; }
+  .cp-root.left { left:8px; }
+  .cp-panel { width:calc(100vw - 16px); height:calc(100dvh - 88px); border-radius:17px; }
+  .cp-launcher { width:58px; height:58px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  *,*::before,*::after {
+    animation-duration:.01ms!important;
+    animation-iteration-count:1!important;
+    transition-duration:.01ms!important;
+    scroll-behavior:auto!important;
+  }
+}
 `;
 
 export class CogniPalWidget extends HTMLElement {
@@ -368,8 +428,18 @@ export class CogniPalWidget extends HTMLElement {
         <small>By continuing, you agree to the <a href="${escapeHtml(this.config.privacyUrl)}" target="_blank" rel="noopener noreferrer">privacy notice</a>.</small>
       </section>`;
     }
-    if (this.loading && !this.session) return `<section class="cp-empty" role="status" aria-live="polite"><div class="cp-typing" aria-hidden="true"><i></i><i></i><i></i></div><h2>Opening CogniPal</h2><p>Creating a private conversation session.</p></section>`;
-    if (this.error && !this.session) return `<section class="cp-error"><h2>Connection interrupted</h2><p>${escapeHtml(this.error)}</p><button class="cp-button secondary" data-action="retry">Try again</button></section>`;
+    if (this.loading && !this.session) {
+      return `<section class="cp-empty" role="status" aria-live="polite">
+        <div class="cp-typing" aria-hidden="true"><i></i><i></i><i></i></div>
+        <h2>Opening CogniPal</h2><p>Creating a private conversation session.</p>
+      </section>`;
+    }
+    if (this.error && !this.session) {
+      return `<section class="cp-error">
+        <h2>Connection interrupted</h2><p>${escapeHtml(this.error)}</p>
+        <button class="cp-button secondary" data-action="retry">Try again</button>
+      </section>`;
+    }
     return `<div class="cp-thread" role="log" aria-live="polite" aria-relevant="additions text">
       ${["human", "takeover_requested"].includes(this.mode) ? `<div class="cp-mode">A human operator is handling this conversation.</div>` : ""}
       ${this.messages.map((item) => `<article class="cp-message ${escapeHtml(item.role || "assistant")}">
@@ -377,7 +447,9 @@ export class CogniPalWidget extends HTMLElement {
         <div class="cp-meta">${item.role === "visitor" ? "You" : item.role === "operator" ? "AIMS team" : "CogniPal"}${item.status === "failed" ? " · not sent" : ""}</div>
       </article>`).join("")}
       ${this.waking ? `<div class="cp-wake" role="status"><span aria-hidden="true"></span>Waking CogniPal and checking the AIMS route…</div>` : ""}
-      ${this.sending && !this.waking ? `<div class="cp-typing" role="status" aria-label="CogniPal is thinking"><i aria-hidden="true"></i><i aria-hidden="true"></i><i aria-hidden="true"></i></div>` : ""}
+      ${this.sending && !this.waking ? `<div class="cp-typing" role="status" aria-label="CogniPal is thinking">
+        <i aria-hidden="true"></i><i aria-hidden="true"></i><i aria-hidden="true"></i>
+      </div>` : ""}
     </div>`;
   }
 
