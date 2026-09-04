@@ -90,7 +90,11 @@ const icons = {
   workflow: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h6v5H6V3Zm8 13h4v5h-6v-5h2Zm-9-1h6v5H5v-5Zm4-7v3h6v3h2v-5H11V8H9Z"/></svg>`,
   quarantine: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 3 6v6c0 5 3.8 9.7 9 10 5.2-.3 9-5 9-10V6l-9-4Zm-1 5h2v7h-2V7Zm0 9h2v2h-2v-2Z"/></svg>`,
   analytics: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16v2H2V3h2v16Zm3-2v-6h3v6H7Zm5 0V7h3v10h-3Zm5 0V4h3v13h-3Z"/></svg>`,
-  settings: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m19.4 13 .1-1-.1-1 2-1.5-2-3.4-2.4 1a8 8 0 0 0-1.7-1L15 3h-4l-.4 2.6a8 8 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.5-.1 1 .1 1-2 1.5 2 3.4 2.4-1a8 8 0 0 0 1.7 1L11 21h4l.4-2.6a8 8 0 0 0 1.7-1l2.4 1 2-3.4-2-1.5ZM13 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8Z"/></svg>`,
+  settings: `<svg viewBox="0 0 24 24" aria-hidden="true">
+    <path d="m19.4 13 .1-1-.1-1 2-1.5-2-3.4-2.4 1a8 8 0 0 0-1.7-1L15 3h-4l-.4 2.6
+      a8 8 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.5-.1 1 .1 1-2 1.5 2 3.4 2.4-1a8 8 0 0 0 1.7 1L11 21h4
+      l.4-2.6a8 8 0 0 0 1.7-1l2.4 1 2-3.4-2-1.5ZM13 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8Z"/>
+  </svg>`,
   search: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 19.6-5.2-5.2a7 7 0 1 0-1.4 1.4l5.2 5.2 1.4-1.4ZM5 10a5 5 0 1 1 10 0 5 5 0 0 1-10 0Z"/></svg>`,
   bell: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 16v-5a6 6 0 1 0-12 0v5l-2 2h16l-2-2Zm-8 4h4a2 2 0 0 1-4 0Z"/></svg>`,
   menu: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18v2H3V6Zm0 5h18v2H3v-2Zm0 5h18v2H3v-2Z"/></svg>`,
@@ -236,7 +240,9 @@ function shell(content) {
         <nav aria-label="Primary">
           ${navItems.map(([key, label, icon]) => key === "inbox" ? `
             <div class="nav-group ${isInboxFamilyView() ? "open" : ""}">
-              <button class="nav-item ${isInboxFamilyView() ? "active" : ""}" data-view="inbox" aria-expanded="${isInboxFamilyView() ? "true" : "false"}" ${state.view === "inbox" ? 'aria-current="page"' : ""}>
+              <button class="nav-item ${isInboxFamilyView() ? "active" : ""}" data-view="inbox"
+                aria-expanded="${isInboxFamilyView() ? "true" : "false"}"
+                ${state.view === "inbox" ? 'aria-current="page"' : ""}>
                 ${icon}<span>${escapeHtml(label)}</span><span class="nav-group-chevron">⌄</span>
               </button>
               <div class="nav-submenu" aria-label="Unified inbox sections">
@@ -271,7 +277,10 @@ function shell(content) {
         <nav class="embedded-nav" aria-label="Communications sections">
           <div class="embedded-nav-scroll">
             ${navItems.map(([key, label, icon]) => `
-              <button class="embedded-nav-item ${key === "inbox" ? (isInboxFamilyView() ? "active" : "") : (state.view === key ? "active" : "")}" data-view="${key}" ${(key === "inbox" ? state.view === "inbox" : state.view === key) ? 'aria-current="page"' : ""}>
+              <button
+                class="embedded-nav-item ${key === "inbox" ? (isInboxFamilyView() ? "active" : "") : (state.view === key ? "active" : "")}"
+                data-view="${key}"
+                ${(key === "inbox" ? state.view === "inbox" : state.view === key) ? 'aria-current="page"' : ""}>
                 ${icon}<span>${escapeHtml(label)}</span>
                 ${key === "approvals" && pendingApprovals().length ? `<b>${pendingApprovals().length}</b>` : ""}
               </button>
@@ -294,7 +303,10 @@ function shell(content) {
         ` : ""}
         ` : `
         <header class="topbar">
-          <button class="icon-button mobile-only aims-menu-trigger" data-action="open-sidebar" aria-label="Open AIMS navigation" aria-expanded="${state.sidebarOpen}" aria-controls="aims-sidebar">${icons.menu}</button>
+          <button class="icon-button mobile-only aims-menu-trigger" data-action="open-sidebar"
+            aria-label="Open AIMS navigation" aria-expanded="${state.sidebarOpen}" aria-controls="aims-sidebar">
+            ${icons.menu}
+          </button>
           <div class="mobile-title"><strong>${escapeHtml(config.productName)}</strong><span>${escapeHtml(titleCase(state.view))}</span></div>
           <label class="global-search">
             ${icons.search}
@@ -309,7 +321,11 @@ function shell(content) {
         <div class="content">${content}</div>
       </main>
       ${notificationPanel()}
-      ${state.toast ? `<div class="toast toast-${escapeHtml(state.toast.tone)}" role="${state.toast.tone === "error" ? "alert" : "status"}" aria-live="${state.toast.tone === "error" ? "assertive" : "polite"}" aria-atomic="true">${escapeHtml(state.toast.message)}</div>` : ""}
+      ${state.toast ? `<div class="toast toast-${escapeHtml(state.toast.tone)}"
+        role="${state.toast.tone === "error" ? "alert" : "status"}"
+        aria-live="${state.toast.tone === "error" ? "assertive" : "polite"}" aria-atomic="true">
+        ${escapeHtml(state.toast.message)}
+      </div>` : ""}
     </div>
   `;
 }
@@ -318,12 +334,23 @@ function notificationPanel() {
   if (!state.notificationOpen) return "";
   return `
     <aside class="notification-panel" id="notification-panel" role="dialog" aria-labelledby="notification-panel-title" tabindex="-1">
-      <header><div><strong id="notification-panel-title">Notifications</strong><span>${state.notifications.length} recent</span></div><button class="icon-button" data-action="toggle-notifications" aria-label="Close notifications">${icons.close}</button></header>
+      <header>
+        <div><strong id="notification-panel-title">Notifications</strong><span>${state.notifications.length} recent</span></div>
+        <button class="icon-button" data-action="toggle-notifications" aria-label="Close notifications">
+          ${icons.close}
+        </button>
+      </header>
       <div class="notification-list">
         ${state.notifications.length ? state.notifications.map((item) => `
-          <button type="button" class="notification-item severity-${escapeHtml(item.severity || "info")}" data-notification-id="${escapeHtml(item.id)}" data-conversation-id="${escapeHtml(item.conversation_id || "")}">
+          <button type="button" class="notification-item severity-${escapeHtml(item.severity || "info")}"
+            data-notification-id="${escapeHtml(item.id)}"
+            data-conversation-id="${escapeHtml(item.conversation_id || "")}">
             <span class="notification-dot"></span>
-            <span><strong>${escapeHtml(item.title || titleCase(item.type))}</strong><small>${escapeHtml(item.body_text || "")}</small><time>${escapeHtml(formatRelativeTime(item.created_at))}</time></span>
+            <span>
+              <strong>${escapeHtml(item.title || titleCase(item.type))}</strong>
+              <small>${escapeHtml(item.body_text || "")}</small>
+              <time>${escapeHtml(formatRelativeTime(item.created_at))}</time>
+            </span>
           </button>
         `).join("") : emptyState("No notifications", "The signal shelf is clear.")}
       </div>
@@ -353,10 +380,22 @@ function summaryCards() {
 }
 
 function summaryCard(label, value, foot, tone) {
-  return `<article class="summary-card tone-${tone}"><div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong><small>${escapeHtml(foot)}</small></div><div class="summary-spark"><i></i><i></i><i></i><i></i><i></i></div></article>`;
+  return `<article class="summary-card tone-${tone}">
+    <div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong><small>${escapeHtml(foot)}</small></div>
+    <div class="summary-spark"><i></i><i></i><i></i><i></i><i></i></div>
+  </article>`;
 }
 
-function themedSelect({ id = "", name = "", value = "", options = [], ariaLabel = "Select", dataFilter = "", disabled = false, className = "" } = {}) {
+function themedSelect({
+  id = "",
+  name = "",
+  value = "",
+  options = [],
+  ariaLabel = "Select",
+  dataFilter = "",
+  disabled = false,
+  className = "",
+} = {}) {
   const selected = options.find((option) => String(option.value) === String(value));
   const label = selected?.label || (value ? titleCase(value) : options[0]?.label || "Select");
   const selectId = id ? ` id="${escapeHtml(id)}"` : "";
@@ -366,9 +405,15 @@ function themedSelect({ id = "", name = "", value = "", options = [], ariaLabel 
     <select class="themed-select-proxy"${selectId}${selectName}${filterAttr} aria-label="${escapeHtml(ariaLabel)}" ${disabled ? "disabled" : ""} tabindex="-1">
       ${options.map((option) => `<option value="${escapeHtml(option.value)}" ${String(option.value) === String(value) ? "selected" : ""}>${escapeHtml(option.label)}</option>`).join("")}
     </select>
-    <button class="themed-select-trigger" type="button" data-themed-select-trigger aria-haspopup="listbox" aria-expanded="false" ${disabled ? "disabled" : ""}><span>${escapeHtml(label)}</span><b aria-hidden="true">⌄</b></button>
+    <button class="themed-select-trigger" type="button" data-themed-select-trigger aria-haspopup="listbox"
+      aria-expanded="false" ${disabled ? "disabled" : ""}>
+      <span>${escapeHtml(label)}</span><b aria-hidden="true">⌄</b>
+    </button>
     <div class="themed-select-menu" role="listbox" aria-label="${escapeHtml(ariaLabel)}">
-      ${options.map((option) => `<button type="button" class="themed-select-option ${String(option.value) === String(value) ? "selected" : ""}" data-themed-select-value="${escapeHtml(option.value)}" role="option" aria-selected="${String(option.value) === String(value)}">${escapeHtml(option.label)}</button>`).join("")}
+      ${options.map((option) => `<button type="button"
+        class="themed-select-option ${String(option.value) === String(value) ? "selected" : ""}"
+        data-themed-select-value="${escapeHtml(option.value)}" role="option"
+        aria-selected="${String(option.value) === String(value)}">${escapeHtml(option.label)}</button>`).join("")}
     </div>
   </div>`;
 }
@@ -377,8 +422,24 @@ function filterBar(compact = false, allowedChannels = null) {
   const optionSet = (values, blank) => [{ value: "", label: blank }, ...values.map((value) => ({ value, label: titleCase(value) }))];
   return `
     <div class="filter-bar ${compact ? "compact" : ""}">
-      ${themedSelect({ value: state.filters.status, dataFilter: "status", ariaLabel: "Filter by status", options: optionSet(["open", "pending", "snoozed", "resolved", "blocked", "quarantined", "archived", "escalated"], "All statuses") })}
-      ${themedSelect({ value: state.filters.channel, dataFilter: "channel", ariaLabel: "Filter by channel", options: optionSet(allowedChannels || ["chat", "email", "instagram", "facebook", "youtube", "form"], "All channels") })}
+      ${themedSelect({
+        value: state.filters.status,
+        dataFilter: "status",
+        ariaLabel: "Filter by status",
+        options: optionSet(
+          ["open", "pending", "snoozed", "resolved", "blocked", "quarantined", "archived", "escalated"],
+          "All statuses",
+        ),
+      })}
+      ${themedSelect({
+        value: state.filters.channel,
+        dataFilter: "channel",
+        ariaLabel: "Filter by channel",
+        options: optionSet(
+          allowedChannels || ["chat", "email", "instagram", "facebook", "youtube", "form"],
+          "All channels",
+        ),
+      })}
       ${themedSelect({ value: state.filters.priority, dataFilter: "priority", ariaLabel: "Filter by priority", options: optionSet(["critical", "high", "medium", "low"], "All priorities") })}
       <label class="check-filter"><input type="checkbox" data-filter="overdue" ${state.filters.overdue ? "checked" : ""}><span>Overdue only</span></label>
       <button class="text-button" data-action="clear-filters">Clear</button>
@@ -397,7 +458,14 @@ function quickFilterBar() {
   };
   return `<div class="quick-filters" aria-label="Quick inbox filters">
     <span>Quick views</span>
-    ${[["all", "All"], ["overdue", "Overdue"], ["open", "Open"], ["high", "High priority"], ["mine", "Assigned to me"]].map(([key, label]) => `<button type="button" class="quick-filter ${active(key) ? "active" : ""}" data-quick-filter="${key}" aria-pressed="${active(key)}">${label}</button>`).join("")}
+    ${[
+      ["all", "All"],
+      ["overdue", "Overdue"],
+      ["open", "Open"],
+      ["high", "High priority"],
+      ["mine", "Assigned to me"],
+    ].map(([key, label]) => `<button type="button" class="quick-filter ${active(key) ? "active" : ""}"
+      data-quick-filter="${key}" aria-pressed="${active(key)}">${label}</button>`).join("")}
   </div>`;
 }
 
@@ -411,13 +479,30 @@ function queueTable(rows = queueRows(), limit = 50, compact = false) {
         <tbody>
           ${visible.map((row) => `
             <tr data-conversation-id="${escapeHtml(row.id)}" tabindex="0" aria-label="Open conversation with ${escapeHtml(row.display_name || row.primary_email || "Unknown contact")}">
-              <td><div class="conversation-cell"><div class="channel-avatar channel-${escapeHtml(row.channel)}">${escapeHtml(channelLabel(row.channel).charAt(0))}</div><div><strong>${escapeHtml(row.display_name || row.primary_email || "Unknown contact")}</strong><span>${escapeHtml(row.subject || row.summary_text || "Conversation")}</span><small>${escapeHtml(row.summary_text || "")}${row.last_auto_sent_at ? ` · Sent automatically ${escapeHtml(formatRelativeTime(row.last_auto_sent_at))}` : ""}</small></div></div></td>
+              <td><div class="conversation-cell">
+                <div class="channel-avatar channel-${escapeHtml(row.channel)}">
+                  ${escapeHtml(channelLabel(row.channel).charAt(0))}
+                </div>
+                <div>
+                  <strong>${escapeHtml(row.display_name || row.primary_email || "Unknown contact")}</strong>
+                  <span>${escapeHtml(row.subject || row.summary_text || "Conversation")}</span>
+                  <small>${escapeHtml(row.summary_text || "")}${row.last_auto_sent_at
+                    ? ` · Sent automatically ${escapeHtml(formatRelativeTime(row.last_auto_sent_at))}`
+                    : ""}</small>
+                </div>
+              </div></td>
               <td><span class="channel-label channel-label-${escapeHtml(row.channel)}">${escapeHtml(channelLabel(row.channel))}</span></td>
               <td><span class="interaction-label interaction-${escapeHtml(socialInteractionType(row) || row.channel)}">${escapeHtml(interactionLabel(row))}</span></td>
               <td>${priorityPill(row.priority_label)}</td>
               <td>${statusPill(row.operational_status)}</td>
               <td><span class="age ${row.response_overdue ? "overdue" : ""}">${escapeHtml(secondsToAge(row.age_seconds))}</span></td>
-              <td><span class="owner">${row.owner_type === "person" ? `<i>J</i>Me` : row.owner_type === "automation" ? `<i>A</i>Automated` : row.owner_id ? `<i>${escapeHtml(row.owner_id.charAt(0).toUpperCase())}</i>Assigned` : "Automated"}</span></td>
+              <td><span class="owner">${row.owner_type === "person"
+                ? `<i>J</i>Me`
+                : row.owner_type === "automation"
+                  ? `<i>A</i>Automated`
+                  : row.owner_id
+                    ? `<i>${escapeHtml(row.owner_id.charAt(0).toUpperCase())}</i>Assigned`
+                    : "Automated"}</span></td>
               <td><span class="ai-state risk-${escapeHtml(row.risk_level || "unknown")}">${escapeHtml(titleCase(row.intent || "Unanalysed"))}</span></td>
               <td><button class="row-arrow" data-conversation-id="${escapeHtml(row.id)}" aria-label="Open conversation">${icons.arrow}</button></td>
             </tr>
@@ -429,11 +514,31 @@ function queueTable(rows = queueRows(), limit = 50, compact = false) {
           <button type="button" class="queue-card" data-conversation-id="${escapeHtml(row.id)}">
             <span class="queue-card-head">
               <span class="channel-avatar channel-${escapeHtml(row.channel)}">${escapeHtml(channelLabel(row.channel).charAt(0))}</span>
-              <span class="queue-card-title"><strong>${escapeHtml(row.display_name || row.primary_email || "Unknown contact")}</strong><span>${escapeHtml(row.subject || row.summary_text || "Conversation")}</span></span>
+              <span class="queue-card-title">
+                <strong>${escapeHtml(row.display_name || row.primary_email || "Unknown contact")}</strong>
+                <span>${escapeHtml(row.subject || row.summary_text || "Conversation")}</span>
+              </span>
               ${priorityPill(row.priority_label)}
             </span>
-            <span class="queue-card-tags"><span class="channel-label channel-label-${escapeHtml(row.channel)}">${escapeHtml(channelLabel(row.channel))}</span><span class="interaction-label interaction-${escapeHtml(socialInteractionType(row) || row.channel)}">${escapeHtml(interactionLabel(row))}</span>${statusPill(row.operational_status)}${row.last_auto_sent_at ? `<span class="pill pill-auto-sent">Auto-sent</span>` : ""}</span>
-            <span class="queue-card-meta"><span><b>Response</b>${escapeHtml(row.response_due_at ? formatDateTime(row.response_due_at) : secondsToAge(row.age_seconds))}${row.response_overdue ? ` <em>Overdue</em>` : ""}</span><span><b>Owner</b>${row.owner_type === "person" ? "Me" : row.owner_type === "automation" ? "Automated" : "Assigned"}</span><span><b>AI</b>${escapeHtml(titleCase(row.intent || "Unanalysed"))}</span></span>
+            <span class="queue-card-tags">
+              <span class="channel-label channel-label-${escapeHtml(row.channel)}">
+                ${escapeHtml(channelLabel(row.channel))}
+              </span>
+              <span class="interaction-label interaction-${escapeHtml(socialInteractionType(row) || row.channel)}">
+                ${escapeHtml(interactionLabel(row))}
+              </span>
+              ${statusPill(row.operational_status)}
+              ${row.last_auto_sent_at ? `<span class="pill pill-auto-sent">Auto-sent</span>` : ""}
+            </span>
+            <span class="queue-card-meta">
+              <span><b>Response</b>${escapeHtml(row.response_due_at
+                ? formatDateTime(row.response_due_at)
+                : secondsToAge(row.age_seconds))}${row.response_overdue ? ` <em>Overdue</em>` : ""}</span>
+              <span><b>Owner</b>${row.owner_type === "person"
+                ? "Me"
+                : row.owner_type === "automation" ? "Automated" : "Assigned"}</span>
+              <span><b>AI</b>${escapeHtml(titleCase(row.intent || "Unanalysed"))}</span>
+            </span>
           </button>
         `).join("")}
       </div>
@@ -446,19 +551,37 @@ function dashboardView() {
   const channelCounts = Object.entries(state.queue.reduce((acc, row) => ({ ...acc, [row.channel]: (acc[row.channel] || 0) + 1 }), {}));
   const maximum = Math.max(1, ...channelCounts.map(([, count]) => count));
   return shell(`
-    ${pageHeader("Overview", "One calm surface for conversations, approvals and provider health.", `<button class="button secondary" data-action="refresh">Refresh data</button><button class="button primary" data-view="inbox">Open inbox</button>`)}
+    ${pageHeader(
+      "Overview",
+      "One calm surface for conversations, approvals and provider health.",
+      `<button class="button secondary" data-action="refresh">Refresh data</button>
+       <button class="button primary" data-view="inbox">Open inbox</button>`,
+    )}
     ${summaryCards()}
     <div class="dashboard-grid">
       <section class="panel panel-wide">
-        <header class="panel-header"><div><strong>Priority queue</strong><span>Sorted by overdue state and AIMS priority</span></div><button class="text-button" data-view="inbox">View all</button></header>
+        <header class="panel-header">
+          <div><strong>Priority queue</strong><span>Sorted by overdue state and AIMS priority</span></div>
+          <button class="text-button" data-view="inbox">View all</button>
+        </header>
         ${queueTable(urgent, 5, true)}
       </section>
       <section class="panel channel-panel">
         <header class="panel-header"><div><strong>Channel mix</strong><span>Current queue distribution</span></div></header>
         <div class="channel-bars">
-          ${channelCounts.map(([channel, count]) => `<div><span>${escapeHtml(channelLabel(channel))}</span><div><i style="width:${Math.round((count / maximum) * 100)}%"></i></div><b>${count}</b></div>`).join("") || `<p class="muted">No queue records yet.</p>`}
+          ${channelCounts.map(([channel, count]) => `<div>
+            <span>${escapeHtml(channelLabel(channel))}</span>
+            <div><i style="width:${Math.round((count / maximum) * 100)}%"></i></div>
+            <b>${count}</b>
+          </div>`).join("") || `<p class="muted">No queue records yet.</p>`}
         </div>
-        <div class="health-strip"><span class="service-dot ${state.error ? "warning" : "live"}"></span><div><strong>${state.error ? "Gateway attention required" : "Console data loaded"}</strong><small>Protected AIMS API</small></div></div>
+        <div class="health-strip">
+          <span class="service-dot ${state.error ? "warning" : "live"}"></span>
+          <div>
+            <strong>${state.error ? "Gateway attention required" : "Console data loaded"}</strong>
+            <small>Protected AIMS API</small>
+          </div>
+        </div>
       </section>
     </div>
   `);
@@ -468,7 +591,13 @@ function inboxView() {
   return shell(`
     ${pageHeader("Unified inbox", "Filter and triage every supported channel without losing the thread.", `<button class="button secondary" data-action="refresh">Refresh queue</button>`)}
     <section class="panel inbox-panel">
-      <header class="panel-header stacked"><div><strong>${queueRows().length} conversations</strong><span>Live filters remain local until refresh, preventing accidental query storms.</span></div>${quickFilterBar()}${filterBar()}</header>
+      <header class="panel-header stacked">
+        <div>
+          <strong>${queueRows().length} conversations</strong>
+          <span>Live filters remain local until refresh, preventing accidental query storms.</span>
+        </div>
+        ${quickFilterBar()}${filterBar()}
+      </header>
       ${queueTable()}
     </section>
   `);
@@ -477,7 +606,11 @@ function inboxView() {
 function socialPlatformSummary(rows) {
   const counts = { facebook: 0, instagram: 0, youtube: 0 };
   for (const row of rows) if (row.channel in counts) counts[row.channel] += 1;
-  return `<div class="social-platform-summary">${Object.entries(counts).map(([platform, count]) => `<span class="channel-label channel-label-${platform}">${escapeHtml(channelLabel(platform))} <b>${count}</b></span>`).join("")}</div>`;
+  return `<div class="social-platform-summary">
+    ${Object.entries(counts).map(([platform, count]) => `<span class="channel-label channel-label-${platform}">
+      ${escapeHtml(channelLabel(platform))} <b>${count}</b>
+    </span>`).join("")}
+  </div>`;
 }
 
 function socialGroupView(type) {
@@ -491,7 +624,16 @@ function socialGroupView(type) {
   return shell(`
     ${pageHeader(title, copy, `<button class="button secondary" data-action="refresh">Refresh ${isDm ? "DMs" : "comments"}</button>`)}
     <section class="panel inbox-panel social-group-panel">
-      <header class="panel-header stacked"><div><strong>${rows.length} ${isDm ? "DM conversations" : "comment threads"}</strong><span>${isDm ? "YouTube does not expose a private DM lane here." : "Public interaction work stays out of the private-message queue."}</span>${socialPlatformSummary(rows)}</div>${filterBar(false, allowedChannels)}</header>
+      <header class="panel-header stacked">
+        <div>
+          <strong>${rows.length} ${isDm ? "DM conversations" : "comment threads"}</strong>
+          <span>${isDm
+            ? "YouTube does not expose a private DM lane here."
+            : "Public interaction work stays out of the private-message queue."}</span>
+          ${socialPlatformSummary(rows)}
+        </div>
+        ${filterBar(false, allowedChannels)}
+      </header>
       ${queueTable(rows)}
     </section>
   `);
@@ -504,7 +646,16 @@ function pendingApprovals() {
   const approvals = [];
   for (const row of state.queue) {
     if (row.escalation_required || ["medium", "high", "critical"].includes(row.risk_level)) {
-      approvals.push({ id: `approval-${row.id}`, conversationId: row.id, title: row.subject, contact: row.display_name, action: row.abuse_label && row.abuse_label !== "none" ? "Moderation action" : "Reply review", risk: row.risk_level, priority: row.priority_label, rationale: row.next_action });
+      approvals.push({
+        id: `approval-${row.id}`,
+        conversationId: row.id,
+        title: row.subject,
+        contact: row.display_name,
+        action: row.abuse_label && row.abuse_label !== "none" ? "Moderation action" : "Reply review",
+        risk: row.risk_level,
+        priority: row.priority_label,
+        rationale: row.next_action,
+      });
     }
   }
   return approvals;
@@ -518,7 +669,15 @@ function approvalsView() {
       ${approvals.length ? approvals.map((approval) => `
         <article class="approval-card">
           <div class="approval-icon">${icons.approval}</div>
-          <div class="approval-copy"><div>${priorityPill(approval.priority)}<span class="risk-label">${escapeHtml(titleCase(approval.risk || "unknown"))} risk</span></div><h3>${escapeHtml(approval.title)}</h3><p>${escapeHtml(approval.rationale || "Review the evidence and action scope.")}</p><small>${escapeHtml(approval.contact || "Unknown contact")} · ${escapeHtml(approval.action)}</small></div>
+          <div class="approval-copy">
+            <div>
+              ${priorityPill(approval.priority)}
+              <span class="risk-label">${escapeHtml(titleCase(approval.risk || "unknown"))} risk</span>
+            </div>
+            <h3>${escapeHtml(approval.title)}</h3>
+            <p>${escapeHtml(approval.rationale || "Review the evidence and action scope.")}</p>
+            <small>${escapeHtml(approval.contact || "Unknown contact")} · ${escapeHtml(approval.action)}</small>
+          </div>
           <div class="approval-actions"><button class="button secondary" data-conversation-id="${escapeHtml(approval.conversationId)}">Review context</button></div>
         </article>
       `).join("") : emptyState("No approvals waiting", "The approval runway is clear.")}
@@ -537,7 +696,15 @@ function contactsView() {
   const contact = profile?.contact || null;
   const editor = contact ? `
     <section class="panel contact-editor">
-      <header class="panel-header stacked"><div><strong>Manage contact</strong><span>${profile.conversations?.length || 0} linked conversation${profile.conversations?.length === 1 ? "" : "s"}</span></div><button class="icon-button" type="button" data-action="close-contact" aria-label="Close contact editor">${icons.close}</button></header>
+      <header class="panel-header stacked">
+        <div>
+          <strong>Manage contact</strong>
+          <span>${profile.conversations?.length || 0} linked conversation${profile.conversations?.length === 1 ? "" : "s"}</span>
+        </div>
+        <button class="icon-button" type="button" data-action="close-contact" aria-label="Close contact editor">
+          ${icons.close}
+        </button>
+      </header>
       <form id="contact-edit-form" class="contact-edit-form">
         <label><span>Name</span><input name="displayName" maxlength="300" value="${escapeHtml(contact.display_name || "")}" ${canEdit ? "" : "disabled"}></label>
         <label><span>Email</span><input name="primaryEmail" type="email" maxlength="320" value="${escapeHtml(contact.primary_email || "")}" ${canEdit ? "" : "disabled"}></label>
@@ -557,7 +724,22 @@ function contactsView() {
     ${editor}
     <section class="panel contacts-panel">
       <div class="contact-grid">
-        ${contacts.map((row) => `<article class="contact-card"><div class="avatar large">${escapeHtml((row.display_name || "U").charAt(0))}</div><div><strong>${escapeHtml(row.display_name || "Unknown contact")}</strong><span>${escapeHtml(row.primary_email || `${channelLabel(row.channel)} identity`)}</span><small>${escapeHtml(channelLabel(row.channel))} · ${escapeHtml(titleCase(row.intent || "unclassified"))}</small></div><div class="contact-card-actions"><button class="button secondary compact" type="button" data-contact-id="${escapeHtml(row.contact_id)}">Manage</button><button class="icon-button" type="button" data-conversation-id="${escapeHtml(row.id)}" aria-label="Open latest conversation">${icons.arrow}</button></div></article>`).join("") || emptyState("No contacts", "Contacts will appear after the first accepted conversation.")}
+        ${contacts.map((row) => `<article class="contact-card">
+          <div class="avatar large">${escapeHtml((row.display_name || "U").charAt(0))}</div>
+          <div>
+            <strong>${escapeHtml(row.display_name || "Unknown contact")}</strong>
+            <span>${escapeHtml(row.primary_email || `${channelLabel(row.channel)} identity`)}</span>
+            <small>
+              ${escapeHtml(channelLabel(row.channel))} · ${escapeHtml(titleCase(row.intent || "unclassified"))}
+            </small>
+          </div>
+          <div class="contact-card-actions">
+            <button class="button secondary compact" type="button"
+              data-contact-id="${escapeHtml(row.contact_id)}">Manage</button>
+            <button class="icon-button" type="button" data-conversation-id="${escapeHtml(row.id)}"
+              aria-label="Open latest conversation">${icons.arrow}</button>
+          </div>
+        </article>`).join("") || emptyState("No contacts", "Contacts will appear after the first accepted conversation.")}
       </div>
     </section>
   `);
@@ -568,16 +750,47 @@ function workflowsView() {
   return shell(`
     ${pageHeader("Workflows", "A readable control surface for AIMS workflow definitions, runs and delayed actions.")}
     <div class="workflow-grid">
-      ${Object.entries(workflowGroups).map(([name, count]) => `<article class="workflow-card"><div class="workflow-node">${icons.workflow}</div><div><strong>${escapeHtml(titleCase(name))}</strong><span>${count} active conversation${count === 1 ? "" : "s"}</span><small>Definition and transition controls connect through the protected gateway.</small></div><button class="button secondary" data-view="inbox">Inspect queue</button></article>`).join("") || emptyState("No workflow activity", "Definitions will appear after the backend returns workflow records.")}
+      ${Object.entries(workflowGroups).map(([name, count]) => `<article class="workflow-card">
+        <div class="workflow-node">${icons.workflow}</div>
+        <div>
+          <strong>${escapeHtml(titleCase(name))}</strong>
+          <span>${count} active conversation${count === 1 ? "" : "s"}</span>
+          <small>Definition and transition controls connect through the protected gateway.</small>
+        </div>
+        <button class="button secondary" data-view="inbox">Inspect queue</button>
+      </article>`).join("") || emptyState(
+        "No workflow activity",
+        "Definitions will appear after the backend returns workflow records.",
+      )}
     </div>
   `);
 }
 
 function quarantineView() {
   return shell(`
-    ${pageHeader("Quarantine", "Failures stay inspectable and replayable without quietly duplicating provider actions.", `<button class="button secondary" data-action="load-quarantine">Refresh</button>`)}
+    ${pageHeader(
+      "Quarantine",
+      "Failures stay inspectable and replayable without quietly duplicating provider actions.",
+      `<button class="button secondary" data-action="load-quarantine">Refresh</button>`,
+    )}
     <section class="panel">
-      ${state.quarantine.length ? `<div class="quarantine-list">${state.quarantine.map((item) => `<article><div><span class="pill pill-quarantined">${escapeHtml(titleCase(item.failure_class || "unknown"))}</span><h3>${escapeHtml(item.source || "Comms Hub failure")}</h3><p>${escapeHtml(item.error || "No error detail supplied.")}</p><small>${escapeHtml(formatDateTime(item.created_at))} · ${Number(item.attempts || 0)} attempts</small></div><div><button class="button secondary" data-conversation-id="${escapeHtml(item.conversation_id || "")}">Context</button>${roleAllows(state.bootstrap?.identity?.role, "quarantine") ? `<button class="button primary" data-replay-id="${escapeHtml(item.id)}">Replay safely</button>` : ""}</div></article>`).join("")}</div>` : emptyState("Quarantine is clear", "No classified failures are waiting for review.")}
+      ${state.quarantine.length ? `<div class="quarantine-list">
+        ${state.quarantine.map((item) => `<article>
+          <div>
+            <span class="pill pill-quarantined">${escapeHtml(titleCase(item.failure_class || "unknown"))}</span>
+            <h3>${escapeHtml(item.source || "Comms Hub failure")}</h3>
+            <p>${escapeHtml(item.error || "No error detail supplied.")}</p>
+            <small>${escapeHtml(formatDateTime(item.created_at))} · ${Number(item.attempts || 0)} attempts</small>
+          </div>
+          <div>
+            <button class="button secondary"
+              data-conversation-id="${escapeHtml(item.conversation_id || "")}">Context</button>
+            ${roleAllows(state.bootstrap?.identity?.role, "quarantine")
+              ? `<button class="button primary" data-replay-id="${escapeHtml(item.id)}">Replay safely</button>`
+              : ""}
+          </div>
+        </article>`).join("")}
+      </div>` : emptyState("Quarantine is clear", "No classified failures are waiting for review.")}
     </section>
   `);
 }
@@ -587,7 +800,11 @@ function analyticsView() {
   const byChannel = metrics.volume?.byChannel || {};
   const maximum = Math.max(1, ...Object.values(byChannel));
   return shell(`
-    ${pageHeader("Analytics", "Volume, response, resolution, automation and failure signals without decorative fog.", `<button class="button secondary" data-action="load-metrics">Refresh metrics</button>`)}
+    ${pageHeader(
+      "Analytics",
+      "Volume, response, resolution, automation and failure signals without decorative fog.",
+      `<button class="button secondary" data-action="load-metrics">Refresh metrics</button>`,
+    )}
     <div class="metric-grid">
       ${summaryCard("Conversation volume", metrics.volume?.total ?? state.queue.length, "Selected reporting window", "blue")}
       ${summaryCard("Median response", `${metrics.response?.medianMinutes ?? "–"}m`, `${metrics.response?.overdue ?? 0} overdue`, "cyan")}
@@ -596,7 +813,11 @@ function analyticsView() {
     </div>
     <section class="panel analytics-panel">
       <header class="panel-header"><div><strong>Volume by channel</strong><span>Relative share in the current reporting window</span></div></header>
-      <div class="analytics-bars">${Object.entries(byChannel).map(([channel, count]) => `<div><span>${escapeHtml(channelLabel(channel))}</span><div><i style="width:${Math.round((count / maximum) * 100)}%"></i></div><b>${count}</b></div>`).join("")}</div>
+      <div class="analytics-bars">${Object.entries(byChannel).map(([channel, count]) => `<div>
+        <span>${escapeHtml(channelLabel(channel))}</span>
+        <div><i style="width:${Math.round((count / maximum) * 100)}%"></i></div>
+        <b>${count}</b>
+      </div>`).join("")}</div>
     </section>
   `);
 }
@@ -607,26 +828,92 @@ function settingsView() {
   const channels = social.channels || {};
   const canManageSocial = roleAllows(identity.role || "read_only", "social_setup");
   return shell(`
-    ${pageHeader("Settings", "Deployment-visible configuration only. Secrets remain in the gateway and AIMS.", `<button class="button secondary" data-action="load-social-status">Refresh social status</button>`)}
+    ${pageHeader(
+      "Settings",
+      "Deployment-visible configuration only. Secrets remain in the gateway and AIMS.",
+      `<button class="button secondary" data-action="load-social-status">Refresh social status</button>`,
+    )}
     <div class="settings-grid">
-      <section class="panel settings-card"><h3>Console connection</h3><dl><div><dt>API gateway</dt><dd>${escapeHtml(config.apiBaseUrl)}</dd></div><div><dt>Mode</dt><dd>Live</dd></div><div><dt>API version</dt><dd>${escapeHtml(state.bootstrap?.apiVersion || "Unknown")}</dd></div></dl></section>
-      <section class="panel settings-card"><h3>Verified identity</h3><dl><div><dt>Actor</dt><dd>${escapeHtml(identity.actor || "Unknown")}</dd></div><div><dt>Role</dt><dd>${escapeHtml(titleCase(identity.role || "read_only"))}</dd></div><div><dt>Strategy</dt><dd>${escapeHtml(identity.strategy || "Unknown")}</dd></div></dl></section>
-      <section class="panel settings-card social-settings-card"><h3>Social channel setup</h3>
-        <div class="social-status-strip"><span class="pill ${social.monitorOnly ? "pill-pending" : "pill-open"}">${social.monitorOnly ? "Monitoring only" : "Outbound enabled"}</span><span>${social.pollWorkerEnabled ? "Poll worker enabled" : "Poll worker disabled"}</span></div>
-        <div class="social-capability-grid">
-          ${["facebook", "instagram", "youtube"].map((platform) => { const cap = channels[platform] || {}; return `<article><strong>${escapeHtml(channelLabel(platform))}</strong><span>${cap.enabled ? "Configured" : "Disabled"}</span><small>${cap.directMessages ? "DMs + comments" : "Comments only"}</small></article>`; }).join("")}
-        </div>
-        ${canManageSocial ? `<div class="button-row"><button class="button secondary" data-action="reconcile-social" ${state.socialBusy ? "disabled aria-busy=\"true\"" : ""}>Reconcile webhooks</button><button class="button secondary" data-action="poll-social" ${state.socialBusy ? "disabled aria-busy=\"true\"" : ""}>Run poll now</button></div>${state.socialBusy ? `<p class="async-status" role="status" aria-live="polite">Updating social provider status…</p>` : ""}` : ""}
+      <section class="panel settings-card">
+        <h3>Console connection</h3>
+        <dl>
+          <div><dt>API gateway</dt><dd>${escapeHtml(config.apiBaseUrl)}</dd></div>
+          <div><dt>Mode</dt><dd>Live</dd></div>
+          <div><dt>API version</dt><dd>${escapeHtml(state.bootstrap?.apiVersion || "Unknown")}</dd></div>
+        </dl>
       </section>
-      <section class="panel settings-card"><h3>Responsive contract</h3><dl><div><dt>Minimum width</dt><dd>${escapeHtml(state.bootstrap?.responsiveContract?.minimumWidth || 320)}px</dd></div><div><dt>Pagination</dt><dd>${escapeHtml(state.bootstrap?.responsiveContract?.pagination || "cursor")}</dd></div><div><dt>Actions</dt><dd>${escapeHtml((state.bootstrap?.responsiveContract?.actions || []).join(", "))}</dd></div></dl></section>
-      <section class="panel settings-card"><h3>Security boundary</h3><p>The browser holds no AIMS delegation secret. HIVE identity verification and HMAC signing happen in the edge gateway before AIMS performs its own RBAC checks.</p></section>
+      <section class="panel settings-card">
+        <h3>Verified identity</h3>
+        <dl>
+          <div><dt>Actor</dt><dd>${escapeHtml(identity.actor || "Unknown")}</dd></div>
+          <div><dt>Role</dt><dd>${escapeHtml(titleCase(identity.role || "read_only"))}</dd></div>
+          <div><dt>Strategy</dt><dd>${escapeHtml(identity.strategy || "Unknown")}</dd></div>
+        </dl>
+      </section>
+      <section class="panel settings-card social-settings-card"><h3>Social channel setup</h3>
+        <div class="social-status-strip">
+          <span class="pill ${social.monitorOnly ? "pill-pending" : "pill-open"}">
+            ${social.monitorOnly ? "Monitoring only" : "Outbound enabled"}
+          </span>
+          <span>${social.pollWorkerEnabled ? "Poll worker enabled" : "Poll worker disabled"}</span>
+        </div>
+        <div class="social-capability-grid">
+          ${["facebook", "instagram", "youtube"].map((platform) => {
+            const cap = channels[platform] || {};
+            return `<article>
+              <strong>${escapeHtml(channelLabel(platform))}</strong>
+              <span>${cap.enabled ? "Configured" : "Disabled"}</span>
+              <small>${cap.directMessages ? "DMs + comments" : "Comments only"}</small>
+            </article>`;
+          }).join("")}
+        </div>
+        ${canManageSocial ? `<div class="button-row">
+          <button class="button secondary" data-action="reconcile-social"
+            ${state.socialBusy ? "disabled aria-busy=\"true\"" : ""}>Reconcile webhooks</button>
+          <button class="button secondary" data-action="poll-social"
+            ${state.socialBusy ? "disabled aria-busy=\"true\"" : ""}>Run poll now</button>
+        </div>
+        ${state.socialBusy
+          ? `<p class="async-status" role="status" aria-live="polite">Updating social provider status…</p>`
+          : ""}` : ""}
+      </section>
+      <section class="panel settings-card">
+        <h3>Responsive contract</h3>
+        <dl>
+          <div>
+            <dt>Minimum width</dt>
+            <dd>${escapeHtml(state.bootstrap?.responsiveContract?.minimumWidth || 320)}px</dd>
+          </div>
+          <div>
+            <dt>Pagination</dt>
+            <dd>${escapeHtml(state.bootstrap?.responsiveContract?.pagination || "cursor")}</dd>
+          </div>
+          <div>
+            <dt>Actions</dt>
+            <dd>${escapeHtml((state.bootstrap?.responsiveContract?.actions || []).join(", "))}</dd>
+          </div>
+        </dl>
+      </section>
+      <section class="panel settings-card">
+        <h3>Security boundary</h3>
+        <p>The browser holds no AIMS delegation secret. HIVE identity verification and HMAC signing happen in the
+          edge gateway before AIMS performs its own RBAC checks.</p>
+      </section>
     </div>
   `);
 }
 
 function workspaceView() {
-  if (state.loading && !state.workspace) return shell(`${pageHeader("Conversation", "Loading the verified thread and operational context.")}<div class="workspace-skeleton" role="status" aria-live="polite" aria-busy="true"><span class="sr-only">Loading conversation</span><i></i><i></i><i></i></div>`);
-  if (!state.workspace) return shell(`${pageHeader("Conversation unavailable", "The requested workspace could not be loaded.")} ${emptyState("No conversation selected", "Return to the unified inbox and choose a conversation.")}`);
+  if (state.loading && !state.workspace) {
+    return shell(`${pageHeader("Conversation", "Loading the verified thread and operational context.")}
+      <div class="workspace-skeleton" role="status" aria-live="polite" aria-busy="true">
+        <span class="sr-only">Loading conversation</span><i></i><i></i><i></i>
+      </div>`);
+  }
+  if (!state.workspace) {
+    return shell(`${pageHeader("Conversation unavailable", "The requested workspace could not be loaded.")}
+      ${emptyState("No conversation selected", "Return to the unified inbox and choose a conversation.")}`);
+  }
   const workspace = state.workspace.workspace || state.workspace;
   const conversation = workspace.conversation || {};
   const contact = conversation.contact || {};
@@ -648,60 +935,245 @@ function workspaceView() {
   const currentStatus = operations.operational_status || conversation.status || "open";
   const actor = state.bootstrap?.identity?.actor || "Jonathan";
   const assignedToMe = operations.owner_type === "person";
+  const replyStatus = socialThread && socialMonitorOnly
+    ? "Monitoring-only mode is active; outbound social actions are locked."
+    : conversation.channel === "email"
+      && ["admin", "newsletter"].includes(String(workspace.emailThread?.account_key || "").toLowerCase())
+      ? `Manual reply from ${escapeHtml(String(workspace.emailThread?.account_key || ""))}@jonathan-harris.online. `
+        + "Initial-response timing policy still applies."
+      : `Sent through ${escapeHtml(channelLabel(conversation.channel))}; AIMS applies provider and approval rules.`;
+  const replyLabel = socialThread?.thread_type === "dm" ? "Send DM" : "Send reply";
+  const autoSentConfidence = latestAutoSentDetails.confidence !== undefined
+    ? `${Math.round(Number(latestAutoSentDetails.confidence || 0) * 100)}%`
+    : "Verified by policy";
+  const autoSentGrounding = Number(latestAutoSentDetails.evidenceCount || 0) > 0
+    ? "Evidence-backed"
+    : "Deterministic / conversational";
+  const autoSentReasons = (latestAutoSentDetails.responseReasons || [])
+    .slice(0, 3)
+    .map((reason) => titleCase(String(reason).replaceAll(":", " ").replaceAll("_", " ")))
+    .join(" · ") || "Safe grounded response";
   return shell(`
     <section class="workspace-header">
       <button class="back-button" data-view="${workspaceInboxView()}">‹ <span>${workspaceInboxView() === "dms" ? "DMs" : workspaceInboxView() === "comments" ? "Comments" : "Inbox"}</span></button>
-      <div><nav class="workspace-breadcrumb" aria-label="Breadcrumb"><button type="button" data-view="inbox">Unified inbox</button><span>/</span>${workspaceInboxView() !== "inbox" ? `<button type="button" data-view="${workspaceInboxView()}">${workspaceInboxView() === "dms" ? "DMs" : "Comments"}</button><span>/</span>` : ""}<strong>${escapeHtml(conversation.subject || "Conversation")}</strong></nav><div class="workspace-title"><h1>${escapeHtml(conversation.subject || "Conversation")}</h1>${statusPill(operations.operational_status || conversation.status)}</div><p>${escapeHtml(contact.display_name || contact.primary_email || "Unknown contact")} · ${escapeHtml(channelLabel(conversation.channel))} · Updated ${escapeHtml(formatRelativeTime(conversation.last_message_at))}</p></div>
+      <div>
+        <nav class="workspace-breadcrumb" aria-label="Breadcrumb">
+          <button type="button" data-view="inbox">Unified inbox</button><span>/</span>
+          ${workspaceInboxView() !== "inbox"
+            ? `<button type="button" data-view="${workspaceInboxView()}">
+                ${workspaceInboxView() === "dms" ? "DMs" : "Comments"}
+              </button><span>/</span>`
+            : ""}
+          <strong>${escapeHtml(conversation.subject || "Conversation")}</strong>
+        </nav>
+        <div class="workspace-title">
+          <h1>${escapeHtml(conversation.subject || "Conversation")}</h1>
+          ${statusPill(operations.operational_status || conversation.status)}
+        </div>
+        <p>${escapeHtml(contact.display_name || contact.primary_email || "Unknown contact")}
+          · ${escapeHtml(channelLabel(conversation.channel))}
+          · Updated ${escapeHtml(formatRelativeTime(conversation.last_message_at))}</p>
+      </div>
       <div class="workspace-actions">
         ${canReply ? `<button class="button secondary" data-action="analyse">Run AI analysis</button>` : ""}
-        ${currentStatus === "archived" ? `<span class="archive-state">Archived</span>` : themedSelect({ id: "workspace-status", value: currentStatus, ariaLabel: "Conversation status", disabled: !roleAllows(role, "status"), className: "workspace-status-select", options: ["open", "pending", "snoozed", "resolved", "blocked", "quarantined", "escalated"].map((status) => ({ value: status, label: titleCase(status) })) })}
-        ${currentStatus === "resolved" && roleAllows(role, "status") ? `<button class="button secondary archive-button" type="button" data-action="archive-conversation">Archive completed</button>` : ""}
+        ${currentStatus === "archived"
+          ? `<span class="archive-state">Archived</span>`
+          : themedSelect({
+            id: "workspace-status",
+            value: currentStatus,
+            ariaLabel: "Conversation status",
+            disabled: !roleAllows(role, "status"),
+            className: "workspace-status-select",
+            options: ["open", "pending", "snoozed", "resolved", "blocked", "quarantined", "escalated"]
+              .map((status) => ({ value: status, label: titleCase(status) })),
+          })}
+        ${currentStatus === "resolved" && roleAllows(role, "status")
+          ? `<button class="button secondary archive-button" type="button"
+              data-action="archive-conversation">Archive completed</button>`
+          : ""}
         ${roleAllows(role, "retention") ? `<button class="button danger" type="button" data-action="delete-conversation">Delete conversation</button>` : ""}
       </div>
     </section>
     <div class="workspace-grid">
       <section class="panel thread-panel">
-        <header class="panel-header"><div><strong>Conversation</strong><span>${conversation.messages?.length || 0} messages</span></div><span class="channel-label channel-label-${escapeHtml(conversation.channel)}">${escapeHtml(channelLabel(conversation.channel))}</span></header>
+        <header class="panel-header">
+          <div><strong>Conversation</strong><span>${conversation.messages?.length || 0} messages</span></div>
+          <span class="channel-label channel-label-${escapeHtml(conversation.channel)}">
+            ${escapeHtml(channelLabel(conversation.channel))}
+          </span>
+        </header>
         <div class="message-thread">
-          ${(conversation.messages || []).map((message) => `<article class="message ${message.direction === "outbound" ? "outbound" : "inbound"}"><div class="message-avatar">${escapeHtml((message.sender || (message.direction === "outbound" ? "A" : "V")).charAt(0).toUpperCase())}</div><div><header><strong>${escapeHtml(message.sender || (message.direction === "outbound" ? "AIMS" : contact.display_name || "Visitor"))}</strong><time>${escapeHtml(formatDateTime(message.received_at || message.created_at))}</time></header><p>${escapeHtml(message.body_text || "")}</p></div></article>`).join("") || emptyState("No messages", "The conversation record contains no message bodies.")}
+          ${(conversation.messages || []).map((message) => `<article
+            class="message ${message.direction === "outbound" ? "outbound" : "inbound"}">
+            <div class="message-avatar">
+              ${escapeHtml((message.sender || (message.direction === "outbound" ? "A" : "V")).charAt(0).toUpperCase())}
+            </div>
+            <div>
+              <header>
+                <strong>${escapeHtml(message.sender || (
+                  message.direction === "outbound" ? "AIMS" : contact.display_name || "Visitor"
+                ))}</strong>
+                <time>${escapeHtml(formatDateTime(message.received_at || message.created_at))}</time>
+              </header>
+              <p>${escapeHtml(message.body_text || "")}</p>
+            </div>
+          </article>`).join("") || emptyState("No messages", "The conversation record contains no message bodies.")}
         </div>
         ${canReply ? `
           <form id="reply-form" class="reply-composer">
-            <textarea name="message" rows="3" maxlength="20000" placeholder="Write an operator reply…" aria-label="Operator reply" required ${socialThread && socialMonitorOnly ? "disabled" : ""}></textarea>
-            ${socialThread?.thread_type === "comment" && socialCapabilities?.privateCommentReplies ? `<label class="reply-mode"><span>Reply mode</span>${themedSelect({ name: "replyMode", value: "public", ariaLabel: "Reply mode", disabled: socialMonitorOnly, options: [{ value: "public", label: "Public comment" }, { value: "private", label: "Private reply" }] })}</label>` : ""}
-            <div><span>${socialThread && socialMonitorOnly ? "Monitoring-only mode is active; outbound social actions are locked." : conversation.channel === "email" && ["admin", "newsletter"].includes(String(workspace.emailThread?.account_key || "").toLowerCase()) ? `Manual reply from ${escapeHtml(String(workspace.emailThread?.account_key || ""))}@jonathan-harris.online. Initial-response timing policy still applies.` : `Sent through ${escapeHtml(channelLabel(conversation.channel))}; AIMS applies provider and approval rules.`}</span><button class="button primary" type="submit" ${socialThread && socialMonitorOnly ? "disabled" : ""}>${socialThread?.thread_type === "dm" ? "Send DM" : "Send reply"}</button></div>
+            <textarea name="message" rows="3" maxlength="20000" placeholder="Write an operator reply…"
+              aria-label="Operator reply" required ${socialThread && socialMonitorOnly ? "disabled" : ""}></textarea>
+            ${socialThread?.thread_type === "comment" && socialCapabilities?.privateCommentReplies
+              ? `<label class="reply-mode"><span>Reply mode</span>${themedSelect({
+                name: "replyMode",
+                value: "public",
+                ariaLabel: "Reply mode",
+                disabled: socialMonitorOnly,
+                options: [
+                  { value: "public", label: "Public comment" },
+                  { value: "private", label: "Private reply" },
+                ],
+              })}</label>`
+              : ""}
+            <div>
+              <span>${replyStatus}</span>
+              <button class="button primary" type="submit"
+                ${socialThread && socialMonitorOnly ? "disabled" : ""}>${replyLabel}</button>
+            </div>
           </form>
         ` : `<div class="read-only-banner">Read-only role. Reply and mutation controls are disabled.</div>`}
       </section>
       <nav class="workspace-context-tabs" aria-label="Conversation context">
-        ${[["details", "Details"], ["ai", "AI"], ...(socialThread ? [["actions", "Actions"]] : []), ["notes", "Notes"]].map(([key, label]) => `<button type="button" data-workspace-context="${key}" class="${state.workspaceContextTab === key ? "active" : ""}" aria-pressed="${state.workspaceContextTab === key}">${label}</button>`).join("")}
+        ${[
+          ["details", "Details"],
+          ["ai", "AI"],
+          ...(socialThread ? [["actions", "Actions"]] : []),
+          ["notes", "Notes"],
+        ].map(([key, label]) => `<button type="button" data-workspace-context="${key}"
+          class="${state.workspaceContextTab === key ? "active" : ""}"
+          aria-pressed="${state.workspaceContextTab === key}">${label}</button>`).join("")}
       </nav>
       <aside class="workspace-aside">
         <section class="panel detail-card ${state.workspaceContextTab === "details" ? "context-active" : ""}" data-context-section="details">
           <header><strong>Contact</strong></header>
-          <div class="contact-hero"><div class="avatar large">${escapeHtml((contact.display_name || "U").charAt(0).toUpperCase())}</div><div><strong>${escapeHtml(contact.display_name || "Unknown contact")}</strong><span>${escapeHtml(contact.primary_email || "No email recorded")}</span><small>${escapeHtml(contact.phone || conversation.provider || "")}</small></div></div>
-          <dl><div><dt>Handling</dt><dd>${assignedToMe ? "Assigned to me" : "Automated"}</dd></div><div><dt>Response target</dt><dd>${escapeHtml(operations.response_due_at ? formatDateTime(operations.response_due_at) : "Not set")}</dd></div><div><dt>Workflow</dt><dd>${escapeHtml(titleCase(conversation.workflow || "unassigned"))}</dd></div></dl>
-          ${roleAllows(role, "assign") ? `<div class="handling-control"><span>Who handles this?</span><div class="handling-segment" role="group" aria-label="Conversation handling"><button type="button" data-handling-mode="automation" class="${assignedToMe ? "" : "active"}" aria-pressed="${!assignedToMe}">Automated</button><button type="button" data-handling-mode="person" class="${assignedToMe ? "active" : ""}" aria-pressed="${assignedToMe}">Assigned to me</button></div><small>${assignedToMe ? `${escapeHtml(actor)} is handling this conversation. AIMS autonomous replies are paused.` : "AIMS can analyse and reply under the active automation policies."}</small></div>` : ""}
+          <div class="contact-hero">
+            <div class="avatar large">${escapeHtml((contact.display_name || "U").charAt(0).toUpperCase())}</div>
+            <div>
+              <strong>${escapeHtml(contact.display_name || "Unknown contact")}</strong>
+              <span>${escapeHtml(contact.primary_email || "No email recorded")}</span>
+              <small>${escapeHtml(contact.phone || conversation.provider || "")}</small>
+            </div>
+          </div>
+          <dl>
+            <div><dt>Handling</dt><dd>${assignedToMe ? "Assigned to me" : "Automated"}</dd></div>
+            <div>
+              <dt>Response target</dt>
+              <dd>${escapeHtml(operations.response_due_at
+                ? formatDateTime(operations.response_due_at)
+                : "Not set")}</dd>
+            </div>
+            <div><dt>Workflow</dt><dd>${escapeHtml(titleCase(conversation.workflow || "unassigned"))}</dd></div>
+          </dl>
+          ${roleAllows(role, "assign") ? `<div class="handling-control">
+            <span>Who handles this?</span>
+            <div class="handling-segment" role="group" aria-label="Conversation handling">
+              <button type="button" data-handling-mode="automation" class="${assignedToMe ? "" : "active"}"
+                aria-pressed="${!assignedToMe}">Automated</button>
+              <button type="button" data-handling-mode="person" class="${assignedToMe ? "active" : ""}"
+                aria-pressed="${assignedToMe}">Assigned to me</button>
+            </div>
+            <small>${assignedToMe
+              ? `${escapeHtml(actor)} is handling this conversation. AIMS autonomous replies are paused.`
+              : "AIMS can analyse and reply under the active automation policies."}</small>
+          </div>` : ""}
         </section>
         ${socialThread ? `<section class="panel detail-card social-control-card ${state.workspaceContextTab === "actions" ? "context-active" : ""}" data-context-section="actions">
-          <header><strong>${socialThread.thread_type === "dm" ? "DM controls" : "Comment controls"}</strong><span class="channel-label channel-label-${escapeHtml(socialThread.platform)}">${escapeHtml(channelLabel(socialThread.platform))}</span></header>
-          <dl><div><dt>Interaction</dt><dd>${escapeHtml(socialThread.thread_type === "dm" ? "Direct message" : "Comment")}</dd></div><div><dt>Provider status</dt><dd>${escapeHtml(titleCase(socialThread.provider_status || "unknown"))}</dd></div><div><dt>Account</dt><dd>${escapeHtml(socialThread.account_id || "Unknown")}</dd></div></dl>
-          ${socialMonitorOnly ? `<p class="social-lock-note">Monitoring-only mode is active. Provider mutations remain locked until the live intake canaries are accepted.</p>` : canReply ? `<div class="social-action-grid">
+          <header>
+            <strong>${socialThread.thread_type === "dm" ? "DM controls" : "Comment controls"}</strong>
+            <span class="channel-label channel-label-${escapeHtml(socialThread.platform)}">
+              ${escapeHtml(channelLabel(socialThread.platform))}
+            </span>
+          </header>
+          <dl>
+            <div>
+              <dt>Interaction</dt>
+              <dd>${escapeHtml(socialThread.thread_type === "dm" ? "Direct message" : "Comment")}</dd>
+            </div>
+            <div>
+              <dt>Provider status</dt>
+              <dd>${escapeHtml(titleCase(socialThread.provider_status || "unknown"))}</dd>
+            </div>
+            <div><dt>Account</dt><dd>${escapeHtml(socialThread.account_id || "Unknown")}</dd></div>
+          </dl>
+          ${socialMonitorOnly
+            ? `<p class="social-lock-note">Monitoring-only mode is active. Provider mutations remain locked until
+                the live intake canaries are accepted.</p>`
+            : canReply ? `<div class="social-action-grid">
             ${socialThread.thread_type === "dm" && socialCapabilities?.markRead ? `<button class="button secondary compact" data-social-action="read">Mark read</button>` : ""}
-            ${socialThread.thread_type === "dm" && socialCapabilities?.conversationStatus ? `<button class="button secondary compact" data-social-action="status" data-social-status="archived">Archive provider thread</button>` : ""}
-            ${socialThread.thread_type === "comment" && socialCapabilities?.hideComments ? `<button class="button secondary compact" data-social-approval="hide">Request hide</button><button class="button secondary compact" data-social-approval="unhide">Request unhide</button>` : ""}
-            ${socialThread.thread_type === "comment" && socialCapabilities?.moderation ? `<button class="button secondary compact" data-social-approval="moderate" data-moderation-status="heldForReview">Request hold</button><button class="button secondary compact" data-social-approval="moderate" data-moderation-status="rejected">Request reject</button>` : ""}
+            ${socialThread.thread_type === "dm" && socialCapabilities?.conversationStatus
+              ? `<button class="button secondary compact" data-social-action="status"
+                  data-social-status="archived">Archive provider thread</button>`
+              : ""}
+            ${socialThread.thread_type === "comment" && socialCapabilities?.hideComments
+              ? `<button class="button secondary compact" data-social-approval="hide">Request hide</button>
+                 <button class="button secondary compact" data-social-approval="unhide">Request unhide</button>`
+              : ""}
+            ${socialThread.thread_type === "comment" && socialCapabilities?.moderation
+              ? `<button class="button secondary compact" data-social-approval="moderate"
+                  data-moderation-status="heldForReview">Request hold</button>
+                 <button class="button secondary compact" data-social-approval="moderate"
+                  data-moderation-status="rejected">Request reject</button>`
+              : ""}
             ${socialThread.thread_type === "comment" && socialCapabilities?.deleteComments ? `<button class="button danger compact" data-social-approval="delete">Request delete</button>` : ""}
           </div>` : ""}
-          ${!socialMonitorOnly && executableModerationApprovals.length ? `<div class="approved-action-list"><strong>Approved actions ready</strong>${executableModerationApprovals.map((approval) => `<button class="button primary compact" data-social-approved-id="${escapeHtml(approval.id)}">Execute ${escapeHtml(titleCase(approval.action_type || "action"))}</button>`).join("")}</div>` : ""}
+          ${!socialMonitorOnly && executableModerationApprovals.length ? `<div class="approved-action-list">
+            <strong>Approved actions ready</strong>
+            ${executableModerationApprovals.map((approval) => `<button class="button primary compact"
+              data-social-approved-id="${escapeHtml(approval.id)}">
+              Execute ${escapeHtml(titleCase(approval.action_type || "action"))}
+            </button>`).join("")}
+          </div>` : ""}
         </section>` : ""}
         <section class="panel detail-card ai-card ${state.workspaceContextTab === "ai" ? "context-active" : ""}" data-context-section="ai">
           <header><strong>AIMS analysis</strong><span class="ai-state risk-${escapeHtml(aiState.risk_level || "unknown")}">${escapeHtml(titleCase(aiState.risk_level || "Unanalysed"))}</span></header>
           <p class="ai-summary">${escapeHtml(aiState.summary_text || "No current summary has been returned.")}</p>
-          <dl><div><dt>Intent</dt><dd>${escapeHtml(titleCase(aiState.intent || "Unknown"))}</dd></div><div><dt>Priority</dt><dd>${escapeHtml(titleCase(aiState.priority_label || "Unknown"))}${aiState.priority_score !== undefined ? ` (${escapeHtml(aiState.priority_score)})` : ""}</dd></div><div><dt>Sentiment</dt><dd>${escapeHtml(titleCase(aiState.sentiment || "Unknown"))}</dd></div><div><dt>Next action</dt><dd>${escapeHtml(aiState.next_action || "Not set")}</dd></div></dl>
+          <dl>
+            <div><dt>Intent</dt><dd>${escapeHtml(titleCase(aiState.intent || "Unknown"))}</dd></div>
+            <div>
+              <dt>Priority</dt>
+              <dd>${escapeHtml(titleCase(aiState.priority_label || "Unknown"))}${aiState.priority_score !== undefined
+                ? ` (${escapeHtml(aiState.priority_score)})`
+                : ""}</dd>
+            </div>
+            <div><dt>Sentiment</dt><dd>${escapeHtml(titleCase(aiState.sentiment || "Unknown"))}</dd></div>
+            <div><dt>Next action</dt><dd>${escapeHtml(aiState.next_action || "Not set")}</dd></div>
+          </dl>
           ${drafts.length ? `<div class="draft-box"><strong>Latest draft</strong><p>${escapeHtml(drafts[0].body_text || drafts[0].content || "")}</p></div>` : ""}
-          ${latestAutoSent ? `<div class="auto-sent-box"><strong>Sent automatically</strong><dl><div><dt>Channel</dt><dd>${escapeHtml(channelLabel(latestAutoSentDetails.channel || conversation.channel))}</dd></div><div><dt>Confidence</dt><dd>${escapeHtml(latestAutoSentDetails.confidence !== undefined ? String(Math.round(Number(latestAutoSentDetails.confidence || 0) * 100)) + "%" : "Verified by policy")}</dd></div><div><dt>Grounding</dt><dd>${escapeHtml(Number(latestAutoSentDetails.evidenceCount || 0) > 0 ? "Evidence-backed" : "Deterministic / conversational")}</dd></div><div><dt>Model</dt><dd>${escapeHtml(latestAutoSentDetails.model || "Deterministic")}</dd></div></dl><p>${escapeHtml((latestAutoSentDetails.responseReasons || []).slice(0, 3).map((reason) => titleCase(String(reason).replaceAll(":", " ").replaceAll("_", " "))).join(" · ") || "Safe grounded response")}</p><small>${escapeHtml(formatDateTime(latestAutoSent.occurred_at || latestAutoSent.created_at))}</small></div>` : ""}
-          ${pendingApproval ? `<div class="approval-box"><strong>Approval required</strong><p>${escapeHtml(pendingApproval.rationale || `Review ${titleCase(pendingApproval.action_type || "action")} scope and evidence.`)}</p>${canApprove ? `<div><button class="button secondary" data-approval-id="${escapeHtml(pendingApproval.id)}" data-decision="reject">Reject</button><button class="button primary" data-approval-id="${escapeHtml(pendingApproval.id)}" data-decision="approve">Approve</button></div>` : ""}</div>` : ""}
+          ${latestAutoSent ? `<div class="auto-sent-box">
+            <strong>Sent automatically</strong>
+            <dl>
+              <div>
+                <dt>Channel</dt>
+                <dd>${escapeHtml(channelLabel(latestAutoSentDetails.channel || conversation.channel))}</dd>
+              </div>
+              <div><dt>Confidence</dt><dd>${escapeHtml(autoSentConfidence)}</dd></div>
+              <div><dt>Grounding</dt><dd>${escapeHtml(autoSentGrounding)}</dd></div>
+              <div><dt>Model</dt><dd>${escapeHtml(latestAutoSentDetails.model || "Deterministic")}</dd></div>
+            </dl>
+            <p>${escapeHtml(autoSentReasons)}</p>
+            <small>${escapeHtml(formatDateTime(latestAutoSent.occurred_at || latestAutoSent.created_at))}</small>
+          </div>` : ""}
+          ${pendingApproval ? `<div class="approval-box">
+            <strong>Approval required</strong>
+            <p>${escapeHtml(pendingApproval.rationale
+              || `Review ${titleCase(pendingApproval.action_type || "action")} scope and evidence.`)}</p>
+            ${canApprove ? `<div>
+              <button class="button secondary" data-approval-id="${escapeHtml(pendingApproval.id)}"
+                data-decision="reject">Reject</button>
+              <button class="button primary" data-approval-id="${escapeHtml(pendingApproval.id)}"
+                data-decision="approve">Approve</button>
+            </div>` : ""}
+          </div>` : ""}
         </section>
         ${attachments.length ? `<section class="panel detail-card attachment-card ${state.workspaceContextTab === "details" ? "context-active" : ""}" data-context-section="details">
           <header><strong>Attachments</strong><span>${attachments.length}</span></header>
@@ -715,15 +1187,30 @@ function workspaceView() {
                   <strong>${escapeHtml(attachment.filename || "Attachment")}</strong>
                   <small>${escapeHtml(stored ? "Stored securely in Comms Hub" : status === "quarantined" ? "Quarantined" : status === "ingest_failed" ? "Storage failed" : "Processing")}</small>
                 </div>
-                ${stored ? `<button class="button secondary compact" type="button" data-attachment-id="${escapeHtml(attachment.id)}">Open</button>` : `<span class="attachment-status">${escapeHtml(titleCase(status.replaceAll("_", " ")))}</span>`}
+                ${stored
+                  ? `<button class="button secondary compact" type="button"
+                      data-attachment-id="${escapeHtml(attachment.id)}">Open</button>`
+                  : `<span class="attachment-status">
+                      ${escapeHtml(titleCase(status.replaceAll("_", " ")))}
+                    </span>`}
               </article>`;
             }).join("")}
           </div>
         </section>` : ""}
         <section class="panel detail-card ${state.workspaceContextTab === "notes" ? "context-active" : ""}" data-context-section="notes">
           <header><strong>Private notes</strong><span>${workspace.notes?.length || 0}</span></header>
-          <div class="notes-list">${(workspace.notes || []).slice(0, 4).map((note) => `<article><strong>${escapeHtml(note.author || note.created_by || "Operator")}</strong><p>${escapeHtml(note.body_text || "")}</p><small>${escapeHtml(formatRelativeTime(note.created_at))}</small></article>`).join("") || `<p class="muted">No private notes.</p>`}</div>
-          ${roleAllows(role, "note") ? `<form id="note-form" class="note-form"><textarea name="bodyText" rows="2" placeholder="Add a private note" aria-label="Private note" required></textarea><button class="button secondary" type="submit">Add note</button></form>` : ""}
+          <div class="notes-list">
+            ${(workspace.notes || []).slice(0, 4).map((note) => `<article>
+              <strong>${escapeHtml(note.author || note.created_by || "Operator")}</strong>
+              <p>${escapeHtml(note.body_text || "")}</p>
+              <small>${escapeHtml(formatRelativeTime(note.created_at))}</small>
+            </article>`).join("") || `<p class="muted">No private notes.</p>`}
+          </div>
+          ${roleAllows(role, "note") ? `<form id="note-form" class="note-form">
+            <textarea name="bodyText" rows="2" placeholder="Add a private note"
+              aria-label="Private note" required></textarea>
+            <button class="button secondary" type="submit">Add note</button>
+          </form>` : ""}
         </section>
       </aside>
     </div>
@@ -762,7 +1249,12 @@ async function downloadAttachment(attachmentId, button) {
 function errorView() {
   return shell(`
     ${pageHeader("Connection not ready", "The live AIMS gateway could not be loaded.")}
-    <section class="connection-error panel" role="alert"><div class="error-orb">!</div><h2>${escapeHtml(state.error?.message || "AIMS gateway could not be reached.")}</h2><p>Check the gateway URL, HIVE session verification and AIMS Comms Hub readiness.</p><div><button class="button primary" data-action="refresh">Try again</button></div></section>
+    <section class="connection-error panel" role="alert">
+      <div class="error-orb">!</div>
+      <h2>${escapeHtml(state.error?.message || "AIMS gateway could not be reached.")}</h2>
+      <p>Check the gateway URL, HIVE session verification and AIMS Comms Hub readiness.</p>
+      <div><button class="button primary" data-action="refresh">Try again</button></div>
+    </section>
   `);
 }
 
@@ -815,7 +1307,19 @@ function bindEvents() {
       input?.setSelectionRange(state.search.length, state.search.length);
     });
   });
-  root.querySelector('[data-action="clear-filters"]')?.addEventListener("click", () => { state.filters = { status: "", channel: "", priority: "", ownerId: "", ownerMode: "", tag: "", overdue: false, aiStatus: "" }; render(); });
+  root.querySelector('[data-action="clear-filters"]')?.addEventListener("click", () => {
+    state.filters = {
+      status: "",
+      channel: "",
+      priority: "",
+      ownerId: "",
+      ownerMode: "",
+      tag: "",
+      overdue: false,
+      aiStatus: "",
+    };
+    render();
+  });
   root.querySelectorAll("[data-quick-filter]").forEach((button) => button.addEventListener("click", () => {
     const key = button.dataset.quickFilter;
     state.filters = { status: "", channel: "", priority: "", ownerId: "", ownerMode: "", tag: "", overdue: false, aiStatus: "" };
@@ -825,7 +1329,10 @@ function bindEvents() {
     if (key === "mine") state.filters.ownerMode = "person";
     render();
   }));
-  root.querySelectorAll("[data-workspace-context]").forEach((button) => button.addEventListener("click", () => { state.workspaceContextTab = button.dataset.workspaceContext || "details"; render(); }));
+  root.querySelectorAll("[data-workspace-context]").forEach((button) => button.addEventListener("click", () => {
+    state.workspaceContextTab = button.dataset.workspaceContext || "details";
+    render();
+  }));
   root.querySelectorAll('[data-action="refresh"]').forEach((button) => button.addEventListener("click", loadBootstrap));
   root.querySelector('[data-action="open-sidebar"]')?.addEventListener("click", openSidebar);
   root.querySelectorAll('[data-action="close-sidebar"]').forEach((button) => button.addEventListener("click", closeSidebar));
@@ -1197,7 +1704,16 @@ async function submitReply(event) {
         await client.socialAction(state.selectedConversationId, "reply", { message, ...(replyMode === "private" ? { private: true } : {}) });
       } else throw new AimsApiError("This channel does not expose a direct reply action.", { status: 409, code: "ui_reply_unsupported" });
     }
-    conversation.messages = [...(conversation.messages || []), { id: `local-${Date.now()}`, direction: "outbound", sender: state.bootstrap.identity.actor, body_text: message, received_at: new Date().toISOString() }];
+    conversation.messages = [
+      ...(conversation.messages || []),
+      {
+        id: `local-${Date.now()}`,
+        direction: "outbound",
+        sender: state.bootstrap.identity.actor,
+        body_text: message,
+        received_at: new Date().toISOString(),
+      },
+    ];
     form.reset();
     toast("Reply sent through AIMS.");
   } catch (error) { toast(error.message || "Reply could not be sent.", "error"); }
