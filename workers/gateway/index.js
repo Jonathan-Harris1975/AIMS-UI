@@ -572,7 +572,14 @@ async function exchangeHiveHandoff(request, env) {
   }
   const token = bearerToken(request);
   if (!token) {
-    return withCors(json({ error: "hive_handoff_invalid", message: "HIVE handoff token is missing or invalid." }, { status: 401, headers: { "set-cookie": clearConsoleSessionCookie() } }), origin, { credentials: true });
+    return withCors(
+      json(
+        { error: "hive_handoff_invalid", message: "HIVE handoff token is missing or invalid." },
+        { status: 401, headers: { "set-cookie": clearConsoleSessionCookie() } },
+      ),
+      origin,
+      { credentials: true },
+    );
   }
 
   // Preserve the pre-hardening deployment contract: verify locally when the
@@ -832,7 +839,22 @@ export default {
         const headers = new Headers(assetResponse.headers);
         const contentType = headers.get("content-type") || "";
         if (contentType.includes("text/html")) {
-          headers.set("content-security-policy", "default-src 'self'; script-src 'self'; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-src https://hive.jonathan-harris.online; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self' https://hive.jonathan-harris.online; upgrade-insecure-requests");
+          const contentSecurityPolicy = [
+            "default-src 'self'",
+            "script-src 'self'",
+            "script-src-attr 'none'",
+            "style-src 'self' 'unsafe-inline'",
+            "img-src 'self' data: https:",
+            "font-src 'self' data:",
+            "connect-src 'self'",
+            "frame-src https://hive.jonathan-harris.online",
+            "object-src 'none'",
+            "base-uri 'self'",
+            "form-action 'self'",
+            "frame-ancestors 'self' https://hive.jonathan-harris.online",
+            "upgrade-insecure-requests",
+          ].join("; ");
+          headers.set("content-security-policy", contentSecurityPolicy);
         }
         headers.delete("x-frame-options");
         headers.set("cross-origin-resource-policy", "cross-origin");
