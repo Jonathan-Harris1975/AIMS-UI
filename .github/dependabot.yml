@@ -1,11 +1,7 @@
 version: 2
 updates:
-  - package-ecosystem: "npm"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    commit-message:
-      prefix: "deps"
+  # This repository currently has no npm dependencies. Add an npm entry when
+  # the first dependency and package-lock.json are committed together.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
