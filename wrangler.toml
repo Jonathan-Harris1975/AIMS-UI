@@ -44,7 +44,8 @@ database_id = "1c926f7c-4c5d-4fac-b26d-839db5e6c66e"
 # AIMS_API_KEY
 # COMMS_HUB_RBAC_DELEGATION_SECRET
 # HIVE_COMMS_HANDOFF_SECRET (optional when HIVE_IDENTITY_VERIFY_URL is used)
-# Optional widget/provider compatibility routes only:
+# Required by the shipped public widget:
 # CHAT_SESSION_SECRET
 # COGNIPAL_WEBHOOK_SECRET
+# Optional provider-compatible /sessions/* routes:
 # COGNIPAL_API_KEY

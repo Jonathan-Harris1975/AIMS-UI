@@ -31,7 +31,7 @@ The browser uses same-origin `/console/api`; the gateway exchanges the short-liv
 - `/widget/*` — public widget session/message contract.
 - `POST /comms-hub/intake/chat` and `/comms-hub/intake/chat/sync` — signed first-party pass-through to AIMS.
 
-AIMS outbound website-chat replies use the gateway's session-message contract with the configured CogniPal API secret.
+The widget treats AIMS as the authoritative conversation transcript. Its authenticated polling route signs a server-to-server `/comms-hub/intake/chat/sync` request, merges the returned AIMS messages with the gateway's local delivery ledger, and therefore works with both AIMS first-party chat delivery and the optional provider API bridge.
 
 ## Local verification
 
@@ -51,9 +51,9 @@ The console is available at `http://127.0.0.1:4173/apps/console/`.
 
 The Cloudflare Worker serves the operator assets and API gateway on `chat.jonathan-harris.online`. The operator console is `/console/`. Configure `window.AIMS_UI_CONFIG` before the console application script loads, using the same-origin API base.
 
-The production operator console requires the AIMS API base URL/key, RBAC delegation secret, console allowlist and static-assets binding. `HIVE_COMMS_HANDOFF_SECRET` is optional when the configured HIVE identity verifier is used. D1, `CHAT_SESSION_SECRET`, `COGNIPAL_WEBHOOK_SECRET` and `COGNIPAL_API_KEY` support the optional legacy/widget compatibility routes and do not gate operator-console readiness.
+The production gateway requires the AIMS API base URL/key, RBAC delegation secret, console allowlist and static-assets binding for the operator console. Because this deployment also ships the public widget, readiness additionally requires D1, `CHAT_SESSION_SECRET`, `COGNIPAL_WEBHOOK_SECRET`, `WIDGET_ALLOWED_ORIGINS` and `WIDGET_ALLOWED_SITE_IDS`. `HIVE_COMMS_HANDOFF_SECRET` is optional when the configured HIVE identity verifier is used, and `COGNIPAL_API_KEY` is optional unless the provider-compatible `/sessions/*` routes are enabled.
 
-`GET /livez` is the public liveness probe and returns `200` whenever the deployed gateway worker is running. `GET /readyz` is the fail-closed production-readiness probe: it returns `503` until the operator-console bindings are present and the configured AIMS Comms Hub health endpoint answers successfully. `GET /health` remains a backwards-compatible alias of `/readyz`.
+`GET /livez` is the public liveness probe and returns `200` whenever the deployed gateway worker is running. `GET /readyz` is the fail-closed production-readiness probe: it returns `503` until both console and widget bindings are complete, the widget D1 schema is queryable, and the configured AIMS Comms Hub health endpoint answers successfully. `GET /health` remains a backwards-compatible alias of `/readyz`.
 
 ## Widget
 
