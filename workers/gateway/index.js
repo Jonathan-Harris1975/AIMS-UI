@@ -10,6 +10,7 @@ const CONSOLE_UPSTREAM_TIMEOUT_MS = 15_000;
 const CONSOLE_UPSTREAM_RETRY_DELAY_MS = 250;
 const CONSOLE_UPSTREAM_MAX_ATTEMPTS = 2;
 const RETRYABLE_UPSTREAM_STATUSES = new Set([502, 503, 504]);
+const WIDGET_SYNC_TIMEOUT_MS = 10_000;
 const ALLOWED_ROLES = new Set(["admin", "reviewer", "operator", "read_only"]);
 
 function json(payload, { status = 200, headers = {} } = {}) {
@@ -118,6 +119,16 @@ const CORE_READINESS_KEYS = Object.freeze([
   "assets",
 ]);
 
+const WIDGET_READINESS_KEYS = Object.freeze([
+  "chatSessionSecret",
+  "cogniPalWebhookSecret",
+  "widgetAllowedOrigins",
+  "widgetAllowedSiteIds",
+  "d1",
+]);
+
+const REQUIRED_READINESS_KEYS = Object.freeze([...CORE_READINESS_KEYS, ...WIDGET_READINESS_KEYS]);
+
 export function gatewayConfigurationStatus(env = {}) {
   const status = {
     aimsApiBaseUrl: Boolean(baseUrl(env.AIMS_API_BASE_URL)),
@@ -133,12 +144,12 @@ export function gatewayConfigurationStatus(env = {}) {
     d1: Boolean(env.DB && typeof env.DB.prepare === "function"),
     assets: Boolean(env.ASSETS && typeof env.ASSETS.fetch === "function"),
   };
-  // Readiness represents the production operator console and secure AIMS proxy.
-  // Widget-session/provider compatibility routes are optional capabilities: the
-  // public website uses the first-party signed intake proxy, so their secrets
-  // must not make the AIMS operator UI appear degraded when those routes are
-  // intentionally unused. Their booleans remain visible for diagnostics.
-  status.ready = CORE_READINESS_KEYS.every((key) => status[key] === true);
+  status.widgetReady = WIDGET_READINESS_KEYS.every((key) => status[key] === true);
+  // This Worker ships both the operator console and the public chat widget. A
+  // production readiness probe must therefore fail closed if either surface is
+  // unable to complete its real request path. The provider API key remains
+  // optional because first-party AIMS transcript sync does not require it.
+  status.ready = CORE_READINESS_KEYS.every((key) => status[key] === true) && status.widgetReady;
   return status;
 }
 
@@ -158,14 +169,13 @@ function parseCsv(value) {
   return normalise(value).split(",").map((item) => item.trim()).filter(Boolean);
 }
 
-export function isAllowedOrigin(origin, allowlist, requestUrl = "") {
+export function isAllowedOrigin(origin, allowlist, _requestUrl = "") {
   if (!origin) return false;
   let parsed;
   try { parsed = new URL(origin).origin; } catch { return false; }
   const configured = Array.isArray(allowlist) ? allowlist : parseCsv(allowlist);
   if (configured.includes("*")) return true;
-  if (configured.includes(parsed)) return true;
-  try { return parsed === new URL(requestUrl).origin; } catch { return false; }
+  return configured.includes(parsed);
 }
 
 function corsHeaders(origin, { credentials = false } = {}) {
@@ -219,6 +229,20 @@ export async function probeAimsUpstream(env, { fetchImpl = fetch, timeoutMs = 5_
     };
   } catch {
     return { ok: false, status: null };
+  }
+}
+
+export async function probeWidgetStorage(env) {
+  if (!env?.DB || typeof env.DB.prepare !== "function") return { ok: false, status: "binding_missing" };
+  try {
+    // Empty tables are healthy. These probes verify that the deployed D1 schema
+    // exists rather than merely checking that a DB binding object was supplied.
+    await env.DB.prepare("SELECT 1 AS ok FROM chat_sessions LIMIT 1").first();
+    await env.DB.prepare("SELECT 1 AS ok FROM chat_messages LIMIT 1").first();
+    return { ok: true, status: "ready" };
+  } catch (error) {
+    console.warn("aimsUiGateway.widgetStorage.notReady", { error: error?.message || String(error) });
+    return { ok: false, status: "schema_unavailable" };
   }
 }
 
@@ -426,6 +450,10 @@ async function enforceRateLimit(env, sessionId) {
 
 async function createWidgetSession(request, env) {
   const origin = await requireWidgetOrigin(request, env);
+  if (!normalise(env.CHAT_SESSION_SECRET)) {
+    throw configurationError("chat_session_secret_unconfigured", "CHAT_SESSION_SECRET is not configured.");
+  }
+  requireD1(env);
   const payload = await readJson(request);
   const siteId = validateSiteId(payload.siteId);
   const allowedSites = parseCsv(env.WIDGET_ALLOWED_SITE_IDS);
@@ -436,12 +464,83 @@ async function createWidgetSession(request, env) {
   const expiresAt = addSeconds(createdAt, SESSION_TTL_SECONDS);
   const sessionId = randomId("cps");
   const visitorId = randomId("cpv");
-  await requireD1(env).prepare(
+  const db = requireD1(env);
+  // Session creation is the natural low-cost cleanup point. Foreign-key cascade
+  // removes expired message rows with their sessions and prevents unbounded D1
+  // growth in a long-lived public widget deployment.
+  await db.prepare("DELETE FROM chat_sessions WHERE expires_at <= ?1").bind(createdAt).run();
+  await db.prepare(
     `INSERT INTO chat_sessions (id, visitor_id, site_id, origin, mode, status, page_url, referrer, created_at, updated_at, expires_at)
      VALUES (?1, ?2, ?3, ?4, 'automation', 'open', ?5, ?6, ?7, ?7, ?8)`
   ).bind(sessionId, visitorId, siteId, origin, normalise(payload.pageUrl).slice(0, 2000), normalise(payload.referrer).slice(0, 2000), createdAt, expiresAt).run();
   const token = await createSessionToken({ sid: sessionId, vid: visitorId, site: siteId, exp: Math.floor(Date.parse(expiresAt) / 1000) }, env.CHAT_SESSION_SECRET);
   return withCors(json({ sessionId, visitorId, token, expiresAt }), origin);
+}
+
+function widgetRoleForAimsMessage(message = {}) {
+  if (message.direction === "inbound") return "visitor";
+  if (message.direction !== "outbound") return "system";
+  const mode = normalise(message?.metadata?.mode).toLowerCase();
+  const sender = normalise(message.sender).toLowerCase();
+  return mode === "human" || (sender && !["aims", "coginpal-automation"].includes(sender)) ? "operator" : "assistant";
+}
+
+export function mapAimsWidgetMessages(messages = []) {
+  return (Array.isArray(messages) ? messages : []).map((message) => ({
+    // For inbound messages AIMS retains the widget client id as providerMessageId.
+    // Using it here lets us reconcile the gateway delivery ledger without
+    // displaying the same visitor message twice.
+    id: normalise(message.providerMessageId || message.id),
+    role: widgetRoleForAimsMessage(message),
+    text: String(message.bodyText ?? message.body_text ?? ""),
+    createdAt: normalise(message.receivedAt || message.createdAt || message.received_at || message.created_at),
+    status: "delivered",
+  })).filter((message) => message.id && message.text);
+}
+
+export async function syncAimsWidgetConversation({ sessionId, visitorId, websiteId }, env, { fetchImpl = fetch } = {}) {
+  const upstreamBase = baseUrl(env?.AIMS_API_BASE_URL);
+  if (!upstreamBase) throw configurationError("aims_api_base_url_unconfigured", "AIMS_API_BASE_URL is not configured.");
+  if (!normalise(env?.COGNIPAL_WEBHOOK_SECRET)) {
+    throw configurationError("cognipal_webhook_secret_unconfigured", "COGNIPAL_WEBHOOK_SECRET is not configured.");
+  }
+
+  const rawBody = JSON.stringify({ sessionId, visitorId, websiteId });
+  const timestamp = String(Date.now());
+  const nonce = crypto.randomUUID();
+  const signature = await cogniPalWebhookSignature({ timestamp, nonce, rawBody }, env.COGNIPAL_WEBHOOK_SECRET);
+  let response;
+  try {
+    response = await fetchWithTimeout(fetchImpl, `${upstreamBase}/comms-hub/intake/chat/sync`, {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/json",
+        "x-coginpal-signature": `sha256=${signature}`,
+        "x-coginpal-timestamp": timestamp,
+        "x-coginpal-nonce": nonce,
+        "x-request-id": `widget-sync-${sessionId}`.slice(0, 200),
+      },
+      body: rawBody,
+      redirect: "manual",
+    }, WIDGET_SYNC_TIMEOUT_MS);
+  } catch (error) {
+    console.warn("aimsUiGateway.widgetSync.unreachable", { sessionId, error: error?.message || String(error) });
+    throw Object.assign(new Error("Conversation updates are temporarily unavailable."), { status: 502, code: "aims_sync_unreachable" });
+  }
+
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    const status = response.status >= 500 || response.status === 429 ? 502 : response.status;
+    throw Object.assign(new Error(payload?.message || "AIMS could not synchronise this conversation."), {
+      status,
+      code: normalise(payload?.error) || "aims_sync_failed",
+    });
+  }
+  if (!payload || typeof payload !== "object" || !Array.isArray(payload.messages)) {
+    throw Object.assign(new Error("AIMS returned an invalid chat synchronisation response."), { status: 502, code: "aims_sync_response_invalid" });
+  }
+  return payload;
 }
 
 async function listWidgetMessages(request, env, sessionId) {
@@ -452,11 +551,37 @@ async function listWidgetMessages(request, env, sessionId) {
     `SELECT id, role, text, created_at AS createdAt, delivery_status AS status
      FROM chat_messages WHERE session_id = ?1 ORDER BY created_at ASC, id ASC LIMIT 500`
   ).bind(sessionId).all();
-  return withCors(json({ messages: result.results || [], mode: session.row.mode, status: session.row.status }), origin);
+  const localMessages = result.results || [];
+  const synced = await syncAimsWidgetConversation({
+    sessionId,
+    visitorId: session.row.visitor_id,
+    websiteId: session.row.site_id,
+  }, env);
+
+  if (!synced.exists) {
+    return withCors(json({ messages: localMessages, mode: session.row.mode, status: session.row.status }), origin);
+  }
+
+  const merged = new Map(localMessages.map((message) => [message.id, message]));
+  for (const message of mapAimsWidgetMessages(synced.messages)) merged.set(message.id, message);
+  const messages = [...merged.values()].sort((left, right) => {
+    const byTime = String(left.createdAt || "").localeCompare(String(right.createdAt || ""));
+    return byTime || String(left.id || "").localeCompare(String(right.id || ""));
+  }).slice(-500);
+  const mode = ["automation", "takeover_requested", "human", "closed"].includes(normalise(synced.mode)) ? normalise(synced.mode) : session.row.mode;
+  const status = synced.closed || mode === "closed" ? "closed" : session.row.status;
+  await requireD1(env).prepare(
+    "UPDATE chat_sessions SET mode = ?1, status = ?2, updated_at = ?3 WHERE id = ?4"
+  ).bind(mode, status, nowIso(), sessionId).run();
+  return withCors(json({ messages, mode, status }), origin);
 }
 
 async function relayVisitorMessage(request, env, sessionId) {
   const origin = await requireWidgetOrigin(request, env);
+  if (!baseUrl(env.AIMS_API_BASE_URL)) throw configurationError("aims_api_base_url_unconfigured", "AIMS_API_BASE_URL is not configured.");
+  if (!normalise(env.COGNIPAL_WEBHOOK_SECRET)) {
+    throw configurationError("cognipal_webhook_secret_unconfigured", "COGNIPAL_WEBHOOK_SECRET is not configured.");
+  }
   const session = await requireSession(request, env, sessionId);
   if (session.row.origin !== origin) throw Object.assign(new Error("Conversation origin does not match this session."), { status: 403, code: "origin_mismatch" });
   if (session.row.status !== "open") throw Object.assign(new Error("This conversation has ended."), { status: 409, code: "session_closed" });
@@ -493,7 +618,7 @@ async function relayVisitorMessage(request, env, sessionId) {
   const signature = await cogniPalWebhookSignature({ timestamp, nonce, rawBody: webhook }, env.COGNIPAL_WEBHOOK_SECRET);
   let response;
   try {
-    response = await fetch(`${baseUrl(env.AIMS_API_BASE_URL)}/comms-hub/intake/chat`, {
+    response = await fetchWithTimeout(fetch, `${baseUrl(env.AIMS_API_BASE_URL)}/comms-hub/intake/chat`, {
       method: "POST",
       headers: {
         accept: "application/json",
@@ -504,7 +629,7 @@ async function relayVisitorMessage(request, env, sessionId) {
         "x-request-id": clientMessageId,
       },
       body: webhook,
-    });
+    }, WIDGET_SYNC_TIMEOUT_MS);
     const responsePayload = await response.json().catch(() => null);
     if (!response.ok) {
       const code = normalise(responsePayload?.error || `aims_${response.status}`);
@@ -797,13 +922,15 @@ export default {
       }
       if (request.method === "GET" && (url.pathname === "/readyz" || url.pathname === "/health")) {
         const configuration = gatewayConfigurationStatus(env);
-        const aimsUpstream = configuration.aimsApiBaseUrl
-          ? await probeAimsUpstream(env)
-          : { ok: false, status: null };
-        const ready = configuration.ready && aimsUpstream.ok;
-        const missing = CORE_READINESS_KEYS.filter((key) => configuration[key] !== true);
+        const [aimsUpstream, widgetStorage] = await Promise.all([
+          configuration.aimsApiBaseUrl ? probeAimsUpstream(env) : Promise.resolve({ ok: false, status: null }),
+          configuration.d1 ? probeWidgetStorage(env) : Promise.resolve({ ok: false, status: "binding_missing" }),
+        ]);
+        const ready = configuration.ready && aimsUpstream.ok && widgetStorage.ok;
+        const missing = REQUIRED_READINESS_KEYS.filter((key) => configuration[key] !== true);
+        if (configuration.d1 && !widgetStorage.ok) missing.push("d1Schema");
         const optionalMissing = Object.entries(configuration)
-          .filter(([key, value]) => key !== "ready" && !CORE_READINESS_KEYS.includes(key) && value !== true)
+          .filter(([key, value]) => !["ready", "widgetReady"].includes(key) && !REQUIRED_READINESS_KEYS.includes(key) && value !== true)
           .map(([key]) => key);
         return json({
           ok: ready,
@@ -814,7 +941,7 @@ export default {
           releaseSha: AIMS_UI_BUILD_SHA,
           releaseBranch: AIMS_UI_BUILD_BRANCH,
           configuration,
-          dependencies: { aims: aimsUpstream },
+          dependencies: { aims: aimsUpstream, widgetStorage },
           missing,
           optionalMissing,
         }, { status: ready ? 200 : 503 });

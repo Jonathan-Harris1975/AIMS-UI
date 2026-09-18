@@ -23,7 +23,7 @@ These routes require `Authorization: Bearer <COGNIPAL_API_KEY>`.
 - `POST /comms-hub/intake/chat`
 - `POST /comms-hub/intake/chat/sync`
 
-These are server-to-server pass-through routes for the website Pages Functions. The gateway preserves the exact request body and `x-coginpal-timestamp`, `x-coginpal-nonce` and `x-coginpal-signature` headers, then forwards the request to `${AIMS_API_BASE_URL}`. AIMS remains the HMAC verification and persistence authority. The proxy does not expose `AIMS_API_KEY` or any shared secret to the browser.
+These are server-to-server pass-through routes for first-party website integrations. The gateway preserves the exact request body and `x-coginpal-timestamp`, `x-coginpal-nonce` and `x-coginpal-signature` headers, then forwards the request to `${AIMS_API_BASE_URL}`. AIMS remains the HMAC verification and persistence authority. The public widget also uses the same signed sync contract internally from its authenticated `GET /widget/sessions/:sessionId/messages` route, so first-party AIMS replies are visible without configuring the optional provider API. No AIMS or HMAC secret is exposed to the browser.
 
 ### Operator console
 
@@ -34,13 +34,14 @@ The gateway verifies the current HIVE session, resolves an actor and Comms Hub r
 ## Provisioning
 
 1. Create a dedicated D1 database.
-2. Apply `schema.sql`.
+2. Apply `schema.sql`. The readiness probe verifies that both widget tables are queryable, so an empty/unmigrated D1 database fails closed instead of advertising a healthy deployment.
 3. Copy `wrangler.toml.example` to `wrangler.toml` and set the database identifier and allowed origins.
 4. Add every secret with `wrangler secret put`.
 5. Deploy the Worker.
 6. Set `AIMS_API_BASE_URL` to the live AIMS origin (production: `https://zeroth-kara-jonathanharris-3296ed37.koyeb.app`).
-7. For the first-party website path, keep the shared `COMMS_HUB_COGINPAL_WEBHOOK_SECRET` in the website Pages project and AIMS. The AIMS-UI gateway only forwards the signed request and does not need that secret.
-8. `COGNIPAL_API_KEY` remains required only for the legacy `/sessions/*` provider-compatible routes.
+7. Configure the same webhook secret value in AIMS (`COMMS_HUB_COGINPAL_WEBHOOK_SECRET`) and this Worker (`COGNIPAL_WEBHOOK_SECRET`). The Worker uses it only server-side to relay and synchronise widget traffic with AIMS.
+8. Configure `CHAT_SESSION_SECRET`, D1, `WIDGET_ALLOWED_ORIGINS` and `WIDGET_ALLOWED_SITE_IDS`; these are required for the shipped public widget.
+9. `COGNIPAL_API_KEY` remains required only for the optional `/sessions/*` provider-compatible routes.
 
 ## Required HIVE verification response
 
