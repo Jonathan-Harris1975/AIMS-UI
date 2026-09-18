@@ -10,11 +10,27 @@ import gateway, {
   gatewayConfigurationStatus,
   isAllowedOrigin,
   isCogniPalIntakePath,
+  mapAimsWidgetMessages,
   proxyCogniPalIntake,
+  probeWidgetStorage,
+  syncAimsWidgetConversation,
   requireConsoleOrigin,
   verifySessionToken,
   verifyHiveHandoffToken,
 } from "../workers/gateway/index.js";
+
+function readinessDb({ fail = false } = {}) {
+  return {
+    prepare() {
+      return {
+        async first() {
+          if (fail) throw new Error("no such table: chat_sessions");
+          return null;
+        },
+      };
+    },
+  };
+}
 
 test("delegated identity signature matches AIMS Node implementation", async () => {
   const input = { method: "PATCH", path: "/comms-hub/conversations/cnv-1/status", timestamp: "1785888000000", actor: "reviewer@example.com", role: "reviewer" };
@@ -42,6 +58,7 @@ test("session token is scoped and expires", async () => {
 test("origin allowlist is exact rather than suffix based", () => {
   assert.equal(isAllowedOrigin("https://jonathan-harris.online", "https://jonathan-harris.online", "https://gateway.test"), true);
   assert.equal(isAllowedOrigin("https://jonathan-harris.online.attacker.test", "https://jonathan-harris.online", "https://gateway.test"), false);
+  assert.equal(isAllowedOrigin("https://gateway.test", "", "https://gateway.test"), false);
 });
 
 
@@ -133,6 +150,7 @@ test("gateway configuration status uses the production DB binding name", () => {
     widgetAllowedSiteIds: false,
     d1: true,
     assets: true,
+    widgetReady: false,
     ready: false,
   });
 
@@ -191,6 +209,46 @@ test("CogniPal intake proxy preserves the exact signed body and HMAC headers", a
   assert.deepEqual(await response.json(), { ok: true, messages: [] });
 });
 
+
+test("widget transcript sync signs the AIMS first-party request and validates the response", async () => {
+  const secret = "widget-sync-secret";
+  let seen = null;
+  const payload = await syncAimsWidgetConversation({
+    sessionId: "session-123",
+    visitorId: "visitor-123",
+    websiteId: "jonathan-harris.online",
+  }, { AIMS_API_BASE_URL: "https://aims.example.test", COGNIPAL_WEBHOOK_SECRET: secret }, {
+    fetchImpl: async (target, init) => {
+      const headers = new Headers(init.headers);
+      const rawBody = String(init.body);
+      const timestamp = headers.get("x-coginpal-timestamp");
+      const nonce = headers.get("x-coginpal-nonce");
+      const expected = createHmac("sha256", secret).update(`${timestamp}.${nonce}.${rawBody}`).digest("hex");
+      seen = { target: String(target), rawBody, signature: headers.get("x-coginpal-signature"), expected };
+      return new Response(JSON.stringify({
+        exists: true,
+        mode: "automation",
+        messages: [{ id: "msg-1", direction: "outbound", sender: "AIMS", bodyText: "Hello", receivedAt: "2026-09-18T10:00:00.000Z" }],
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    },
+  });
+  assert.equal(seen.target, "https://aims.example.test/comms-hub/intake/chat/sync");
+  assert.deepEqual(JSON.parse(seen.rawBody), { sessionId: "session-123", visitorId: "visitor-123", websiteId: "jonathan-harris.online" });
+  assert.equal(seen.signature, `sha256=${seen.expected}`);
+  assert.equal(payload.exists, true);
+});
+
+test("AIMS transcript maps provider ids and human replies onto the widget contract", () => {
+  assert.deepEqual(mapAimsWidgetMessages([
+    { id: "backend-in", providerMessageId: "visitor-1", direction: "inbound", sender: "visitor", bodyText: "Question", receivedAt: "2026-09-18T10:00:00.000Z" },
+    { id: "backend-ai", providerMessageId: "reply-1", direction: "outbound", sender: "AIMS", bodyText: "Answer", receivedAt: "2026-09-18T10:00:01.000Z", metadata: { mode: "automation" } },
+    { id: "backend-human", providerMessageId: "reply-2", direction: "outbound", sender: "jonathan", bodyText: "Human answer", receivedAt: "2026-09-18T10:00:02.000Z", metadata: { mode: "human" } },
+  ]), [
+    { id: "visitor-1", role: "visitor", text: "Question", createdAt: "2026-09-18T10:00:00.000Z", status: "delivered" },
+    { id: "reply-1", role: "assistant", text: "Answer", createdAt: "2026-09-18T10:00:01.000Z", status: "delivered" },
+    { id: "reply-2", role: "operator", text: "Human answer", createdAt: "2026-09-18T10:00:02.000Z", status: "delivered" },
+  ]);
+});
 
 test("HIVE handoff is exchanged for an HttpOnly host-only console cookie", async () => {
   const secret = "test-hive-handoff-secret";
@@ -410,6 +468,12 @@ test("gateway liveness is independent of optional runtime configuration", async 
   assert.equal(body.service, "aims-ui-gateway");
 });
 
+test("widget storage readiness verifies the D1 schema rather than only the binding", async () => {
+  assert.deepEqual(await probeWidgetStorage({ DB: readinessDb() }), { ok: true, status: "ready" });
+  assert.deepEqual(await probeWidgetStorage({ DB: readinessDb({ fail: true }) }), { ok: false, status: "schema_unavailable" });
+  assert.deepEqual(await probeWidgetStorage({}), { ok: false, status: "binding_missing" });
+});
+
 test("gateway health fails closed until production bindings are complete", async () => {
   const incomplete = await gateway.fetch(new Request("https://chat.jonathan-harris.online/readyz"), {});
   assert.equal(incomplete.status, 503);
@@ -433,6 +497,11 @@ test("gateway health fails closed until production bindings are complete", async
       AIMS_API_KEY: "api-key",
       COMMS_HUB_RBAC_DELEGATION_SECRET: "delegation-secret",
       CONSOLE_ALLOWED_ORIGINS: "https://chat.jonathan-harris.online",
+      WIDGET_ALLOWED_ORIGINS: "https://jonathan-harris.online",
+      WIDGET_ALLOWED_SITE_IDS: "jonathan-harris.online",
+      CHAT_SESSION_SECRET: "session-secret",
+      COGNIPAL_WEBHOOK_SECRET: "webhook-secret",
+      DB: readinessDb(),
       ASSETS: { fetch() {} },
     });
     assert.equal(response.status, 200);
@@ -440,16 +509,47 @@ test("gateway health fails closed until production bindings are complete", async
     assert.equal(body.ok, true);
     assert.equal(body.configuration.ready, true);
     assert.deepEqual(body.dependencies.aims, { ok: true, status: 200 });
+    assert.deepEqual(body.dependencies.widgetStorage, { ok: true, status: "ready" });
     assert.deepEqual(body.missing, []);
-    assert.ok(body.optionalMissing.includes("chatSessionSecret"));
-    assert.ok(body.optionalMissing.includes("cogniPalWebhookSecret"));
+    assert.equal(body.configuration.widgetReady, true);
     assert.ok(body.optionalMissing.includes("cogniPalApiKey"));
-    assert.ok(body.optionalMissing.includes("d1"));
+    assert.equal(body.optionalMissing.includes("chatSessionSecret"), false);
+    assert.equal(body.optionalMissing.includes("cogniPalWebhookSecret"), false);
+    assert.equal(body.optionalMissing.includes("d1"), false);
     assert.equal(body.service, "aims-ui-gateway");
     assert.equal(typeof body.releaseSha, "string");
     assert.ok(body.releaseSha.length > 0);
     assert.equal(typeof body.releaseBranch, "string");
     assert.ok(body.releaseBranch.length > 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("gateway readiness fails when the widget D1 schema is missing", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify({ ok: true, service: "comms-hub" }), {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  });
+  try {
+    const response = await gateway.fetch(new Request("https://chat.jonathan-harris.online/readyz"), {
+      AIMS_API_BASE_URL: "https://aims.example.test",
+      AIMS_API_KEY: "api-key",
+      COMMS_HUB_RBAC_DELEGATION_SECRET: "delegation-secret",
+      CONSOLE_ALLOWED_ORIGINS: "https://chat.jonathan-harris.online",
+      WIDGET_ALLOWED_ORIGINS: "https://jonathan-harris.online",
+      WIDGET_ALLOWED_SITE_IDS: "jonathan-harris.online",
+      CHAT_SESSION_SECRET: "session-secret",
+      COGNIPAL_WEBHOOK_SECRET: "webhook-secret",
+      DB: readinessDb({ fail: true }),
+      ASSETS: { fetch() {} },
+    });
+    const body = await response.json();
+    assert.equal(response.status, 503);
+    assert.equal(body.configuration.ready, true);
+    assert.deepEqual(body.dependencies.widgetStorage, { ok: false, status: "schema_unavailable" });
+    assert.ok(body.missing.includes("d1Schema"));
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -467,6 +567,11 @@ test("gateway readiness fails when the configured AIMS origin is unavailable", a
       AIMS_API_KEY: "api-key",
       COMMS_HUB_RBAC_DELEGATION_SECRET: "delegation-secret",
       CONSOLE_ALLOWED_ORIGINS: "https://chat.jonathan-harris.online",
+      WIDGET_ALLOWED_ORIGINS: "https://jonathan-harris.online",
+      WIDGET_ALLOWED_SITE_IDS: "jonathan-harris.online",
+      CHAT_SESSION_SECRET: "session-secret",
+      COGNIPAL_WEBHOOK_SECRET: "webhook-secret",
+      DB: readinessDb(),
       ASSETS: { fetch() {} },
     });
     const body = await response.json();
