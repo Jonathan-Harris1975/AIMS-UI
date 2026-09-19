@@ -53,6 +53,11 @@ The Cloudflare Worker serves the operator assets and API gateway on `chat.jonath
 
 The production gateway requires the AIMS API base URL/key, RBAC delegation secret, console allowlist and static-assets binding for the operator console. Because this deployment also ships the public widget, readiness additionally requires D1, `CHAT_SESSION_SECRET`, `COGNIPAL_WEBHOOK_SECRET`, `WIDGET_ALLOWED_ORIGINS` and `WIDGET_ALLOWED_SITE_IDS`. `HIVE_COMMS_HANDOFF_SECRET` is optional when the configured HIVE identity verifier is used, and `COGNIPAL_API_KEY` is optional unless the provider-compatible `/sessions/*` routes are enabled.
 
+The root Wrangler configuration registers a five-minute scheduled trigger for the
+D1-backed widget delivery outbox. Apply `workers/gateway/schema.sql` before
+deployment and retain that trigger; visitor messages otherwise remain safely
+persisted but will require manual retry while AIMS is unavailable.
+
 `GET /livez` is the public liveness probe and returns `200` whenever the deployed gateway worker is running. `GET /readyz` is the fail-closed production-readiness probe: it returns `503` until both console and widget bindings are complete, the widget D1 schema is queryable, and the configured AIMS Comms Hub health endpoint answers successfully. `GET /health` remains a backwards-compatible alias of `/readyz`.
 
 ## Widget

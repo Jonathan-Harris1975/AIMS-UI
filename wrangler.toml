@@ -3,6 +3,9 @@ main = "workers/gateway/index.js"
 compatibility_date = "2026-08-11"
 preview_urls = false
 
+[triggers]
+crons = ["*/5 * * * *"]
+
 [[routes]]
 pattern = "chat.jonathan-harris.online"
 custom_domain = true
