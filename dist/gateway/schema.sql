@@ -32,3 +32,4 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_chat_messages_provider_id ON chat_messages(provider_message_id) WHERE provider_message_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id, created_at ASC);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_rate ON chat_messages(session_id, role, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_delivery ON chat_messages(delivery_status, error_code, created_at ASC);
