@@ -1,6 +1,5 @@
 const DEFAULT_ICON = "https://assets.jonathan-harris.online/CogniPal.jpg";
 const STORAGE_PREFIX = "aims-cognipal-session";
-const POLL_INTERVAL_MS = 3500;
 const MAX_MESSAGE_LENGTH = 4000;
 
 function escapeHtml(value) {
@@ -84,8 +83,8 @@ class HttpTransport {
     return this.request("/widget/session", { method: "POST", body: JSON.stringify(input) });
   }
 
-  messages(session) {
-    return this.request(`/widget/sessions/${encodeURIComponent(session.sessionId)}/messages`, {
+  messages(session, after = "") {
+    return this.request(`/widget/sessions/${encodeURIComponent(session.sessionId)}/messages${after ? `?after=${encodeURIComponent(after)}` : ""}`, {
       headers: { authorization: `Bearer ${session.token}` },
     });
   }
@@ -244,6 +243,7 @@ export class CogniPalWidget extends HTMLElement {
     this.waking = false;
     this.pollTimer = null;
     this.wakeTimer = null;
+    this.lastSyncAt = "";
   }
 
   connectedCallback() {
@@ -321,12 +321,12 @@ export class CogniPalWidget extends HTMLElement {
     try {
       const session = await this.transport.createSession({ siteId: this.config.siteId, pageUrl: location.href, referrer: document.referrer || "" });
       this.session = session;
+      this.lastSyncAt = "";
       writeStoredSession(this.config.siteId, session);
       await this.refreshMessages();
       if (!this.messages.length) {
         this.messages = [{ id: "welcome", role: "assistant", text: this.config.greeting, createdAt: new Date().toISOString(), local: true }];
       }
-      this.startPolling();
     } catch (error) {
       this.error = error.message || "CogniPal could not start this conversation.";
       this.consented = false;
@@ -338,13 +338,21 @@ export class CogniPalWidget extends HTMLElement {
   }
 
   async refreshMessages() {
-    if (!this.session || this.loading) return;
+    if (!this.session || this.loading || this.refreshing || document.hidden) return;
+    this.refreshing = true;
     try {
-      const payload = await this.transport.messages(this.session);
+      const payload = await this.transport.messages(this.session, this.lastSyncAt);
       const remote = Array.isArray(payload?.messages) ? payload.messages : [];
-      const welcome = this.messages.find((item) => item.id === "welcome");
-      this.messages = welcome && !remote.some((item) => item.id === "welcome") ? [welcome, ...remote] : remote;
+      if (this.lastSyncAt) {
+        this.messages = [...this.messages.filter(({ id }) => !remote.some((item) => item.id === id)), ...remote];
+      } else {
+        const welcome = this.messages.find((item) => item.id === "welcome");
+        this.messages = welcome ? [welcome, ...remote] : remote;
+      }
+      this.lastSyncAt = remote.at(-1)?.createdAt || this.lastSyncAt;
       this.mode = payload?.mode || "automation";
+      if (this.mode === "closed" || payload?.exists === false) this.stopPolling();
+      else this.startPolling();
       this.error = "";
       this.render();
       this.scrollToEnd();
@@ -357,6 +365,8 @@ export class CogniPalWidget extends HTMLElement {
       }
       this.error = error.message || "Conversation updates could not be loaded.";
       this.render();
+    } finally {
+      this.refreshing = false;
     }
   }
 
@@ -414,7 +424,7 @@ export class CogniPalWidget extends HTMLElement {
 
   startPolling() {
     if (this.pollTimer || !this.open || !this.session) return;
-    this.pollTimer = setInterval(() => void this.refreshMessages(), POLL_INTERVAL_MS);
+    this.pollTimer = setInterval(() => this.refreshMessages(), 10000);
   }
 
   stopPolling() {
