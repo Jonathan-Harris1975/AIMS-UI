@@ -17,6 +17,11 @@ The Worker is the security boundary between browsers and AIMS.
 
 These routes require `Authorization: Bearer <COGNIPAL_API_KEY>`.
 
+Visitor messages are written to D1 before relay. The Worker cron retries pending
+or transiently failed deliveries every five minutes with the original message ID
+and timestamp, stopping after six attempts. The widget also exposes a manual
+retry control; AIMS idempotency makes concurrent recovery safe.
+
 
 ### First-party CogniPal intake proxy
 
@@ -34,8 +39,8 @@ The gateway verifies the current HIVE session, resolves an actor and Comms Hub r
 ## Provisioning
 
 1. Create a dedicated D1 database.
-2. Apply `schema.sql`. The readiness probe verifies that both widget tables are queryable, so an empty/unmigrated D1 database fails closed instead of advertising a healthy deployment.
-3. Copy `wrangler.toml.example` to `wrangler.toml` and set the database identifier and allowed origins.
+2. Apply `schema.sql` (for the shipped database, run `wrangler d1 execute database-comms-hub --remote --file=workers/gateway/schema.sql`). The readiness probe verifies that both widget tables are queryable, so an empty/unmigrated D1 database fails closed instead of advertising a healthy deployment.
+3. Review the root `wrangler.toml` and set the database identifier, routes and allowed origins for the target environment. Keep the `*/5 * * * *` trigger enabled so the durable widget outbox is drained.
 4. Add every secret with `wrangler secret put`.
 5. Deploy the Worker.
 6. Set `AIMS_API_BASE_URL` to the live AIMS origin (production: `https://zeroth-kara-jonathanharris-3296ed37.koyeb.app`).

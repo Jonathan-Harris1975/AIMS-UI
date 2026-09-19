@@ -11,6 +11,7 @@ const CONSOLE_UPSTREAM_RETRY_DELAY_MS = 250;
 const CONSOLE_UPSTREAM_MAX_ATTEMPTS = 2;
 const RETRYABLE_UPSTREAM_STATUSES = new Set([502, 503, 504]);
 const WIDGET_SYNC_TIMEOUT_MS = 10_000;
+const WIDGET_DELIVERY_MAX_ATTEMPTS = 6;
 const ALLOWED_ROLES = new Set(["admin", "reviewer", "operator", "read_only"]);
 
 function json(payload, { status = 200, headers = {} } = {}) {
@@ -576,12 +577,124 @@ async function listWidgetMessages(request, env, sessionId) {
   return withCors(json({ messages, mode, status }), origin);
 }
 
-async function relayVisitorMessage(request, env, sessionId) {
-  const origin = await requireWidgetOrigin(request, env);
+function storedDeliveryFailureCode(code, currentErrorCode, retryable) {
+  const safeCode = normalise(code || "aims_unreachable").replace(/:/g, "_").slice(0, 120);
+  if (!retryable) return safeCode;
+  const priorAttempts = Number(String(currentErrorCode || "").match(/^retry:(\d+):/)?.[1] || 0);
+  const attempts = priorAttempts + 1;
+  return attempts >= WIDGET_DELIVERY_MAX_ATTEMPTS
+    ? `retry_exhausted:${safeCode}`
+    : `retry:${attempts}:${safeCode}`;
+}
+
+async function deliverVisitorMessage({
+  env,
+  sessionId,
+  visitorId,
+  websiteId,
+  messageId,
+  message,
+  occurredAt,
+  currentErrorCode = null,
+  fetchImpl = fetch,
+}) {
   if (!baseUrl(env.AIMS_API_BASE_URL)) throw configurationError("aims_api_base_url_unconfigured", "AIMS_API_BASE_URL is not configured.");
   if (!normalise(env.COGNIPAL_WEBHOOK_SECRET)) {
     throw configurationError("cognipal_webhook_secret_unconfigured", "COGNIPAL_WEBHOOK_SECRET is not configured.");
   }
+  const webhook = JSON.stringify({
+    sessionId,
+    visitorId,
+    websiteId,
+    occurredAt,
+    message: { id: messageId, text: message },
+  });
+  const timestamp = String(Date.now());
+  const nonce = crypto.randomUUID();
+  const signature = await cogniPalWebhookSignature({ timestamp, nonce, rawBody: webhook }, env.COGNIPAL_WEBHOOK_SECRET);
+  let response;
+  try {
+    response = await fetchWithTimeout(fetchImpl, `${baseUrl(env.AIMS_API_BASE_URL)}/comms-hub/intake/chat`, {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/json",
+        "x-coginpal-signature": `sha256=${signature}`,
+        "x-coginpal-timestamp": timestamp,
+        "x-coginpal-nonce": nonce,
+        "x-request-id": messageId,
+      },
+      body: webhook,
+    }, WIDGET_SYNC_TIMEOUT_MS);
+    const responsePayload = await response.json().catch(() => null);
+    if (!response.ok) {
+      const code = normalise(responsePayload?.error || `aims_${response.status}`);
+      const retryable = response.status === 429 || response.status >= 500;
+      const storedCode = storedDeliveryFailureCode(code, currentErrorCode, retryable);
+      const willRetry = retryable && !storedCode.startsWith("retry_exhausted:");
+      await requireD1(env).prepare("UPDATE chat_messages SET delivery_status = 'failed', error_code = ?1 WHERE id = ?2")
+        .bind(storedCode, messageId).run();
+      return {
+        accepted: false,
+        error: code,
+        message: responsePayload?.message || "AIMS did not accept this message.",
+        status: retryable ? 502 : response.status,
+        retryable: willRetry,
+      };
+    }
+    await requireD1(env).batch([
+      requireD1(env).prepare("UPDATE chat_messages SET delivery_status = 'accepted', error_code = NULL WHERE id = ?1").bind(messageId),
+      requireD1(env).prepare("UPDATE chat_sessions SET updated_at = ?1 WHERE id = ?2").bind(occurredAt, sessionId),
+    ]);
+    return { accepted: true, duplicate: Boolean(responsePayload?.duplicate), messageId };
+  } catch {
+    const storedCode = storedDeliveryFailureCode("aims_unreachable", currentErrorCode, true);
+    await requireD1(env).prepare("UPDATE chat_messages SET delivery_status = 'failed', error_code = ?1 WHERE id = ?2")
+      .bind(storedCode, messageId).run();
+    return {
+      accepted: false,
+      error: "aims_unreachable",
+      message: "CogniPal could not reach AIMS.",
+      status: 502,
+      retryable: !storedCode.startsWith("retry_exhausted:"),
+    };
+  }
+}
+
+export async function redeliverPendingVisitorMessages(env, { fetchImpl = fetch, limit = 25, now = nowIso() } = {}) {
+  const safeLimit = Math.min(Math.max(Number(limit) || 25, 1), 100);
+  const pending = await requireD1(env).prepare(
+    `SELECT m.id, m.session_id AS sessionId, m.text, m.created_at AS occurredAt,
+            m.error_code AS errorCode, s.visitor_id AS visitorId, s.site_id AS websiteId
+       FROM chat_messages m
+       JOIN chat_sessions s ON s.id = m.session_id
+      WHERE m.role = 'visitor' AND s.status = 'open' AND s.expires_at > ?1
+        AND (m.delivery_status = 'pending' OR m.error_code LIKE 'retry:%')
+      ORDER BY m.created_at ASC, m.id ASC LIMIT ?2`
+  ).bind(now, safeLimit).all();
+  const results = [];
+  for (const row of pending.results || []) {
+    results.push(await deliverVisitorMessage({
+      env,
+      sessionId: row.sessionId,
+      visitorId: row.visitorId,
+      websiteId: row.websiteId,
+      messageId: row.id,
+      message: row.text,
+      occurredAt: row.occurredAt,
+      currentErrorCode: row.errorCode,
+      fetchImpl,
+    }));
+  }
+  return {
+    processed: results.length,
+    accepted: results.filter((result) => result.accepted).length,
+    pending: results.filter((result) => !result.accepted && result.retryable).length,
+  };
+}
+
+async function relayVisitorMessage(request, env, sessionId) {
+  const origin = await requireWidgetOrigin(request, env);
   const session = await requireSession(request, env, sessionId);
   if (session.row.origin !== origin) throw Object.assign(new Error("Conversation origin does not match this session."), { status: 403, code: "origin_mismatch" });
   if (session.row.status !== "open") throw Object.assign(new Error("This conversation has ended."), { status: 409, code: "session_closed" });
@@ -593,10 +706,11 @@ async function relayVisitorMessage(request, env, sessionId) {
     throw Object.assign(new Error("A valid client message identifier is required."), { status: 400, code: "client_message_id_invalid" });
   }
   const existing = await requireD1(env).prepare(
-    "SELECT id, delivery_status AS status FROM chat_messages WHERE id = ?1 AND session_id = ?2 LIMIT 1"
+    `SELECT id, text, created_at AS createdAt, delivery_status AS status, error_code AS errorCode
+       FROM chat_messages WHERE id = ?1 AND session_id = ?2 LIMIT 1`
   ).bind(clientMessageId, sessionId).first();
   if (existing?.status === "accepted") return withCors(json({ ok: true, accepted: true, duplicate: true, messageId: existing.id }), origin);
-  const occurredAt = nowIso();
+  const occurredAt = existing?.createdAt || nowIso();
   if (!existing) {
     await requireD1(env).prepare(
       `INSERT INTO chat_messages (id, session_id, role, text, created_at, delivery_status)
@@ -606,47 +720,19 @@ async function relayVisitorMessage(request, env, sessionId) {
     await requireD1(env).prepare("UPDATE chat_messages SET text = ?1, delivery_status = 'pending', error_code = NULL WHERE id = ?2 AND session_id = ?3")
       .bind(message, clientMessageId, sessionId).run();
   }
-  const webhook = JSON.stringify({
+  const result = await deliverVisitorMessage({
+    env,
     sessionId,
     visitorId: session.row.visitor_id,
     websiteId: session.row.site_id,
+    messageId: clientMessageId,
+    message,
     occurredAt,
-    message: { id: clientMessageId, text: message },
   });
-  const timestamp = String(Date.now());
-  const nonce = crypto.randomUUID();
-  const signature = await cogniPalWebhookSignature({ timestamp, nonce, rawBody: webhook }, env.COGNIPAL_WEBHOOK_SECRET);
-  let response;
-  try {
-    response = await fetchWithTimeout(fetch, `${baseUrl(env.AIMS_API_BASE_URL)}/comms-hub/intake/chat`, {
-      method: "POST",
-      headers: {
-        accept: "application/json",
-        "content-type": "application/json",
-        "x-coginpal-signature": `sha256=${signature}`,
-        "x-coginpal-timestamp": timestamp,
-        "x-coginpal-nonce": nonce,
-        "x-request-id": clientMessageId,
-      },
-      body: webhook,
-    }, WIDGET_SYNC_TIMEOUT_MS);
-    const responsePayload = await response.json().catch(() => null);
-    if (!response.ok) {
-      const code = normalise(responsePayload?.error || `aims_${response.status}`);
-      await requireD1(env).prepare("UPDATE chat_messages SET delivery_status = 'failed', error_code = ?1 WHERE id = ?2")
-        .bind(code, clientMessageId).run();
-      return withCors(json({ error: code, message: responsePayload?.message || "AIMS did not accept this message." }, { status: response.status >= 500 ? 502 : response.status }), origin);
-    }
-    await requireD1(env).batch([
-      requireD1(env).prepare("UPDATE chat_messages SET delivery_status = 'accepted', error_code = NULL WHERE id = ?1").bind(clientMessageId),
-      requireD1(env).prepare("UPDATE chat_sessions SET updated_at = ?1 WHERE id = ?2").bind(occurredAt, sessionId),
-    ]);
-    return withCors(json({ ok: true, accepted: true, duplicate: Boolean(responsePayload?.duplicate), messageId: clientMessageId }, { status: 202 }), origin);
-  } catch {
-    await requireD1(env).prepare("UPDATE chat_messages SET delivery_status = 'failed', error_code = 'aims_unreachable' WHERE id = ?1")
-      .bind(clientMessageId).run();
-    return withCors(json({ error: "aims_unreachable", message: "CogniPal could not reach AIMS." }, { status: 502 }), origin);
+  if (!result.accepted) {
+    return withCors(json({ error: result.error, message: result.message }, { status: result.status }), origin);
   }
+  return withCors(json({ ok: true, accepted: true, duplicate: result.duplicate, messageId: clientMessageId }, { status: 202 }), origin);
 }
 
 async function providerSend(request, env, sessionId) {
@@ -905,6 +991,16 @@ function errorResponse(error, request, env, url) {
 }
 
 export default {
+  async scheduled(_controller, env, context) {
+    const work = redeliverPendingVisitorMessages(env).then((result) => {
+      console.info("aimsUiGateway.widgetDeliveryRetry", result);
+      return result;
+    }).catch((error) => {
+      console.error("aimsUiGateway.widgetDeliveryRetryFailed", { error: error?.message || String(error) });
+      throw error;
+    });
+    context.waitUntil(work);
+  },
   async fetch(request, env) {
     const url = new URL(request.url);
     try {
