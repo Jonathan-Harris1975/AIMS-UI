@@ -236,10 +236,9 @@ export async function probeAimsUpstream(env, { fetchImpl = fetch, timeoutMs = 5_
 export async function probeWidgetStorage(env) {
   if (!env?.DB || typeof env.DB.prepare !== "function") return { ok: false, status: "binding_missing" };
   try {
-    // Empty tables are healthy. These probes verify that the deployed D1 schema
-    // exists rather than merely checking that a DB binding object was supplied.
-    await env.DB.prepare("SELECT 1 AS ok FROM chat_sessions LIMIT 1").first();
-    await env.DB.prepare("SELECT 1 AS ok FROM chat_messages LIMIT 1").first();
+    // Empty tables are healthy. A single statement verifies both deployed tables
+    // without spending two D1 requests on every readiness probe.
+    await env.DB.prepare("SELECT 1 FROM chat_sessions, chat_messages LIMIT 0").first();
     return { ok: true, status: "ready" };
   } catch (error) {
     console.warn("aimsUiGateway.widgetStorage.notReady", { error: error?.message || String(error) });
@@ -499,14 +498,14 @@ export function mapAimsWidgetMessages(messages = []) {
   })).filter((message) => message.id && message.text);
 }
 
-export async function syncAimsWidgetConversation({ sessionId, visitorId, websiteId }, env, { fetchImpl = fetch } = {}) {
+export async function syncAimsWidgetConversation({ sessionId, visitorId, websiteId, after }, env, { fetchImpl = fetch } = {}) {
   const upstreamBase = baseUrl(env?.AIMS_API_BASE_URL);
   if (!upstreamBase) throw configurationError("aims_api_base_url_unconfigured", "AIMS_API_BASE_URL is not configured.");
   if (!normalise(env?.COGNIPAL_WEBHOOK_SECRET)) {
     throw configurationError("cognipal_webhook_secret_unconfigured", "COGNIPAL_WEBHOOK_SECRET is not configured.");
   }
 
-  const rawBody = JSON.stringify({ sessionId, visitorId, websiteId });
+  const rawBody = JSON.stringify({ sessionId, visitorId, websiteId, after: after || void 0 });
   const timestamp = String(Date.now());
   const nonce = crypto.randomUUID();
   const signature = await cogniPalWebhookSignature({ timestamp, nonce, rawBody }, env.COGNIPAL_WEBHOOK_SECRET);
@@ -548,19 +547,22 @@ async function listWidgetMessages(request, env, sessionId) {
   const origin = await requireWidgetOrigin(request, env);
   const session = await requireSession(request, env, sessionId);
   if (session.row.origin !== origin) throw Object.assign(new Error("Conversation origin does not match this session."), { status: 403, code: "origin_mismatch" });
-  const result = await requireD1(env).prepare(
+  const after = normalise(new URL(request.url).searchParams.get("after")).slice(0, 40);
+  const db = requireD1(env);
+  const result = await db.prepare(
     `SELECT id, role, text, created_at AS createdAt, delivery_status AS status
-     FROM chat_messages WHERE session_id = ?1 ORDER BY created_at ASC, id ASC LIMIT 500`
-  ).bind(sessionId).all();
+     FROM chat_messages WHERE session_id = ?1 AND created_at > ?2 ORDER BY created_at ASC, id ASC LIMIT 500`
+  ).bind(sessionId, after).all();
   const localMessages = result.results || [];
   const synced = await syncAimsWidgetConversation({
     sessionId,
     visitorId: session.row.visitor_id,
     websiteId: session.row.site_id,
+    after,
   }, env);
 
   if (!synced.exists) {
-    return withCors(json({ messages: localMessages, mode: session.row.mode, status: session.row.status }), origin);
+    return withCors(json({ exists: false, messages: localMessages, mode: session.row.mode, status: session.row.status }), origin);
   }
 
   const merged = new Map(localMessages.map((message) => [message.id, message]));
@@ -571,9 +573,11 @@ async function listWidgetMessages(request, env, sessionId) {
   }).slice(-500);
   const mode = ["automation", "takeover_requested", "human", "closed"].includes(normalise(synced.mode)) ? normalise(synced.mode) : session.row.mode;
   const status = synced.closed || mode === "closed" ? "closed" : session.row.status;
-  await requireD1(env).prepare(
-    "UPDATE chat_sessions SET mode = ?1, status = ?2, updated_at = ?3 WHERE id = ?4"
-  ).bind(mode, status, nowIso(), sessionId).run();
+  if (mode !== session.row.mode || status !== session.row.status) {
+    await db.prepare(
+      "UPDATE chat_sessions SET mode = ?1, status = ?2, updated_at = ?3 WHERE id = ?4"
+    ).bind(mode, status, nowIso(), sessionId).run();
+  }
   return withCors(json({ messages, mode, status }), origin);
 }
 
