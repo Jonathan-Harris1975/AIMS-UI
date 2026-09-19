@@ -24,6 +24,17 @@ async function copyFile(source, target) {
   await cp(source, target);
 }
 
+async function compactJavaScript(path) {
+  const source = await readFile(path, "utf8");
+  const compacted = source
+    // Keep source comments for maintainers, but do not ship full-line comments in
+    // production assets. Preserve source directives used by developer tooling.
+    .replace(/^[\t ]*\/\/(?![#@]).*(?:\r?\n|$)/gmu, "")
+    .replace(/[\t ]+$/gmu, "")
+    .replace(/\n{3,}/gu, "\n\n");
+  await writeFile(path, compacted);
+}
+
 await rm(dist, { recursive: true, force: true });
 await mkdir(siteDir, { recursive: true });
 
@@ -88,6 +99,17 @@ await copyFile(join(root, "apps", "widget", "README.md"), join(widgetDir, "READM
 await cp(join(root, "workers", "gateway"), join(dist, "gateway"), { recursive: true });
 await copyFile(join(root, "README.md"), join(dist, "README.md"));
 await copyFile(join(root, "THIRD_PARTY_NOTICES.md"), join(dist, "THIRD_PARTY_NOTICES.md"));
+
+for (const path of [
+  join(consoleDir, "app.js"),
+  join(consoleDir, "lib", "api-client.js"),
+  join(consoleDir, "lib", "contracts.js"),
+  join(consoleDir, "lib", "format.js"),
+  join(siteDir, "root-redirect.js"),
+  join(widgetDir, "cognipal-widget.js"),
+  join(dist, "gateway", "build-meta.js"),
+  join(dist, "gateway", "index.js"),
+]) await compactJavaScript(path);
 
 const manifest = {
   name: "AIMS UI",
