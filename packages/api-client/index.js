@@ -133,6 +133,9 @@ export class AimsCommsClient {
   replayQuarantine(id) { return this.request(`/quarantine/${encodeURIComponent(id)}/replay`, { method: "POST", body: {}, idempotent: true }); }
 
   socialStatus() { return this.request("/social/status"); }
+  providerHealth() { return this.request("/providers/health"); }
+  chatStatus() { return this.request("/chat/status"); }
+  emailStatus() { return this.request("/email/status"); }
   reconcileSocialWebhooks() { return this.request("/social/webhooks/reconcile-all", { method: "POST", body: {}, idempotent: true }); }
   drainSocialPoll(limit = 5) { return this.request("/social/poll/drain", { method: "POST", body: { limit }, idempotent: true }); }
   socialAction(conversationId, action, body = {}, { idempotencyKey = "" } = {}) {
