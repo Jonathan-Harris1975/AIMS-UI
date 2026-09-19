@@ -77,6 +77,9 @@ const state = {
   quarantine: [],
   metrics: null,
   socialStatus: null,
+  providerHealth: null,
+  chatStatus: null,
+  emailStatus: null,
   socialBusy: false,
 };
 
@@ -826,12 +829,17 @@ function settingsView() {
   const identity = state.bootstrap?.identity || {};
   const social = state.socialStatus?.monitoring || {};
   const channels = social.channels || {};
+  const providerHealth = state.providerHealth?.health || {};
+  const providers = Array.isArray(providerHealth.providers) ? providerHealth.providers : [];
+  const email = state.emailStatus || {};
+  const emailAccount = Object.values(email.accounts || {})[0] || {};
+  const chat = state.chatStatus || {};
   const canManageSocial = roleAllows(identity.role || "read_only", "social_setup");
   return shell(`
     ${pageHeader(
       "Settings",
       "Deployment-visible configuration only. Secrets remain in the gateway and AIMS.",
-      `<button class="button secondary" data-action="load-social-status">Refresh social status</button>`,
+      `<button class="button secondary" data-action="load-social-status">Refresh channel status</button>`,
     )}
     <div class="settings-grid">
       <section class="panel settings-card">
@@ -848,6 +856,30 @@ function settingsView() {
           <div><dt>Actor</dt><dd>${escapeHtml(identity.actor || "Unknown")}</dd></div>
           <div><dt>Role</dt><dd>${escapeHtml(titleCase(identity.role || "read_only"))}</dd></div>
           <div><dt>Strategy</dt><dd>${escapeHtml(identity.strategy || "Unknown")}</dd></div>
+        </dl>
+      </section>
+      <section class="panel settings-card">
+        <h3>Provider health</h3>
+        <div class="social-status-strip">
+          <span class="pill ${providerHealth.overall === "healthy" ? "pill-open" : providerHealth.overall === "unavailable" ? "pill-quarantined" : "pill-pending"}">
+            ${escapeHtml(titleCase(providerHealth.overall || "unknown"))}
+          </span>
+          <span>${providers.length} provider adapters observed</span>
+        </div>
+        <dl>${providers.length ? providers.map((provider) => `<div>
+          <dt>${escapeHtml(provider.provider || "Unknown")}</dt>
+          <dd>${escapeHtml(titleCase(provider.status || "unknown"))}</dd>
+        </div>`).join("") : `<div><dt>Status</dt><dd>No health snapshot yet</dd></div>`}</dl>
+      </section>
+      <section class="panel settings-card">
+        <h3>Email and web chat</h3>
+        <dl>
+          <div><dt>Email</dt><dd>${email.enabled ? "Enabled" : "Disabled"}</dd></div>
+          <div><dt>Mailbox</dt><dd>${escapeHtml(emailAccount.address || "Not configured")}</dd></div>
+          <div><dt>Email worker</dt><dd>${emailAccount.workerStarted ? "Running" : email.pollWorkerEnabled ? "Waiting to start" : "Disabled"}</dd></div>
+          <div><dt>Last email poll</dt><dd>${escapeHtml(emailAccount.pollState?.lastSuccessAt ? formatDateTime(emailAccount.pollState.lastSuccessAt) : "No successful poll recorded")}</dd></div>
+          <div><dt>Web chat</dt><dd>${chat.enabled ? `Enabled · ${escapeHtml(chat.transport || "unknown")}` : "Disabled"}</dd></div>
+          <div><dt>Chat AI</dt><dd>${chat.aiWorkflowEnabled ? "Enabled" : "Disabled"}</dd></div>
         </dl>
       </section>
       <section class="panel settings-card social-settings-card"><h3>Social channel setup</h3>
@@ -1465,7 +1497,7 @@ function navigate(view) {
   state.notificationOpen = false;
   if (view === "quarantine" && !state.quarantine.length) loadQuarantine();
   else if (view === "analytics" && !state.metrics) loadMetrics();
-  else if (view === "settings" && !state.socialStatus) loadSocialStatus({ keepView: true });
+  else if (view === "settings" && (!state.socialStatus || !state.providerHealth || !state.chatStatus || !state.emailStatus)) loadSocialStatus({ keepView: true });
   else render();
   history.replaceState(null, "", `${location.pathname}${location.search}#${view}`);
 }
@@ -1579,7 +1611,7 @@ async function loadBootstrap() {
     state.bootstrap = payload;
     state.queue = payload.queue || payload.conversations || [];
     state.notifications = payload.notifications || [];
-    state.socialStatus = await client.socialStatus().catch(() => state.socialStatus);
+    await fetchOperationalStatus();
     const requestedView = location.hash.slice(1);
     state.view = requestedView && routableViews.has(requestedView) ? requestedView : state.view;
   } catch (error) {
@@ -1719,9 +1751,25 @@ async function submitReply(event) {
   } catch (error) { toast(error.message || "Reply could not be sent.", "error"); }
 }
 
+async function fetchOperationalStatus() {
+  const results = await Promise.allSettled([
+    client.socialStatus(),
+    client.providerHealth(),
+    client.chatStatus(),
+    client.emailStatus(),
+  ]);
+  if (results[0].status === "fulfilled") state.socialStatus = results[0].value;
+  if (results[1].status === "fulfilled") state.providerHealth = results[1].value;
+  else if (results[1].reason?.payload?.health) state.providerHealth = { health: results[1].reason.payload.health };
+  if (results[2].status === "fulfilled") state.chatStatus = results[2].value;
+  if (results[3].status === "fulfilled") state.emailStatus = results[3].value;
+  return results.filter((result, index) => result.status === "rejected" && !(index === 1 && result.reason?.payload?.health));
+}
+
 async function loadSocialStatus({ keepView = false } = {}) {
   try {
-    state.socialStatus = await client.socialStatus();
+    const failures = await fetchOperationalStatus();
+    if (failures.length) throw failures[0].reason;
     if (!keepView) state.view = "settings";
     render();
   } catch (error) { toast(error.message || "Social channel status could not be loaded.", "error"); }
