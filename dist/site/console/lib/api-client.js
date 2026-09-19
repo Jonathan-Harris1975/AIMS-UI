@@ -41,10 +41,6 @@ export class AimsCommsClient {
   constructor({ baseUrl, fetchImpl = globalThis.fetch, tokenProvider = null } = {}) {
     this.baseUrl = cleanBaseUrl(baseUrl);
     if (typeof fetchImpl !== "function") throw new TypeError("A fetch implementation is required.");
-    // Native browser fetch is brand-sensitive in some runtimes. Storing it directly
-    // and later calling it as this.fetchImpl(...) changes its receiver to the client
-    // instance and can throw "Illegal invocation". Always invoke through a closure
-    // so the native function is never rebound to AimsCommsClient.
     this.fetchImpl = (...args) => fetchImpl(...args);
     this.tokenProvider = typeof tokenProvider === "function" ? tokenProvider : null;
   }
@@ -133,6 +129,9 @@ export class AimsCommsClient {
   replayQuarantine(id) { return this.request(`/quarantine/${encodeURIComponent(id)}/replay`, { method: "POST", body: {}, idempotent: true }); }
 
   socialStatus() { return this.request("/social/status"); }
+  providerHealth() { return this.request("/providers/health"); }
+  chatStatus() { return this.request("/chat/status"); }
+  emailStatus() { return this.request("/email/status"); }
   reconcileSocialWebhooks() { return this.request("/social/webhooks/reconcile-all", { method: "POST", body: {}, idempotent: true }); }
   drainSocialPoll(limit = 5) { return this.request("/social/poll/drain", { method: "POST", body: { limit }, idempotent: true }); }
   socialAction(conversationId, action, body = {}, { idempotencyKey = "" } = {}) {
