@@ -15,9 +15,33 @@ import gateway, {
   probeWidgetStorage,
   syncAimsWidgetConversation,
   requireConsoleOrigin,
+  redeliverPendingVisitorMessages,
   verifySessionToken,
   verifyHiveHandoffToken,
 } from "../workers/gateway/index.js";
+
+function widgetOutboxDb(rows) {
+  const writes = [];
+  return {
+    writes,
+    prepare(sql) {
+      return {
+        bind(...values) {
+          return {
+            sql,
+            values,
+            async all() { return { results: rows }; },
+            async run() { writes.push({ sql, values }); return { success: true }; },
+          };
+        },
+      };
+    },
+    async batch(statements) {
+      writes.push(...statements.map(({ sql, values }) => ({ sql, values })));
+      return statements.map(() => ({ success: true }));
+    },
+  };
+}
 
 function readinessDb({ fail = false } = {}) {
   return {
@@ -236,6 +260,60 @@ test("widget transcript sync signs the AIMS first-party request and validates th
   assert.deepEqual(JSON.parse(seen.rawBody), { sessionId: "session-123", visitorId: "visitor-123", websiteId: "jonathan-harris.online" });
   assert.equal(seen.signature, `sha256=${seen.expected}`);
   assert.equal(payload.exists, true);
+});
+
+test("scheduled widget outbox redelivers a persisted visitor message with the original idempotency key", async () => {
+  const db = widgetOutboxDb([{
+    id: "visitor-message-123",
+    sessionId: "session-123",
+    text: "Please help",
+    occurredAt: "2026-09-19T10:00:00.000Z",
+    errorCode: "retry:1:aims_503",
+    visitorId: "visitor-123",
+    websiteId: "jonathan-harris.online",
+  }]);
+  let request = null;
+  const result = await redeliverPendingVisitorMessages({
+    DB: db,
+    AIMS_API_BASE_URL: "https://aims.example.test",
+    COGNIPAL_WEBHOOK_SECRET: "widget-webhook-secret",
+  }, {
+    fetchImpl: async (target, init) => {
+      request = { target: String(target), headers: new Headers(init.headers), body: JSON.parse(init.body) };
+      return new Response(JSON.stringify({ ok: true, duplicate: false }), {
+        status: 202,
+        headers: { "content-type": "application/json" },
+      });
+    },
+  });
+
+  assert.deepEqual(result, { processed: 1, accepted: 1, pending: 0 });
+  assert.equal(request.target, "https://aims.example.test/comms-hub/intake/chat");
+  assert.equal(request.headers.get("x-request-id"), "visitor-message-123");
+  assert.equal(request.body.occurredAt, "2026-09-19T10:00:00.000Z");
+  assert.equal(request.body.message.id, "visitor-message-123");
+  assert.ok(db.writes.some((write) => /delivery_status = 'accepted'/.test(write.sql)));
+  assert.equal(typeof gateway.scheduled, "function");
+});
+
+test("widget outbox stops retrying after its bounded delivery budget", async () => {
+  const db = widgetOutboxDb([{
+    id: "visitor-message-exhausted",
+    sessionId: "session-123",
+    text: "Please help",
+    occurredAt: "2026-09-19T10:00:00.000Z",
+    errorCode: "retry:5:aims_unreachable",
+    visitorId: "visitor-123",
+    websiteId: "jonathan-harris.online",
+  }]);
+  const result = await redeliverPendingVisitorMessages({
+    DB: db,
+    AIMS_API_BASE_URL: "https://aims.example.test",
+    COGNIPAL_WEBHOOK_SECRET: "widget-webhook-secret",
+  }, { fetchImpl: async () => { throw new Error("offline"); } });
+
+  assert.deepEqual(result, { processed: 1, accepted: 0, pending: 0 });
+  assert.ok(db.writes.some((write) => write.values[0] === "retry_exhausted:aims_unreachable"));
 });
 
 test("AIMS transcript maps provider ids and human replies onto the widget contract", () => {

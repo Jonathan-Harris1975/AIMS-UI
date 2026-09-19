@@ -81,7 +81,7 @@ test("client downloads binary attachments with the console handoff token", async
 });
 
 
-test("client exposes social status, setup and action endpoints", async () => {
+test("client exposes channel health, social setup and action endpoints", async () => {
   const calls = [];
   const client = new AimsCommsClient({
     baseUrl: "https://example.test/comms-hub",
@@ -91,15 +91,21 @@ test("client exposes social status, setup and action endpoints", async () => {
     },
   });
   await client.socialStatus();
+  await client.providerHealth();
+  await client.chatStatus();
+  await client.emailStatus();
   await client.reconcileSocialWebhooks();
   await client.drainSocialPoll(10);
   await client.socialAction("cnv-1", "reply", { message: "hello" });
   await client.requestSocialApproval("cnv-1", "delete", {});
   assert.match(calls[0][0], /\/social\/status$/);
-  assert.match(calls[1][0], /\/social\/webhooks\/reconcile-all$/);
-  assert.deepEqual(calls[2][2], { limit: 10 });
-  assert.match(calls[3][0], /\/social\/conversations\/cnv-1\/actions\/reply$/);
-  assert.match(calls[4][0], /\/social\/conversations\/cnv-1\/approvals\/delete$/);
+  assert.match(calls[1][0], /\/providers\/health$/);
+  assert.match(calls[2][0], /\/chat\/status$/);
+  assert.match(calls[3][0], /\/email\/status$/);
+  assert.match(calls[4][0], /\/social\/webhooks\/reconcile-all$/);
+  assert.deepEqual(calls[5][2], { limit: 10 });
+  assert.match(calls[6][0], /\/social\/conversations\/cnv-1\/actions\/reply$/);
+  assert.match(calls[7][0], /\/social\/conversations\/cnv-1\/approvals\/delete$/);
 });
 
 
