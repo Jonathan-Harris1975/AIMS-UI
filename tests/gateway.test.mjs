@@ -241,6 +241,7 @@ test("widget transcript sync signs the AIMS first-party request and validates th
     sessionId: "session-123",
     visitorId: "visitor-123",
     websiteId: "jonathan-harris.online",
+    after: "2026-09-18T09:59:59.000Z",
   }, { AIMS_API_BASE_URL: "https://aims.example.test", COGNIPAL_WEBHOOK_SECRET: secret }, {
     fetchImpl: async (target, init) => {
       const headers = new Headers(init.headers);
@@ -257,7 +258,12 @@ test("widget transcript sync signs the AIMS first-party request and validates th
     },
   });
   assert.equal(seen.target, "https://aims.example.test/comms-hub/intake/chat/sync");
-  assert.deepEqual(JSON.parse(seen.rawBody), { sessionId: "session-123", visitorId: "visitor-123", websiteId: "jonathan-harris.online" });
+  assert.deepEqual(JSON.parse(seen.rawBody), {
+    sessionId: "session-123",
+    visitorId: "visitor-123",
+    websiteId: "jonathan-harris.online",
+    after: "2026-09-18T09:59:59.000Z",
+  });
   assert.equal(seen.signature, `sha256=${seen.expected}`);
   assert.equal(payload.exists, true);
 });
@@ -546,8 +552,16 @@ test("gateway liveness is independent of optional runtime configuration", async 
   assert.equal(body.service, "aims-ui-gateway");
 });
 
-test("widget storage readiness verifies the D1 schema rather than only the binding", async () => {
-  assert.deepEqual(await probeWidgetStorage({ DB: readinessDb() }), { ok: true, status: "ready" });
+test("widget storage readiness verifies both D1 tables with one request", async () => {
+  let prepares = 0;
+  const db = {
+    prepare() {
+      prepares += 1;
+      return { async first() { return { sessions_ready: null, messages_ready: null }; } };
+    },
+  };
+  assert.deepEqual(await probeWidgetStorage({ DB: db }), { ok: true, status: "ready" });
+  assert.equal(prepares, 1);
   assert.deepEqual(await probeWidgetStorage({ DB: readinessDb({ fail: true }) }), { ok: false, status: "schema_unavailable" });
   assert.deepEqual(await probeWidgetStorage({}), { ok: false, status: "binding_missing" });
 });
