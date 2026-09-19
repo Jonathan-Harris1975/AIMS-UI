@@ -31,7 +31,7 @@ async function compactJavaScript(path) {
     // production assets. Preserve source directives used by developer tooling.
     .replace(/^[\t ]*\/\/(?![#@]).*(?:\r?\n|$)/gmu, "")
     .replace(/[\t ]+$/gmu, "")
-    .replace(/\n{3,}/gu, "\n\n");
+    .replace(/\n{2,}/gu, "\n");
   await writeFile(path, compacted);
 }
 
