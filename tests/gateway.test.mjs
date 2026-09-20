@@ -12,7 +12,6 @@ import gateway, {
   isCogniPalIntakePath,
   mapAimsWidgetMessages,
   proxyCogniPalIntake,
-  probeWidgetStorage,
   syncAimsWidgetConversation,
   requireConsoleOrigin,
   redeliverPendingVisitorMessages,
@@ -43,15 +42,11 @@ function widgetOutboxDb(rows) {
   };
 }
 
-function readinessDb({ fail = false } = {}) {
+function readinessDb({ throwOnPrepare = false } = {}) {
   return {
     prepare() {
-      return {
-        async first() {
-          if (fail) throw new Error("no such table: chat_sessions");
-          return null;
-        },
-      };
+      if (throwOnPrepare) throw new Error("readiness must not query D1");
+      return { async first() { return null; } };
     },
   };
 }
@@ -552,20 +547,6 @@ test("gateway liveness is independent of optional runtime configuration", async 
   assert.equal(body.service, "aims-ui-gateway");
 });
 
-test("widget storage readiness verifies both D1 tables with one request", async () => {
-  let prepares = 0;
-  const db = {
-    prepare() {
-      prepares += 1;
-      return { async first() { return { sessions_ready: null, messages_ready: null }; } };
-    },
-  };
-  assert.deepEqual(await probeWidgetStorage({ DB: db }), { ok: true, status: "ready" });
-  assert.equal(prepares, 1);
-  assert.deepEqual(await probeWidgetStorage({ DB: readinessDb({ fail: true }) }), { ok: false, status: "schema_unavailable" });
-  assert.deepEqual(await probeWidgetStorage({}), { ok: false, status: "binding_missing" });
-});
-
 test("gateway health fails closed until production bindings are complete", async () => {
   const incomplete = await gateway.fetch(new Request("https://chat.jonathan-harris.online/readyz"), {});
   assert.equal(incomplete.status, 503);
@@ -593,7 +574,7 @@ test("gateway health fails closed until production bindings are complete", async
       WIDGET_ALLOWED_SITE_IDS: "jonathan-harris.online",
       CHAT_SESSION_SECRET: "session-secret",
       COGNIPAL_WEBHOOK_SECRET: "webhook-secret",
-      DB: readinessDb(),
+      DB: readinessDb({ throwOnPrepare: true }),
       ASSETS: { fetch() {} },
     });
     assert.equal(response.status, 200);
@@ -601,7 +582,7 @@ test("gateway health fails closed until production bindings are complete", async
     assert.equal(body.ok, true);
     assert.equal(body.configuration.ready, true);
     assert.deepEqual(body.dependencies.aims, { ok: true, status: 200 });
-    assert.deepEqual(body.dependencies.widgetStorage, { ok: true, status: "ready" });
+    assert.deepEqual(body.dependencies.widgetStorage, { ok: true, status: "configured" });
     assert.deepEqual(body.missing, []);
     assert.equal(body.configuration.widgetReady, true);
     assert.ok(body.optionalMissing.includes("cogniPalApiKey"));
@@ -618,7 +599,7 @@ test("gateway health fails closed until production bindings are complete", async
   }
 });
 
-test("gateway readiness fails when the widget D1 schema is missing", async () => {
+test("gateway readiness never queries D1", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () => new Response(JSON.stringify({ ok: true, service: "comms-hub" }), {
     status: 200,
@@ -634,14 +615,14 @@ test("gateway readiness fails when the widget D1 schema is missing", async () =>
       WIDGET_ALLOWED_SITE_IDS: "jonathan-harris.online",
       CHAT_SESSION_SECRET: "session-secret",
       COGNIPAL_WEBHOOK_SECRET: "webhook-secret",
-      DB: readinessDb({ fail: true }),
+      DB: readinessDb({ throwOnPrepare: true }),
       ASSETS: { fetch() {} },
     });
     const body = await response.json();
-    assert.equal(response.status, 503);
+    assert.equal(response.status, 200);
     assert.equal(body.configuration.ready, true);
-    assert.deepEqual(body.dependencies.widgetStorage, { ok: false, status: "schema_unavailable" });
-    assert.ok(body.missing.includes("d1Schema"));
+    assert.deepEqual(body.dependencies.widgetStorage, { ok: true, status: "configured" });
+    assert.equal(body.missing.includes("d1Schema"), false);
   } finally {
     globalThis.fetch = originalFetch;
   }
