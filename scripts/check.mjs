@@ -100,5 +100,23 @@ if (!/\[observability\.logs\]\s*\r?\n\s*enabled\s*=\s*true\b/.test(wrangler)) {
 if (!/\[observability\.traces\]\s*\r?\n\s*enabled\s*=\s*true\b/.test(wrangler)) {
   throw new Error("Cloudflare Workers traces must be enabled in production.");
 }
+if (!/^main\s*=\s*"dist\/gateway\/index\.js"$/m.test(wrangler)) {
+  throw new Error("Production Wrangler entry point must use the freshly generated dist gateway.");
+}
+if (!/\[build\][\s\S]*?command\s*=\s*"node scripts\/wrangler-build\.mjs"/.test(wrangler)) {
+  throw new Error("Wrangler must run the governed repository build before deployment.");
+}
+
+const packageJson = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
+if (packageJson.scripts?.["deploy:production"] !== "node scripts/deploy-production.mjs") {
+  throw new Error("package.json must expose the governed deploy:production command.");
+}
+
+for (const file of files.filter((item) => [".md", ".yml", ".yaml"].includes(extname(item)))) {
+  const source = await readFile(file, "utf8");
+  if (/\b(?:npx\s+)?wrangler\s+deploy\b/i.test(source)) {
+    throw new Error(`Documentation/workflow bypasses the governed deployment command: ${relative(root, file)}`);
+  }
+}
 
 console.log(`Checked ${scripts.length} JavaScript modules and ${required.length} required files.`);
