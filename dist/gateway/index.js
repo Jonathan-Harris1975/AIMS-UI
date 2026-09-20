@@ -1,5 +1,4 @@
 import { AIMS_UI_BUILD_BRANCH, AIMS_UI_BUILD_SHA } from "./build-meta.js";
-
 const encoder = new TextEncoder();
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 const MAX_MESSAGE_LENGTH = 4000;
@@ -13,28 +12,23 @@ const RETRYABLE_UPSTREAM_STATUSES = new Set([502, 503, 504]);
 const WIDGET_SYNC_TIMEOUT_MS = 10_000;
 const WIDGET_DELIVERY_MAX_ATTEMPTS = 6;
 const ALLOWED_ROLES = new Set(["admin", "reviewer", "operator", "read_only"]);
-
 function json(payload, { status = 200, headers = {} } = {}) {
   return new Response(JSON.stringify(payload), {
     status,
     headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", ...headers },
   });
 }
-
 function normalise(value) {
   return String(value ?? "").trim();
 }
-
 function baseUrl(value) {
   return normalise(value).replace(/\/+$/, "");
 }
-
 export function isCogniPalIntakePath(pathname, method = "POST") {
   if (String(method || "").toUpperCase() !== "POST") return false;
   const path = String(pathname || "").replace(/\/+$/, "").toLowerCase();
   return path === "/comms-hub/intake/chat" || path === "/comms-hub/intake/chat/sync";
 }
-
 function forwardedCogniPalHeaders(request) {
   const headers = new Headers();
   for (const name of [
@@ -54,14 +48,12 @@ function forwardedCogniPalHeaders(request) {
   headers.set("x-aims-ui-proxy", "cognipal-intake");
   return headers;
 }
-
 export async function proxyCogniPalIntake(request, env, url = new URL(request.url), fetchImpl = fetch) {
   if (!isCogniPalIntakePath(url.pathname, request.method)) {
     throw Object.assign(new Error("CogniPal intake proxy path is invalid."), { status: 404, code: "not_found" });
   }
   const upstreamBase = baseUrl(env?.AIMS_API_BASE_URL);
   if (!upstreamBase) throw configurationError("aims_api_base_url_unconfigured", "AIMS_API_BASE_URL is not configured.");
-
   for (const name of ["x-coginpal-timestamp", "x-coginpal-nonce", "x-coginpal-signature"]) {
     if (!normalise(request.headers.get(name))) {
       throw Object.assign(new Error("CogniPal signature headers are required."), { status: 401, code: "cognipal_signature_headers_missing" });
@@ -87,31 +79,26 @@ export async function proxyCogniPalIntake(request, env, url = new URL(request.ur
     });
     throw Object.assign(new Error("AIMS CogniPal intake is temporarily unreachable."), { status: 502, code: "cognipal_upstream_unreachable" });
   }
-
   console.info("aimsUiGateway.cogniPalProxy", {
     path: url.pathname,
     targetHost: new URL(upstreamBase).host,
     upstreamStatus: response.status,
     durationMs: Date.now() - startedAt,
   });
-
   const headers = new Headers(response.headers);
   headers.set("cache-control", "no-store");
   headers.set("x-content-type-options", "nosniff");
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
-
 function configurationError(code, message) {
   return Object.assign(new Error(message), { status: 503, code });
 }
-
 function requireD1(env) {
   if (!env?.DB || typeof env.DB.prepare !== "function") {
     throw configurationError("d1_binding_unconfigured", "Cloudflare D1 binding DB is not configured.");
   }
   return env.DB;
 }
-
 const CORE_READINESS_KEYS = Object.freeze([
   "aimsApiBaseUrl",
   "aimsApiKey",
@@ -119,7 +106,6 @@ const CORE_READINESS_KEYS = Object.freeze([
   "consoleAllowedOrigins",
   "assets",
 ]);
-
 const WIDGET_READINESS_KEYS = Object.freeze([
   "chatSessionSecret",
   "cogniPalWebhookSecret",
@@ -127,9 +113,7 @@ const WIDGET_READINESS_KEYS = Object.freeze([
   "widgetAllowedSiteIds",
   "d1",
 ]);
-
 const REQUIRED_READINESS_KEYS = Object.freeze([...CORE_READINESS_KEYS, ...WIDGET_READINESS_KEYS]);
-
 export function gatewayConfigurationStatus(env = {}) {
   const status = {
     aimsApiBaseUrl: Boolean(baseUrl(env.AIMS_API_BASE_URL)),
@@ -149,23 +133,18 @@ export function gatewayConfigurationStatus(env = {}) {
   status.ready = CORE_READINESS_KEYS.every((key) => status[key] === true) && status.widgetReady;
   return status;
 }
-
 function nowIso(now = Date.now()) {
   return new Date(now).toISOString();
 }
-
 function addSeconds(iso, seconds) {
   return new Date(Date.parse(iso) + seconds * 1000).toISOString();
 }
-
 function randomId(prefix) {
   return `${prefix}_${crypto.randomUUID()}`;
 }
-
 function parseCsv(value) {
   return normalise(value).split(",").map((item) => item.trim()).filter(Boolean);
 }
-
 export function isAllowedOrigin(origin, allowlist, _requestUrl = "") {
   if (!origin) return false;
   let parsed;
@@ -174,7 +153,6 @@ export function isAllowedOrigin(origin, allowlist, _requestUrl = "") {
   if (configured.includes("*")) return true;
   return configured.includes(parsed);
 }
-
 function corsHeaders(origin, { credentials = false } = {}) {
   return {
     "access-control-allow-origin": origin,
@@ -185,17 +163,14 @@ function corsHeaders(origin, { credentials = false } = {}) {
     vary: "Origin",
   };
 }
-
 function withCors(response, origin, options = {}) {
   const headers = new Headers(response.headers);
   for (const [key, value] of Object.entries(corsHeaders(origin, options))) headers.set(key, value);
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
-
 function sleep(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
-
 async function fetchWithTimeout(fetchImpl, target, init, timeoutMs = CONSOLE_UPSTREAM_TIMEOUT_MS) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -205,11 +180,9 @@ async function fetchWithTimeout(fetchImpl, target, init, timeoutMs = CONSOLE_UPS
     clearTimeout(timer);
   }
 }
-
 function isJsonResponse(response) {
   return /(?:^|[/+])json(?:;|$)/i.test(normalise(response?.headers?.get("content-type")));
 }
-
 export async function probeAimsUpstream(env, { fetchImpl = fetch, timeoutMs = 5_000 } = {}) {
   const aimsBase = baseUrl(env?.AIMS_API_BASE_URL);
   if (!aimsBase) return { ok: false, status: null };
@@ -228,63 +201,42 @@ export async function probeAimsUpstream(env, { fetchImpl = fetch, timeoutMs = 5_
     return { ok: false, status: null };
   }
 }
-
-export async function probeWidgetStorage(env) {
-  if (!env?.DB || typeof env.DB.prepare !== "function") return { ok: false, status: "binding_missing" };
-  try {
-    await env.DB.prepare("SELECT 1 FROM chat_sessions, chat_messages LIMIT 0").first();
-    return { ok: true, status: "ready" };
-  } catch (error) {
-    console.warn("aimsUiGateway.widgetStorage.notReady", { error: error?.message || String(error) });
-    return { ok: false, status: "schema_unavailable" };
-  }
-}
-
 function bytesToHex(bytes) {
   return [...new Uint8Array(bytes)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
-
 function base64UrlEncode(value) {
   const bytes = typeof value === "string" ? encoder.encode(value) : new Uint8Array(value);
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
   return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
 }
-
 function base64UrlDecode(value) {
   const padded = String(value).replaceAll("-", "+").replaceAll("_", "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
   const binary = atob(padded);
   return Uint8Array.from(binary, (character) => character.charCodeAt(0));
 }
-
 async function importHmacKey(secret) {
   if (!normalise(secret)) throw new Error("HMAC secret is not configured.");
   return crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
 }
-
 export async function hmacHex(secret, text) {
   const signature = await crypto.subtle.sign("HMAC", await importHmacKey(secret), encoder.encode(text));
   return bytesToHex(signature);
 }
-
 async function hmacBase64Url(secret, text) {
   const signature = await crypto.subtle.sign("HMAC", await importHmacKey(secret), encoder.encode(text));
   return base64UrlEncode(signature);
 }
-
 export async function delegatedIdentitySignature({ method, path, timestamp, actor, role }, secret) {
   return hmacHex(secret, [String(method || "GET").toUpperCase(), path, timestamp, actor, role].join("\n"));
 }
-
 export async function cogniPalWebhookSignature({ timestamp, nonce, rawBody }, secret) {
   return hmacHex(secret, `${timestamp}.${nonce}.${rawBody}`);
 }
-
 export async function createSessionToken(payload, secret) {
   const body = base64UrlEncode(JSON.stringify(payload));
   return `${body}.${await hmacBase64Url(secret, body)}`;
 }
-
 export async function verifySessionToken(token, secret, { now = Date.now() } = {}) {
   try {
     const [body, signature, extra] = normalise(token).split(".");
@@ -300,7 +252,6 @@ export async function verifySessionToken(token, secret, { now = Date.now() } = {
     return null;
   }
 }
-
 export async function createHiveHandoffToken({ actor, role, ttlSeconds = 300, now = Date.now() }, secret) {
   const issuedAt = Math.floor(now / 1000);
   const boundedTtl = Math.min(600, Math.max(60, Number(ttlSeconds) || 300));
@@ -309,7 +260,6 @@ export async function createHiveHandoffToken({ actor, role, ttlSeconds = 300, no
   const body = base64UrlEncode(JSON.stringify(payload));
   return `${body}.${await hmacBase64Url(secret, body)}`;
 }
-
 export async function verifyHiveHandoffToken(token, secret, { now = Date.now() } = {}) {
   try {
     if (!normalise(secret) || normalise(token).length > 4096) return null;
@@ -328,7 +278,6 @@ export async function verifyHiveHandoffToken(token, secret, { now = Date.now() }
     return null;
   }
 }
-
 function readCookie(request, name) {
   const raw = request.headers.get("cookie") || "";
   for (const part of raw.split(";")) {
@@ -337,33 +286,27 @@ function readCookie(request, name) {
   }
   return "";
 }
-
 function consoleSessionCookie(token, maxAge = CONSOLE_SESSION_MAX_AGE_SECONDS) {
   const bounded = Math.max(1, Math.min(CONSOLE_SESSION_MAX_AGE_SECONDS, Number(maxAge) || CONSOLE_SESSION_MAX_AGE_SECONDS));
   return `${CONSOLE_SESSION_COOKIE_NAME}=${encodeURIComponent(token)}; Path=/; Max-Age=${bounded}; HttpOnly; Secure; SameSite=Strict`;
 }
-
 function clearConsoleSessionCookie() {
   return `${CONSOLE_SESSION_COOKIE_NAME}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict`;
 }
-
 function bearerToken(request) {
   return normalise(request.headers.get("authorization")).replace(/^Bearer\s+/i, "");
 }
-
 function cleanMessage(value) {
   const message = normalise(value);
   if (!message) throw Object.assign(new Error("A message is required."), { status: 400, code: "message_required" });
   if (message.length > MAX_MESSAGE_LENGTH) throw Object.assign(new Error(`Messages are limited to ${MAX_MESSAGE_LENGTH} characters.`), { status: 413, code: "message_too_long" });
   return message;
 }
-
 function validateSiteId(value) {
   const siteId = normalise(value).toLowerCase();
   if (!/^[a-z0-9][a-z0-9.-]{2,190}$/.test(siteId)) throw Object.assign(new Error("Website identifier is invalid."), { status: 400, code: "site_id_invalid" });
   return siteId;
 }
-
 async function readJson(request) {
   try {
     const payload = await request.json();
@@ -373,7 +316,6 @@ async function readJson(request) {
     throw Object.assign(new Error("Request body must be a JSON object."), { status: 400, code: "json_invalid" });
   }
 }
-
 async function requireWidgetOrigin(request, env) {
   const origin = request.headers.get("origin") || "";
   if (!isAllowedOrigin(origin, env.WIDGET_ALLOWED_ORIGINS, request.url)) {
@@ -381,7 +323,6 @@ async function requireWidgetOrigin(request, env) {
   }
   return origin;
 }
-
 export async function requireConsoleOrigin(request, env) {
   const explicitOrigin = normalise(request.headers.get("origin"));
   if (explicitOrigin) {
@@ -390,7 +331,6 @@ export async function requireConsoleOrigin(request, env) {
     }
     return new URL(explicitOrigin).origin;
   }
-
   if (["GET", "HEAD"].includes(request.method)) {
     const referer = normalise(request.headers.get("referer"));
     if (referer) {
@@ -400,7 +340,6 @@ export async function requireConsoleOrigin(request, env) {
         return refererOrigin;
       }
     }
-
     const fetchSite = normalise(request.headers.get("sec-fetch-site")).toLowerCase();
     if (fetchSite === "same-origin") {
       const requestOrigin = new URL(request.url).origin;
@@ -409,10 +348,8 @@ export async function requireConsoleOrigin(request, env) {
       }
     }
   }
-
   throw Object.assign(new Error("This console origin is not allowed."), { status: 403, code: "origin_denied" });
 }
-
 async function requireSession(request, env, sessionId) {
   const tokenPayload = await verifySessionToken(bearerToken(request), env.CHAT_SESSION_SECRET);
   if (!tokenPayload || tokenPayload.sid !== sessionId) {
@@ -426,7 +363,6 @@ async function requireSession(request, env, sessionId) {
   }
   return { token: tokenPayload, row };
 }
-
 async function enforceRateLimit(env, sessionId) {
   const threshold = new Date(Date.now() - 60_000).toISOString();
   const row = await requireD1(env).prepare(
@@ -436,7 +372,6 @@ async function enforceRateLimit(env, sessionId) {
     throw Object.assign(new Error("Too many messages were sent. Please pause briefly."), { status: 429, code: "rate_limited" });
   }
 }
-
 async function createWidgetSession(request, env) {
   const origin = await requireWidgetOrigin(request, env);
   if (!normalise(env.CHAT_SESSION_SECRET)) {
@@ -462,7 +397,6 @@ async function createWidgetSession(request, env) {
   const token = await createSessionToken({ sid: sessionId, vid: visitorId, site: siteId, exp: Math.floor(Date.parse(expiresAt) / 1000) }, env.CHAT_SESSION_SECRET);
   return withCors(json({ sessionId, visitorId, token, expiresAt }), origin);
 }
-
 function widgetRoleForAimsMessage(message = {}) {
   if (message.direction === "inbound") return "visitor";
   if (message.direction !== "outbound") return "system";
@@ -470,7 +404,6 @@ function widgetRoleForAimsMessage(message = {}) {
   const sender = normalise(message.sender).toLowerCase();
   return mode === "human" || (sender && !["aims", "coginpal-automation"].includes(sender)) ? "operator" : "assistant";
 }
-
 export function mapAimsWidgetMessages(messages = []) {
   return (Array.isArray(messages) ? messages : []).map((message) => ({
     id: normalise(message.providerMessageId || message.id),
@@ -480,14 +413,12 @@ export function mapAimsWidgetMessages(messages = []) {
     status: "delivered",
   })).filter((message) => message.id && message.text);
 }
-
 export async function syncAimsWidgetConversation({ sessionId, visitorId, websiteId, after }, env, { fetchImpl = fetch } = {}) {
   const upstreamBase = baseUrl(env?.AIMS_API_BASE_URL);
   if (!upstreamBase) throw configurationError("aims_api_base_url_unconfigured", "AIMS_API_BASE_URL is not configured.");
   if (!normalise(env?.COGNIPAL_WEBHOOK_SECRET)) {
     throw configurationError("cognipal_webhook_secret_unconfigured", "COGNIPAL_WEBHOOK_SECRET is not configured.");
   }
-
   const rawBody = JSON.stringify({ sessionId, visitorId, websiteId, after: after || void 0 });
   const timestamp = String(Date.now());
   const nonce = crypto.randomUUID();
@@ -511,7 +442,6 @@ export async function syncAimsWidgetConversation({ sessionId, visitorId, website
     console.warn("aimsUiGateway.widgetSync.unreachable", { sessionId, error: error?.message || String(error) });
     throw Object.assign(new Error("Conversation updates are temporarily unavailable."), { status: 502, code: "aims_sync_unreachable" });
   }
-
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
     const status = response.status >= 500 || response.status === 429 ? 502 : response.status;
@@ -525,7 +455,6 @@ export async function syncAimsWidgetConversation({ sessionId, visitorId, website
   }
   return payload;
 }
-
 async function listWidgetMessages(request, env, sessionId) {
   const origin = await requireWidgetOrigin(request, env);
   const session = await requireSession(request, env, sessionId);
@@ -543,11 +472,9 @@ async function listWidgetMessages(request, env, sessionId) {
     websiteId: session.row.site_id,
     after,
   }, env);
-
   if (!synced.exists) {
     return withCors(json({ exists: false, messages: localMessages, mode: session.row.mode, status: session.row.status }), origin);
   }
-
   const merged = new Map(localMessages.map((message) => [message.id, message]));
   for (const message of mapAimsWidgetMessages(synced.messages)) merged.set(message.id, message);
   const messages = [...merged.values()].sort((left, right) => {
@@ -563,7 +490,6 @@ async function listWidgetMessages(request, env, sessionId) {
   }
   return withCors(json({ messages, mode, status }), origin);
 }
-
 function storedDeliveryFailureCode(code, currentErrorCode, retryable) {
   const safeCode = normalise(code || "aims_unreachable").replace(/:/g, "_").slice(0, 120);
   if (!retryable) return safeCode;
@@ -573,7 +499,6 @@ function storedDeliveryFailureCode(code, currentErrorCode, retryable) {
     ? `retry_exhausted:${safeCode}`
     : `retry:${attempts}:${safeCode}`;
 }
-
 async function deliverVisitorMessage({
   env,
   sessionId,
@@ -647,7 +572,6 @@ async function deliverVisitorMessage({
     };
   }
 }
-
 export async function redeliverPendingVisitorMessages(env, { fetchImpl = fetch, limit = 25, now = nowIso() } = {}) {
   const safeLimit = Math.min(Math.max(Number(limit) || 25, 1), 100);
   const pending = await requireD1(env).prepare(
@@ -679,7 +603,6 @@ export async function redeliverPendingVisitorMessages(env, { fetchImpl = fetch, 
     pending: results.filter((result) => !result.accepted && result.retryable).length,
   };
 }
-
 async function relayVisitorMessage(request, env, sessionId) {
   const origin = await requireWidgetOrigin(request, env);
   const session = await requireSession(request, env, sessionId);
@@ -721,7 +644,6 @@ async function relayVisitorMessage(request, env, sessionId) {
   }
   return withCors(json({ ok: true, accepted: true, duplicate: result.duplicate, messageId: clientMessageId }, { status: 202 }), origin);
 }
-
 async function providerSend(request, env, sessionId) {
   if (!env.COGNIPAL_API_KEY || bearerToken(request) !== env.COGNIPAL_API_KEY) {
     return json({ error: "provider_unauthorised", message: "Provider credentials are invalid." }, { status: 401 });
@@ -745,7 +667,6 @@ async function providerSend(request, env, sessionId) {
   await requireD1(env).prepare("UPDATE chat_sessions SET updated_at = ?1 WHERE id = ?2").bind(createdAt, sessionId).run();
   return json({ ok: true, id: messageId, messageId, sessionId, duplicate: Number(insert.meta?.changes || 0) === 0 }, { status: 202 });
 }
-
 async function providerSetMode(request, env, sessionId) {
   if (!env.COGNIPAL_API_KEY || bearerToken(request) !== env.COGNIPAL_API_KEY) {
     return json({ error: "provider_unauthorised", message: "Provider credentials are invalid." }, { status: 401 });
@@ -762,7 +683,6 @@ async function providerSetMode(request, env, sessionId) {
   if (!Number(update.meta?.changes || 0)) return json({ error: "session_not_found", message: "Chat session was not found." }, { status: 404 });
   return json({ ok: true, sessionId, mode });
 }
-
 async function exchangeHiveHandoff(request, env) {
   const origin = await requireConsoleOrigin(request, env);
   if (request.method !== "POST") {
@@ -779,7 +699,6 @@ async function exchangeHiveHandoff(request, env) {
       { credentials: true },
     );
   }
-
   const identity = await verifyHiveIdentity(request, env);
   const encodedBody = token.split(".")[0];
   let maxAge = CONSOLE_SESSION_MAX_AGE_SECONDS;
@@ -793,13 +712,11 @@ async function exchangeHiveHandoff(request, env) {
     headers: { "set-cookie": consoleSessionCookie(token, maxAge) },
   }), origin, { credentials: true });
 }
-
 async function verifyHiveIdentity(request, env) {
   if (normalise(env.ENVIRONMENT).toLowerCase() !== "production" && env.DEV_CONSOLE_ACTOR) {
     const role = ALLOWED_ROLES.has(env.DEV_CONSOLE_ROLE) ? env.DEV_CONSOLE_ROLE : "admin";
     return { actor: env.DEV_CONSOLE_ACTOR, role };
   }
-
   const token = bearerToken(request) || readCookie(request, CONSOLE_SESSION_COOKIE_NAME);
   let localHandoffRejected = false;
   if (token && normalise(env.HIVE_COMMS_HANDOFF_SECRET)) {
@@ -807,7 +724,6 @@ async function verifyHiveIdentity(request, env) {
     if (identity) return identity;
     localHandoffRejected = true;
   }
-
   const identityVerifyUrl = normalise(env.HIVE_IDENTITY_VERIFY_URL) || "https://hive.jonathan-harris.online/api/auth/comms-identity";
   if (identityVerifyUrl) {
     const method = normalise(env.HIVE_IDENTITY_VERIFY_METHOD || "GET").toUpperCase();
@@ -817,7 +733,6 @@ async function verifyHiveIdentity(request, env) {
     else if (token) headers.set("authorization", `Bearer ${token}`);
     const accessAssertion = request.headers.get("cf-access-jwt-assertion");
     if (accessAssertion) headers.set("cf-access-jwt-assertion", accessAssertion);
-
     const response = await fetch(identityVerifyUrl, { method, headers, redirect: "manual" });
     const payload = await response.json().catch(() => null);
     if (!response.ok) throw Object.assign(new Error("HIVE session is not authorised."), { status: 401, code: "hive_identity_invalid" });
@@ -827,31 +742,26 @@ async function verifyHiveIdentity(request, env) {
     if (!actor || !ALLOWED_ROLES.has(role)) throw Object.assign(new Error("HIVE identity response is incomplete."), { status: 502, code: "hive_identity_response_invalid" });
     return { actor, role };
   }
-
   if (localHandoffRejected) {
     throw Object.assign(new Error("HIVE handoff token is invalid or expired."), { status: 401, code: "hive_handoff_invalid" });
   }
   throw Object.assign(new Error("HIVE communications handoff is not configured."), { status: 503, code: "hive_identity_unconfigured" });
 }
-
 export function consoleTargetPath(pathname) {
   const rest = pathname.slice("/console/api".length) || "/";
   if (!rest.startsWith("/") || rest.startsWith("/intake/") || rest.includes("..")) return null;
   return `/comms-hub${rest}`;
 }
-
 async function proxyConsole(request, env, url) {
   const origin = await requireConsoleOrigin(request, env);
   const targetPath = consoleTargetPath(url.pathname);
   if (!targetPath) return withCors(json({ error: "console_path_denied", message: "This AIMS route is not available to the console." }, { status: 403 }), origin, { credentials: true });
-
   const aimsBase = baseUrl(env.AIMS_API_BASE_URL);
   if (!aimsBase) throw configurationError("aims_api_base_url_unconfigured", "AIMS_API_BASE_URL is not configured.");
   if (!normalise(env.AIMS_API_KEY)) throw configurationError("aims_api_key_unconfigured", "AIMS_API_KEY is not configured.");
   if (!normalise(env.COMMS_HUB_RBAC_DELEGATION_SECRET)) {
     throw configurationError("delegation_secret_unconfigured", "COMMS_HUB_RBAC_DELEGATION_SECRET is not configured.");
   }
-
   const identity = await verifyHiveIdentity(request, env);
   const timestamp = String(Date.now());
   const signature = await delegatedIdentitySignature({ method: request.method, path: targetPath, timestamp, actor: identity.actor, role: identity.role }, env.COMMS_HUB_RBAC_DELEGATION_SECRET);
@@ -866,7 +776,6 @@ async function proxyConsole(request, env, url) {
   headers.set("x-comms-hub-role", identity.role);
   headers.set("x-comms-hub-timestamp", timestamp);
   headers.set("x-comms-hub-signature", signature);
-
   const target = `${aimsBase}${targetPath}${url.search}`;
   const requestId = headers.get("x-request-id");
   const safeToRetry = ["GET", "HEAD"].includes(request.method);
@@ -887,7 +796,6 @@ async function proxyConsole(request, env, url) {
       fetchError = error;
       response = null;
     }
-
     const retryableResponse = response && RETRYABLE_UPSTREAM_STATUSES.has(response.status);
     if (attempt < maximumAttempts && (fetchError || retryableResponse)) {
       console.warn("aimsUiGateway.consoleProxy.retry", {
@@ -903,7 +811,6 @@ async function proxyConsole(request, env, url) {
     }
     break;
   }
-
   if (!response) {
     console.error("aimsUiGateway.consoleProxy.upstreamFetchFailed", {
       targetPath,
@@ -914,7 +821,6 @@ async function proxyConsole(request, env, url) {
     });
     throw Object.assign(new Error("AIMS upstream could not be reached."), { status: 502, code: "aims_upstream_unreachable" });
   }
-
   if (!response.ok) {
     console.warn("aimsUiGateway.consoleProxy.upstreamResponse", {
       targetPath,
@@ -950,7 +856,6 @@ async function proxyConsole(request, env, url) {
     headers: responseHeaders,
   }), origin, { credentials: true });
 }
-
 function handleOptions(request, env, url) {
   const origin = request.headers.get("origin") || "";
   const isConsole = url.pathname.startsWith("/console/api");
@@ -958,7 +863,6 @@ function handleOptions(request, env, url) {
   if (!allowed) return json({ error: "origin_denied" }, { status: 403 });
   return new Response(null, { status: 204, headers: corsHeaders(origin, { credentials: isConsole }) });
 }
-
 function errorResponse(error, request, env, url) {
   const status = Number(error?.status || 500);
   const payload = { error: error?.code || (status >= 500 ? "gateway_error" : "request_rejected"), message: status >= 500 ? "The AIMS gateway could not complete this request." : error.message };
@@ -970,7 +874,6 @@ function errorResponse(error, request, env, url) {
   }
   return response;
 }
-
 export default {
   async scheduled(_controller, env, context) {
     const work = redeliverPendingVisitorMessages(env).then((result) => {
@@ -999,13 +902,15 @@ export default {
       }
       if (request.method === "GET" && (url.pathname === "/readyz" || url.pathname === "/health")) {
         const configuration = gatewayConfigurationStatus(env);
-        const [aimsUpstream, widgetStorage] = await Promise.all([
-          configuration.aimsApiBaseUrl ? probeAimsUpstream(env) : Promise.resolve({ ok: false, status: null }),
-          configuration.d1 ? probeWidgetStorage(env) : Promise.resolve({ ok: false, status: "binding_missing" }),
-        ]);
-        const ready = configuration.ready && aimsUpstream.ok && widgetStorage.ok;
+        const aimsUpstream = configuration.aimsApiBaseUrl
+          ? await probeAimsUpstream(env)
+          : { ok: false, status: null };
+        const widgetStorage = {
+          ok: configuration.d1,
+          status: configuration.d1 ? "configured" : "binding_missing",
+        };
+        const ready = configuration.ready && aimsUpstream.ok;
         const missing = REQUIRED_READINESS_KEYS.filter((key) => configuration[key] !== true);
-        if (configuration.d1 && !widgetStorage.ok) missing.push("d1Schema");
         const optionalMissing = Object.entries(configuration)
           .filter(([key, value]) => !["ready", "widgetReady"].includes(key) && !REQUIRED_READINESS_KEYS.includes(key) && value !== true)
           .map(([key]) => key);
@@ -1034,7 +939,6 @@ export default {
       if (providerMessages && request.method === "POST") return await providerSend(request, env, decodeURIComponent(providerMessages[1]));
       const providerMode = url.pathname.match(/^\/sessions\/([^/]+)\/mode$/);
       if (providerMode && request.method === "PUT") return await providerSetMode(request, env, decodeURIComponent(providerMode[1]));
-
       if (env.ASSETS && request.method === "GET") {
         const assetResponse = await env.ASSETS.fetch(request);
         const headers = new Headers(assetResponse.headers);
