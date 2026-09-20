@@ -5,7 +5,6 @@ import gateway, {
   cogniPalWebhookSignature,
   consoleTargetPath,
   createSessionToken,
-  createHiveHandoffToken,
   delegatedIdentitySignature,
   gatewayConfigurationStatus,
   isAllowedOrigin,
@@ -51,6 +50,15 @@ function readinessDb({ throwOnPrepare = false } = {}) {
   };
 }
 
+function createHiveHandoffToken({ actor, role, ttlSeconds = 300, now = Date.now() }, secret) {
+  const issuedAt = Math.floor(now / 1000);
+  const boundedTtl = Math.min(600, Math.max(60, Number(ttlSeconds) || 300));
+  const payload = { v: 1, iat: issuedAt, exp: issuedAt + boundedTtl, actor, role, aud: "aims-comms" };
+  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const signature = createHmac("sha256", secret).update(body).digest("base64url");
+  return `${body}.${signature}`;
+}
+
 test("delegated identity signature matches AIMS Node implementation", async () => {
   const input = { method: "PATCH", path: "/comms-hub/conversations/cnv-1/status", timestamp: "1785888000000", actor: "reviewer@example.com", role: "reviewer" };
   const secret = "test-delegation-secret";
@@ -77,6 +85,7 @@ test("session token is scoped and expires", async () => {
 test("origin allowlist is exact rather than suffix based", () => {
   assert.equal(isAllowedOrigin("https://jonathan-harris.online", "https://jonathan-harris.online", "https://gateway.test"), true);
   assert.equal(isAllowedOrigin("https://jonathan-harris.online.attacker.test", "https://jonathan-harris.online", "https://gateway.test"), false);
+  assert.equal(isAllowedOrigin("https://attacker.test", "*", "https://gateway.test"), false);
   assert.equal(isAllowedOrigin("https://gateway.test", "", "https://gateway.test"), false);
 });
 
