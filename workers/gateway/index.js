@@ -233,19 +233,6 @@ export async function probeAimsUpstream(env, { fetchImpl = fetch, timeoutMs = 5_
   }
 }
 
-export async function probeWidgetStorage(env) {
-  if (!env?.DB || typeof env.DB.prepare !== "function") return { ok: false, status: "binding_missing" };
-  try {
-    // Empty tables are healthy. A single statement verifies both deployed tables
-    // without spending two D1 requests on every readiness probe.
-    await env.DB.prepare("SELECT 1 FROM chat_sessions, chat_messages LIMIT 0").first();
-    return { ok: true, status: "ready" };
-  } catch (error) {
-    console.warn("aimsUiGateway.widgetStorage.notReady", { error: error?.message || String(error) });
-    return { ok: false, status: "schema_unavailable" };
-  }
-}
-
 function bytesToHex(bytes) {
   return [...new Uint8Array(bytes)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
@@ -1022,13 +1009,18 @@ export default {
       }
       if (request.method === "GET" && (url.pathname === "/readyz" || url.pathname === "/health")) {
         const configuration = gatewayConfigurationStatus(env);
-        const [aimsUpstream, widgetStorage] = await Promise.all([
-          configuration.aimsApiBaseUrl ? probeAimsUpstream(env) : Promise.resolve({ ok: false, status: null }),
-          configuration.d1 ? probeWidgetStorage(env) : Promise.resolve({ ok: false, status: "binding_missing" }),
-        ]);
-        const ready = configuration.ready && aimsUpstream.ok && widgetStorage.ok;
+        const aimsUpstream = configuration.aimsApiBaseUrl
+          ? await probeAimsUpstream(env)
+          : { ok: false, status: null };
+        // Readiness deliberately checks only whether the D1 binding is configured.
+        // Schema/data verification belongs to real widget operations or explicit
+        // diagnostics, not a frequently-polled health endpoint.
+        const widgetStorage = {
+          ok: configuration.d1,
+          status: configuration.d1 ? "configured" : "binding_missing",
+        };
+        const ready = configuration.ready && aimsUpstream.ok;
         const missing = REQUIRED_READINESS_KEYS.filter((key) => configuration[key] !== true);
-        if (configuration.d1 && !widgetStorage.ok) missing.push("d1Schema");
         const optionalMissing = Object.entries(configuration)
           .filter(([key, value]) => !["ready", "widgetReady"].includes(key) && !REQUIRED_READINESS_KEYS.includes(key) && value !== true)
           .map(([key]) => key);
