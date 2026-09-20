@@ -1,5 +1,3 @@
-@import url("../../packages/theme/tokens.css");
-
 * { box-sizing: border-box; }
 html, body { min-height: 100%; }
 body { margin: 0; background: var(--aims-bg); color: var(--aims-text); font-family: var(--aims-font); font-size: 14px; }
