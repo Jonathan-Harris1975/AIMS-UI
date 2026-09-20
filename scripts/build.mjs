@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -22,15 +23,16 @@ async function copyFile(source, target) {
   await cp(source, target);
 }
 
-async function compactJavaScript(path) {
-  const source = await readFile(path, "utf8");
-  const compacted = source
-    // Keep source comments for maintainers, but do not ship full-line comments in
-    // production assets. Preserve source directives used by developer tooling.
-    .replace(/^[\t ]*\/\/(?![#@]).*(?:\r?\n|$)/gmu, "")
-    .replace(/[\t ]+$/gmu, "")
-    .replace(/\n{2,}/gu, "\n");
-  await writeFile(path, compacted);
+function compactJavaScriptFiles(paths) {
+  const result = spawnSync(process.execPath, [
+    "--expose-internals",
+    join(root, "scripts", "compact-javascript.mjs"),
+    ...paths,
+  ], { cwd: root, encoding: "utf8" });
+  if (result.status !== 0) {
+    process.stderr.write(result.stderr || result.stdout || "JavaScript compaction failed.\n");
+    throw new Error("Production JavaScript compaction failed.");
+  }
 }
 
 await rm(dist, { recursive: true, force: true });
@@ -56,11 +58,6 @@ consoleApp = consoleApp
   .replace('from "../../packages/shared/format.js";', 'from "./lib/format.js";')
   .replace('from "../../packages/shared/contracts.js";', 'from "./lib/contracts.js";');
 await writeFile(consoleAppPath, consoleApp);
-
-const consoleStylesPath = join(consoleDir, "styles.css");
-let consoleStyles = await readFile(consoleStylesPath, "utf8");
-consoleStyles = consoleStyles.replace(/^@import url\("\.\.\/\.\.\/packages\/theme\/tokens\.css"\);\s*/u, "");
-await writeFile(consoleStylesPath, consoleStyles);
 
 // Keep the deployment root useful even when Cloudflare Pages is configured with
 // `dist` as its output directory. The communications console itself intentionally
@@ -99,7 +96,7 @@ await writeFile(join(dist, "gateway", "build-meta.js"), buildMetadata);
 await copyFile(join(root, "README.md"), join(dist, "README.md"));
 await copyFile(join(root, "THIRD_PARTY_NOTICES.md"), join(dist, "THIRD_PARTY_NOTICES.md"));
 
-for (const path of [
+compactJavaScriptFiles([
   join(consoleDir, "app.js"),
   join(consoleDir, "lib", "api-client.js"),
   join(consoleDir, "lib", "contracts.js"),
@@ -108,7 +105,7 @@ for (const path of [
   join(widgetDir, "cognipal-widget.js"),
   join(dist, "gateway", "build-meta.js"),
   join(dist, "gateway", "index.js"),
-]) await compactJavaScript(path);
+]);
 
 const manifest = {
   name: "AIMS UI",

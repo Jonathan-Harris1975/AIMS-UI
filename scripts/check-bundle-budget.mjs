@@ -2,10 +2,12 @@ import { gzipSync } from "node:zlib";
 import { readFile, readdir, stat } from "node:fs/promises";
 import { dirname, extname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { bundleBudgetFailures, javascriptBudgetStatus, loadBundleBudget } from "./bundle-budget.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const dist = join(root, "dist");
-const budget = JSON.parse(await readFile(join(root, "config", "bundle-budget.json"), "utf8"));
+const budgetPath = process.env.AIMS_UI_BUNDLE_BUDGET_CONFIG || join(root, "config", "bundle-budget.json");
+const budget = await loadBundleBudget(budgetPath);
 
 async function walk(directory) {
   const files = [];
@@ -39,14 +41,17 @@ const measurements = {
   largestAssetBytes: largest.bytes,
   largestAsset: largest.path,
 };
-const checks = [
-  ["total bundle bytes", totalBytes, budget.maxTotalBytes],
-  ["gzipped JavaScript bytes", javascriptGzipBytes, budget.maxJavaScriptGzipBytes],
-  ["gzipped CSS bytes", cssGzipBytes, budget.maxCssGzipBytes],
-  ["largest single asset bytes", largest.bytes, budget.maxSingleAssetBytes],
-];
-const failures = checks.filter(([, actual, maximum]) => actual > maximum);
-console.log(JSON.stringify({ ok: failures.length === 0, measurements, budget }, null, 2));
+const javascript = javascriptBudgetStatus(javascriptGzipBytes, budget);
+const failures = bundleBudgetFailures(measurements, budget);
+
+console.log(JSON.stringify({ ok: failures.length === 0, measurements, javascript, budget }, null, 2));
+if (javascript.state === "warning") {
+  console.warn(
+    `WARNING: gzipped JavaScript is in the bundle warning band: ${javascript.actualGzipBytes} bytes; `
+      + `warning ${javascript.warningLimit}; hard ${javascript.hardLimit}; remaining ${javascript.remainingBytes}; `
+      + `${javascript.percentageConsumed}% consumed.`,
+  );
+}
 if (failures.length) {
   for (const [name, actual, maximum] of failures) console.error(`${name} exceeded budget: ${actual} > ${maximum}`);
   process.exitCode = 1;
