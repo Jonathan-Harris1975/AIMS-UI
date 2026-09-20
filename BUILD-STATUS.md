@@ -18,6 +18,8 @@ Test/module counts are intentionally **not** hard-coded in this document because
 
 `npm run validate` performs linting, repository/source checks, the complete Node test suite, secret scanning, dependency auditing where applicable, a clean build and the bundle-budget gate. Production deployment additionally runs `npm run build:production` and `npm run verify:deploy-artifact` before release.
 
+The JavaScript bundle gate has a 42,750-byte gzipped warning threshold and an unchanged 45,000-byte hard ceiling. Warning-band entry is visible in CI without failing the build; a hard-limit breach remains release-blocking. Current measured sizes belong in validation output rather than this evergreen status file.
+
 ## Deployment status and remaining verification
 
 - `wrangler.toml` contains the production Worker route and D1 binding identifiers; they are no longer placeholders.

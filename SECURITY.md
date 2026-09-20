@@ -1,7 +1,7 @@
 # AIMS-UI security policy
 
 **Status:** Production-controlled  
-**Last reviewed:** 22 August 2026
+**Last reviewed:** 20 September 2026
 
 AIMS-UI is a browser console and Cloudflare Worker gateway for the AIMS Communications Hub. Browser code must never contain AIMS bearer tokens, provider credentials, R2 credentials, webhook secrets or other server-side credentials.
 
@@ -10,10 +10,10 @@ AIMS-UI is a browser console and Cloudflare Worker gateway for the AIMS Communic
 - The browser authenticates to the gateway; upstream AIMS credentials remain server-side.
 - Gateway sessions use signed, `HttpOnly`, `Secure` cookies with restrictive same-site behaviour.
 - Allowed origins and proxy paths are explicit allow-lists. Path traversal and unexpected upstream destinations are rejected.
-- Website-chat intake requires the configured signature headers and the gateway validates the request before forwarding it upstream.
+- Website-chat intake requires the configured signature headers; the gateway preserves the exact body/headers and AIMS remains the HMAC verification authority.
 - Security headers and content-security policy are enforced by the gateway and release tests.
 - Source and distribution secret scans must pass before deployment.
-- Production bundle budgets are release gates. Do not increase a budget solely to make CI pass; remove duplication or unused assets first.
+- Production bundle budgets are release gates. Gzipped JavaScript warns at 42,750 bytes and fails above 45,000 bytes. Do not increase a budget solely to make CI pass; analyse and remove duplication, dead code or unnecessary assets first. Any ceiling change requires explicit review and technical justification.
 
 ## Asset handling
 

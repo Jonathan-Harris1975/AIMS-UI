@@ -4,157 +4,114 @@ Date: 20 September 2026
 
 ## Final status
 
-Repository-level remediation is complete and all available repository validation gates pass in the execution environment used for this review. The final live operational sign-off remains the existing post-deployment `test:deployed` workflow against the exact published SHA.
+The focused bundle-headroom remediation is implemented. Repository-native validation passes in the supplied execution environment, the JavaScript hard ceiling remains unchanged, an early warning band now exists, and the production build has materially more headroom without changing user-visible behaviour.
 
-The supplied execution environment provides Node.js v22.16.0 and npm 10.9.2. The repository and CI remain pinned to Node.js 22.23.2 and npm 10.9.8; CI enforces those exact versions before release attestation.
+Live operational sign-off remains the existing post-deployment `npm run test:deployed` workflow against the exact published SHA, because that step requires the real Cloudflare deployment and production bindings.
 
-## Files changed
+## Focused changes
 
-### Modified
+### Bundle warning and hard-limit states
 
-- `.github/workflows/ci.yml`
-- `BUILD-STATUS.md`
-- `README.md`
-- `package.json`
-- `scripts/build.mjs`
-- `scripts/check.mjs`
-- `workers/gateway/README.md`
-- `workers/gateway/build-meta.js`
-- `wrangler.toml`
+`config/bundle-budget.json` now defines both:
 
-### Added
+- `warnJavaScriptGzipBytes`: 42,750 bytes (95% of the hard ceiling);
+- `maxJavaScriptGzipBytes`: 45,000 bytes (unchanged).
 
-- `scripts/build-production.mjs`
-- `scripts/dependency-audit.mjs`
-- `scripts/deploy-production.mjs`
-- `scripts/deployment-artifact.mjs`
-- `scripts/release-metadata.mjs`
-- `scripts/verify-deploy-artifact.mjs`
-- `scripts/wrangler-build.mjs`
-- `tests/release-governance.test.mjs`
+`scripts/check-bundle-budget.mjs` reports the actual gzipped JavaScript size, warning limit, hard limit, remaining bytes, percentage consumed and state. Warning-band entry emits a visible CI warning but does not fail the build. Exceeding a hard limit still returns a failing exit status.
 
-### Removed
+Configuration loading/validation is isolated in `scripts/bundle-budget.mjs`, which rejects missing files, malformed JSON, non-positive limits and a warning threshold that is not below the hard threshold.
 
-- `apps/widget/assets/CogniPal.jpg` — unused local widget asset; the widget uses the configured hosted asset and this file was not referenced or copied into the build.
-- `dist/` from the returned source package — generated output is already ignored by `.gitignore` and is now rebuilt and verified as part of the governed deployment path.
+### Production JavaScript optimisation
 
-## Implementation details
+The previous build only removed full-line comments. The final build now performs syntax-aware token compaction through `scripts/compact-javascript.mjs` using the pinned Node toolchain parser exposed to the build subprocess.
 
-### Readiness documentation corrected
+The compactor:
 
-- `/livez` is documented as process/Worker liveness only.
-- `/readyz` is documented as fail-closed production readiness for required configuration/bindings plus AIMS upstream health.
-- D1 readiness is explicitly defined as presence/configuration of the `DB` binding.
-- Documentation now states that `/readyz` deliberately does not query D1 tables or schema.
-- D1 schema/table verification is assigned to migrations, explicit diagnostics and functional widget operations.
-- `/health` remains documented as the backwards-compatible alias of `/readyz`.
-- Stale contradictory readiness descriptions were removed from the root and gateway READMEs.
+- removes comments and unnecessary inter-token whitespace;
+- preserves line terminators where they can affect JavaScript semantics;
+- re-parses each generated module;
+- verifies that token types and values are unchanged before writing output;
+- adds no npm/network build dependency.
 
-### Governed production deployment
+A test-only HIVE hand-off token creation helper was also removed from the production Worker. Gateway tests now create their own independently signed fixture token and continue to test the production verification path. This removes dead production code instead of relying solely on whitespace savings.
 
-- Added `npm run deploy:production` as the supported production release command.
-- Production deployment runs repository validation, a clean production build and deployment-artifact verification before invoking Wrangler.
-- Wrangler is pinned by the deployment script to version 4.135.0.
-- `wrangler.toml` now points the production entry point at `dist/gateway/index.js` rather than the mutable source Worker.
-- Added a Wrangler custom build hook so an ordinary local CLI deployment rebuilds output instead of reusing stale `dist` assets.
-- Cloudflare Workers Builds documentation now instructs use of `npm run deploy:production` as the deploy command because Workers Builds does not execute Wrangler custom-build hooks itself.
+The forensic pass also removed an unused widget-local CogniPal image, removed a stale unreferenced Worker CSS token file, eliminated a duplicate source-level theme import, and changed origin allow-list handling so `*` is not accepted as a production browser origin.
 
-### Trustworthy release metadata
+### Bundle measurement
 
-- Production builds require an exact full Git SHA and release branch.
-- Supported CI metadata is used when present; otherwise a real Git checkout is inspected.
-- Production builds reject missing/non-exact SHAs.
-- Production builds reject a CI-provided SHA or branch that contradicts the checked-out Git repository.
-- Development/local builds retain the existing `development` fallback, but production deployment cannot use it.
-- The source `workers/gateway/build-meta.js` is now explicitly a local/test fallback.
-- Production `dist/gateway/build-meta.js` is generated during the clean build.
+Focused-remediation baseline:
 
-### Stale artifact prevention
+- gzipped JavaScript: **44,772 bytes**;
+- hard ceiling: **45,000 bytes**;
+- remaining headroom: **228 bytes (0.51%)**.
 
-- Every build deletes and recreates `dist` before copying production output.
-- A deterministic SHA-256 digest of deployment source inputs is recorded in `dist/build-manifest.json`.
-- `verify:deploy-artifact` recomputes the digest immediately before deployment and fails if source files changed after the build.
-- The verifier confirms release SHA, branch, required output files and generated Worker metadata.
-- Production verification rejects any generated Worker metadata containing the `development` placeholder.
+Final validation build:
 
-### Build-status test count
+- gzipped JavaScript: **42,332 bytes**;
+- warning threshold: **42,750 bytes**;
+- hard ceiling: **45,000 bytes**;
+- remaining headroom: **2,668 bytes (5.93%)**;
+- reduction from baseline: **2,440 bytes gzipped (5.45%)**.
 
-- Removed manually maintained test/module counts from `BUILD-STATUS.md`.
-- The status file now treats `npm run validate` and exact-SHA CI output as authoritative evidence.
+The hard ceiling was not increased.
 
-### CI/release gate
+## Tests added/changed
 
-- The exact-SHA release gate now performs a production build, verifies the deployment artifact and runs the bundle budget before writing its release attestation.
-- Existing exact-SHA deployed-integration validation was retained.
+`tests/bundle-budget.test.mjs` covers:
 
-### Repository source checks
+1. JavaScript below the warning threshold;
+2. warning-band state without hard failure;
+3. hard-limit breach;
+4. missing configuration;
+5. malformed JSON;
+6. invalid warning/hard threshold relationship;
+7. invalid non-positive limits.
 
-- `scripts/check.mjs` now enforces the generated production entry point and Wrangler build hook.
-- It rejects documentation/workflow deployment paths that bypass the governed production command.
-- Existing security/configuration source checks remain in place.
+`tests/gateway.test.mjs` now builds HIVE hand-off fixture tokens independently instead of importing a production-only-unused token creation helper.
 
-## Tests added/updated
+Test counts are deliberately not hard-coded into repository documentation. The authoritative result is the current `npm test`/`npm run validate` output for the exact revision.
 
-Added `tests/release-governance.test.mjs` covering:
+## Documentation reconciliation
 
-1. exact production SHA/branch requirements;
-2. rejection of checkout/CI SHA mismatch;
-3. rejection of checkout/CI branch mismatch;
-4. required governed deployment command;
-5. required production build and artifact verification stages;
-6. Wrangler generated-entry/build-hook invariants;
-7. readiness documentation consistency with the non-querying D1 contract.
+The root README now documents:
 
-Current test execution result: **53 tests passed, 0 failed, 0 skipped**.
+- AIMS/AIMS-UI ownership boundaries and shipped architecture;
+- static assets, gateway Worker, Cloudflare `ASSETS`, D1 `DB` usage and build metadata;
+- `/livez`, `/readyz`, `/health`, D1 diagnostics and deployed-integration responsibilities;
+- local build/validation commands;
+- the warning/hard bundle mechanism and regression-investigation policy;
+- required variables, bindings and secrets;
+- exact-SHA deployment/artifact verification;
+- security, dependency and release gates.
 
-## Validation commands and results
+The widget README, gateway README, architecture document, security policy and build-status document were reconciled with the final implementation. Evergreen documents avoid static test counts and transient current bundle-size claims.
 
-- `npm run lint` — PASS; 28 JavaScript modules, no configured line-length violations.
-- `npm run check` — PASS; 28 JavaScript modules and 7 required files checked.
-- `npm test` — PASS; 53/53 tests.
-- `npm run secret:scan` — PASS; no committed literal credentials detected.
-- `npm run audit:dependencies` — PASS; `package.json` declares no npm dependencies, so there is no npm dependency graph to audit.
-- `npm run build` — PASS.
-- `npm run check:bundle-budget` — PASS.
-- Production metadata fail-closed check — PASS: production build fails when no exact release SHA/branch can be established.
-- Production build with exact validation metadata — PASS.
-- `npm run verify:deploy-artifact` — PASS with exact SHA/branch and matching source digest.
-- Wrangler deployment build-hook simulation (`WRANGLER_COMMAND=deploy`) — PASS; clean production build and artifact verification executed.
+## Validation results
 
-`npm ci` is not applicable to the current repository because it has no npm dependencies and no lockfile is required. CI already requires a lockfile and runs `npm ci` automatically as soon as dependencies are introduced.
+The following repository-native gates pass in the supplied environment:
 
-## Bundle budget
+- `npm run lint`;
+- `npm run check`;
+- `npm test`;
+- `npm run secret:scan`;
+- `npm run audit:dependencies`;
+- `npm run build`;
+- `npm run check:bundle-budget`.
 
-Latest full validation build:
+The repository continues to have no npm application or development dependencies, so the dependency gate does not require a lockfile. CI is already configured to require a lockfile and run `npm ci` if dependencies are introduced later.
 
-- Total bundle: 326,871 bytes / 400,000 maximum — PASS
-- Gzipped JavaScript: 44,772 bytes / 45,000 maximum — PASS
-- Gzipped CSS: 11,235 bytes / 13,000 maximum — PASS
-- Largest asset: 94,228 bytes / 160,000 maximum — PASS
+Production release protections remain in place: production metadata requires an exact full SHA and branch, deployment artifacts carry source-digest/release metadata, direct documentation/workflow deployment bypasses are rejected, and the release gate rechecks the bundle after the production build.
 
-A production-metadata build was also tested and remained within the configured bundle ceilings.
+## Forensic regression pass
 
-## Security and dependency results
+The focused pass found no new High/Critical issue and did not introduce unrelated refactors. Existing source gates continue to reject committed credentials, demo/mock production markers, unsafe release bypass documentation and stale production entry-point configuration. Structured Worker operational logging was retained because it is release telemetry rather than temporary debug output.
 
-- Repository secret scan: PASS.
-- No hard-coded credential literal found by the repository scan or final forensic pattern scan.
-- No TODO/FIXME/HACK/debugger production leftovers found outside negative-test assertions.
-- Runtime `console.info`, `console.warn` and `console.error` statements are operational gateway logging/error telemetry rather than temporary debug statements and were retained.
-- Production observability/logging/tracing requirements remain enforced by source checks.
-- No npm application dependencies are declared.
-- The governed deployment command pins Wrangler 4.135.0, verified as the current npm release during remediation.
-- No accidental development configuration was found in `wrangler.toml`; `ENVIRONMENT` remains `production` and development identity variables are not configured there.
+## Remaining performance-headroom concern
 
-## Production-readiness assessment
+The final JavaScript size is below the 95% warning threshold, but only by 418 bytes. That is intentional visibility rather than a hidden cliff: any modest growth will enter the warning band while still leaving a further 2,250 bytes before the unchanged hard failure limit.
 
-The repository satisfies the remediation criteria at source/build level:
+Future growth should first be investigated for dead imports/code, repeated helpers, unnecessary embedded data and feature deferral/splitting opportunities. A hard-limit increase is not the default remediation and requires explicit reviewed analysis.
 
-- readiness documentation now matches implementation;
-- production release metadata fails closed rather than silently publishing `development` values;
-- normal production deployment rebuilds generated assets and validates their source digest;
-- stale `dist/site` output is not carried in the returned source repository;
-- exact-SHA CI release validation is strengthened;
-- manually stale test counts are removed;
-- all available local gates pass.
+## Production-readiness status
 
-The remaining operational step is the existing post-deployment integration run against the exact SHA after the remediated repository is published to Cloudflare. That test requires the live deployment and production credentials/bindings and is intentionally not simulated with fabricated credentials.
+At repository/build level, AIMS-UI meets the focused remediation criteria: warning and hard states are enforced, bundle headroom is materially safer, release protections remain intact, documentation matches the final implementation and all available local gates pass. The remaining operational check is the existing deployed-integration run against the exact published SHA after deployment.
