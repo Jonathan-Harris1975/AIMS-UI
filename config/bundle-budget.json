@@ -1,5 +1,6 @@
 {
   "maxTotalBytes": 400000,
+  "warnJavaScriptGzipBytes": 42750,
   "maxJavaScriptGzipBytes": 45000,
   "maxCssGzipBytes": 13000,
   "maxSingleAssetBytes": 160000
