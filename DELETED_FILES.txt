@@ -1,4 +1,0 @@
-Remove these obsolete/dead files from the repository:
-
-apps/widget/assets/CogniPal.jpg
-workers/gateway/tokens.css
