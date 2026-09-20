@@ -54,9 +54,11 @@ The gateway verifies the current HIVE session, resolves an actor and Comms Hub r
 - `/readyz` and its `/health` alias fail closed when required bindings/configuration are missing or the AIMS health endpoint is unavailable. D1 readiness means that the `DB` binding is configured; the endpoint deliberately **does not query D1**.
 - D1 table/schema verification belongs in the migration path, explicit diagnostics and functional session/message operations. Keeping this separate makes readiness cheap and predictable while still allowing schema failures to surface where they can be diagnosed precisely.
 
-## Production release governance
+## Build and production release governance
 
-Use only `npm run deploy:production` for a production release. The command requires a full Git SHA and branch, rebuilds `dist` from source, verifies a SHA-256 digest of deployment inputs, checks generated Worker build metadata, and then executes the pinned Wrangler release command. Configure Cloudflare Workers Builds with the same deploy command. The Wrangler configuration also has a custom build hook so an ordinary local CLI deployment rebuilds rather than reusing stale `dist` output.
+`npm run build` regenerates `dist/gateway` and `dist/site` from source and compacts deployable JavaScript with token-stream verification. `npm run check:bundle-budget` applies the configured 42,750-byte gzipped JavaScript warning threshold and unchanged 45,000-byte hard ceiling, alongside the total/CSS/single-asset limits. The warning band is advisory; the hard ceiling remains release-blocking.
+
+Use only `npm run deploy:production` as the production release path. The command requires a full Git SHA and branch, rebuilds `dist` from source, verifies a SHA-256 digest of deployment inputs, checks generated Worker build metadata, and then executes the pinned Wrangler release command. Configure Cloudflare Workers Builds with the same deploy command. The Wrangler custom build hook is defence in depth against stale output, not an alternative documented release path.
 
 ## Required HIVE verification response
 

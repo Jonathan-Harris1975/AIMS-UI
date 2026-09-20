@@ -175,7 +175,6 @@ export function isAllowedOrigin(origin, allowlist, _requestUrl = "") {
   let parsed;
   try { parsed = new URL(origin).origin; } catch { return false; }
   const configured = Array.isArray(allowlist) ? allowlist : parseCsv(allowlist);
-  if (configured.includes("*")) return true;
   return configured.includes(parsed);
 }
 
@@ -292,15 +291,6 @@ export async function verifySessionToken(token, secret, { now = Date.now() } = {
   } catch {
     return null;
   }
-}
-
-export async function createHiveHandoffToken({ actor, role, ttlSeconds = 300, now = Date.now() }, secret) {
-  const issuedAt = Math.floor(now / 1000);
-  const boundedTtl = Math.min(600, Math.max(60, Number(ttlSeconds) || 300));
-  const payload = { v: 1, iat: issuedAt, exp: issuedAt + boundedTtl, actor: normalise(actor).slice(0, 200), role: normalise(role).toLowerCase(), aud: "aims-comms" };
-  if (!payload.actor || !ALLOWED_ROLES.has(payload.role)) throw new Error("Invalid HIVE handoff identity.");
-  const body = base64UrlEncode(JSON.stringify(payload));
-  return `${body}.${await hmacBase64Url(secret, body)}`;
 }
 
 export async function verifyHiveHandoffToken(token, secret, { now = Date.now() } = {}) {
