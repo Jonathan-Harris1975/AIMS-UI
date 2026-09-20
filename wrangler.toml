@@ -1,7 +1,10 @@
 name = "aims-ui-gateway"
-main = "workers/gateway/index.js"
+main = "dist/gateway/index.js"
 compatibility_date = "2026-08-11"
 preview_urls = false
+
+[build]
+command = "node scripts/wrangler-build.mjs"
 
 [triggers]
 crons = ["*/5 * * * *"]

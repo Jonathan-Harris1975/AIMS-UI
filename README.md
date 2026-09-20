@@ -58,7 +58,22 @@ D1-backed widget delivery outbox. Apply `workers/gateway/schema.sql` before
 deployment and retain that trigger; visitor messages otherwise remain safely
 persisted but will require manual retry while AIMS is unavailable.
 
-`GET /livez` is the public liveness probe and returns `200` whenever the deployed gateway worker is running. `GET /readyz` is the fail-closed production-readiness probe: it returns `503` until both console and widget bindings are complete, the widget D1 schema is queryable, and the configured AIMS Comms Hub health endpoint answers successfully. `GET /health` remains a backwards-compatible alias of `/readyz`.
+Production releases use one governed command:
+
+```bash
+npm run deploy:production
+```
+
+The command runs the repository validation gates, performs a clean production build, requires an exact Git commit SHA and release branch, verifies the generated source digest and release metadata, and only then invokes the pinned Wrangler release command. In a normal Git checkout the SHA and branch are derived from the checkout. CI may provide `AIMS_UI_RELEASE_SHA` and `AIMS_UI_RELEASE_BRANCH` (or the supported GitHub/Workers CI variables), but any value that contradicts the checked-out Git commit or branch is rejected. Configure Cloudflare Workers Builds to use `npm run deploy:production` as its deploy command so automated and manual production releases obey the same gates.
+
+Wrangler also uses `scripts/wrangler-build.mjs` as a custom build hook for ordinary CLI deployment, which regenerates `dist` and validates its release metadata. The documented and supported production path remains `npm run deploy:production`; do not substitute a direct deployment command in local instructions or CI.
+
+Health endpoints intentionally have different responsibilities:
+
+- `GET /livez` is liveness only. It returns `200` when the deployed Worker can execute and does not require production bindings or upstream health.
+- `GET /readyz` is fail-closed readiness. It verifies required configuration/bindings, confirms the D1 binding is present, and checks the configured AIMS Comms Hub health endpoint. It deliberately **does not query D1 tables or schema**.
+- `GET /health` is a backwards-compatible alias of `/readyz`.
+- D1 schema/table verification belongs in migrations, explicit diagnostics and real functional widget operations, where a failed query is actionable and does not turn a frequently-polled readiness endpoint into a database probe.
 
 ## Widget
 

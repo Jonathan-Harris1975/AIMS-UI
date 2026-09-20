@@ -1,0 +1,4 @@
+apps/widget/assets/CogniPal.jpg
+
+dist/
+Reason: generated build output. The governed production deployment now recreates and verifies dist from source before deployment.

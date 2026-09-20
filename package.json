@@ -6,14 +6,18 @@
   "description": "AIMS Comms Hub operator console, CogniPal website widget and secure edge gateway.",
   "scripts": {
     "build": "node scripts/build.mjs",
+    "build:production": "node scripts/build-production.mjs",
     "check": "node scripts/check.mjs",
     "lint": "node scripts/lint.mjs",
     "test": "node --test tests/*.test.mjs",
-    "validate": "npm run lint && npm run check && npm test && npm run build && npm run check:bundle-budget",
+    "validate": "npm run lint && npm run check && npm test && npm run secret:scan && npm run audit:dependencies && npm run build && npm run check:bundle-budget",
     "dev": "node scripts/serve.mjs",
     "secret:scan": "python3 scripts/secret_scan.py",
+    "audit:dependencies": "node scripts/dependency-audit.mjs",
     "check:bundle-budget": "node scripts/check-bundle-budget.mjs",
-    "test:deployed": "node scripts/deployed-integration.mjs"
+    "verify:deploy-artifact": "node scripts/verify-deploy-artifact.mjs",
+    "test:deployed": "node scripts/deployed-integration.mjs",
+    "deploy:production": "node scripts/deploy-production.mjs"
   },
   "engines": {
     "node": "22.23.2",
