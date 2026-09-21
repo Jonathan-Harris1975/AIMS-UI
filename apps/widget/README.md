@@ -1,6 +1,6 @@
 # CogniPal website widget
 
-A dependency-free custom element with Shadow DOM isolation. The source is `apps/widget/cognipal-widget.js`; `npm run build` copies and compacts it to `dist/site/widget/cognipal-widget.js` for delivery by the AIMS-UI Worker assets binding.
+A dependency-free custom element with Shadow DOM isolation. The sources are `apps/widget/cognipal-widget.js` and `apps/widget/cognipal-widget.css`; `npm run build` copies and compacts both into `dist/site/widget/` for delivery by the AIMS-UI Worker assets binding. The stylesheet is resolved relative to the module URL and remains isolated inside the widget Shadow DOM.
 
 ## Embed
 
