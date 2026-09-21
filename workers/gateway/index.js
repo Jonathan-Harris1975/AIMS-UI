@@ -223,12 +223,20 @@ export async function probeAimsUpstream(env, { fetchImpl = fetch, timeoutMs = 5_
       redirect: "manual",
     }, timeoutMs);
     const payload = await response.json().catch(() => null);
+    const ok = response.ok && payload?.ok === true && payload?.service === "comms-hub";
     return {
-      ok: response.ok && payload?.ok === true && payload?.service === "comms-hub",
+      ok,
       status: response.status,
+      // Propagate only bounded operational metadata. This lets HIVE identify
+      // an upstream AIMS failure instead of presenting AIMS-UI as independently
+      // misconfigured, without leaking provider responses or secrets.
+      ...(ok ? {} : {
+        upstreamStatus: normalise(payload?.status || payload?.runtime?.status || "unavailable").slice(0, 80),
+        upstreamDetail: normalise(payload?.detail || payload?.runtime?.detail || "upstream_not_ready").slice(0, 160),
+      }),
     };
   } catch {
-    return { ok: false, status: null };
+    return { ok: false, status: null, upstreamStatus: "unreachable", upstreamDetail: "upstream_probe_failed" };
   }
 }
 
