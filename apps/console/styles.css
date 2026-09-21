@@ -413,3 +413,93 @@ button, .button, .nav-item, .nav-subitem, .queue-card, .contact-card, .notificat
   .contact-editor { position: fixed; z-index: 35; top: 80px; right: var(--aims-space-6); width: min(520px, calc(100vw - 280px)); max-height: calc(100dvh - 104px); overflow-y: auto; background: var(--aims-surface-overlay); border-color: var(--aims-border-strong); box-shadow: var(--aims-shadow-overlay); }
   .contact-edit-form { grid-template-columns: 1fr; }
 }
+
+/* Responsive resilience: keep every view usable from compact phones to wide operator displays. */
+html { overflow-x: hidden; }
+body { min-width: 0; overflow-x: hidden; }
+img, video, canvas, svg { max-width: 100%; }
+input, textarea, select, button { max-width: 100%; }
+.panel, .settings-card, .approval-card, .workflow-card, .quarantine-list article, .contact-card { overflow-wrap: anywhere; }
+
+@media (min-width: 1600px) {
+  .content { max-width: 1760px; padding-inline: clamp(var(--aims-space-8), 3vw, 56px); }
+  .dashboard-grid { gap: var(--aims-space-6); }
+  .workspace-grid { grid-template-columns: minmax(0, 2fr) minmax(320px, .72fr); gap: var(--aims-space-6); }
+  .message-thread { max-height: calc(100dvh - 320px); }
+}
+
+@media (max-width: 1280px) {
+  .content { padding: var(--aims-space-6); }
+  .page-header { margin-bottom: var(--aims-space-6); }
+  .approval-card, .workflow-card, .quarantine-list article { padding: var(--aims-space-4); }
+  .contact-grid { grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); }
+}
+
+@media (max-width: 760px) {
+  .queue-table { display: none; }
+  .queue-cards { display: grid; gap: var(--aims-space-2); padding: var(--aims-space-3); }
+  .topbar { min-width: 0; }
+  .global-search { width: auto; min-width: 0; }
+  .page-actions, .workspace-actions, .button-row { width: 100%; }
+  .page-actions > .button, .workspace-actions > .button { flex: 1 1 auto; }
+  .settings-card dl div, .detail-card dl div { grid-template-columns: minmax(96px, .7fr) minmax(0, 1.3fr); }
+  .approval-copy > div { flex-wrap: wrap; }
+}
+
+@media (max-width: 480px) {
+  .content { padding: var(--aims-space-4) var(--aims-space-3); }
+  .topbar { padding-inline: var(--aims-space-2); }
+  .global-search { height: 44px; padding-inline: var(--aims-space-2); }
+  .global-search svg { width: 18px; height: 18px; }
+  .page-header { gap: var(--aims-space-3); margin-bottom: var(--aims-space-4); }
+  .page-actions, .workspace-actions, .button-row { display: grid; grid-template-columns: 1fr; }
+  .page-actions > *, .workspace-actions > *, .button-row > * { width: 100%; }
+  .summary-grid, .metric-grid { grid-template-columns: 1fr; }
+  .summary-card { min-height: 84px; border-right: 0; border-bottom: 1px solid var(--aims-border); }
+  .summary-card:last-child { border-bottom: 0; }
+  .queue-cards, .contacts-panel, .quarantine-list { padding-inline: var(--aims-space-2); }
+  .queue-card-meta { grid-template-columns: 1fr; }
+  .queue-card-meta > span:last-child { grid-column: auto; }
+  .approval-card, .workflow-card, .quarantine-list article { grid-template-columns: 1fr; gap: var(--aims-space-3); }
+  .approval-icon, .workflow-node { width: 36px; height: 36px; }
+  .approval-actions, .workflow-card .button, .quarantine-list article > div:last-child { grid-column: auto; width: 100%; }
+  .approval-actions, .quarantine-list article > div:last-child { display: grid; grid-template-columns: 1fr; }
+  .contact-grid { grid-template-columns: 1fr; }
+  .contact-card { grid-template-columns: auto minmax(0, 1fr); }
+  .contact-card > :last-child { grid-column: 2; }
+  .settings-card { padding: var(--aims-space-4); }
+  .settings-card dl div, .detail-card dl div { grid-template-columns: 1fr; gap: var(--aims-space-1); }
+  .workspace-title { align-items: flex-start; flex-direction: column; gap: var(--aims-space-2); }
+  .workspace-context-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .message { max-width: 100%; grid-template-columns: 26px minmax(0, 1fr); }
+  .message.outbound { grid-template-columns: minmax(0, 1fr) 26px; }
+  .message-avatar { width: 26px; height: 26px; }
+  .message header { align-items: flex-start; flex-direction: column; gap: var(--aims-space-1); }
+  .reply-composer { position: sticky; bottom: 0; z-index: 4; }
+  .embedded-nav { min-height: 52px; }
+  .embedded-inbox-subnav { padding-inline: var(--aims-space-2); }
+  .notification-panel { inset-inline: var(--aims-space-2); width: auto; }
+  .action-overflow-menu { position: fixed; left: var(--aims-space-2); right: var(--aims-space-2); bottom: var(--aims-space-2); top: auto; width: auto; max-height: calc(100dvh - 24px); overflow-y: auto; }
+}
+
+@media (max-width: 360px) {
+  .topbar { gap: var(--aims-space-1); }
+  .topbar .icon-button { width: 40px; min-width: 40px; }
+  .global-search { padding-inline: var(--aims-space-2); }
+  .global-search input::placeholder { color: transparent; }
+  .page-header h1 { overflow-wrap: anywhere; }
+  .channel-label, .interaction-label, .priority, .pill, .ai-state { max-width: 100%; white-space: normal; }
+}
+
+@media (max-height: 560px) and (orientation: landscape) {
+  .sidebar { overflow-y: auto; }
+  .topbar { position: relative; }
+  .content { padding-top: var(--aims-space-4); }
+  .message-thread { max-height: none; }
+  .notification-panel { top: var(--aims-space-2); max-height: calc(100dvh - 16px); }
+  .notification-list { max-height: calc(100dvh - 80px); }
+}
+
+@media (pointer: coarse) {
+  .filter-disclosure > summary, .action-overflow > summary, .workspace-context-tabs button { min-height: 44px; }
+}
