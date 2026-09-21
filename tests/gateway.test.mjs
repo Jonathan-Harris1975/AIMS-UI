@@ -660,7 +660,7 @@ test("gateway readiness fails when the configured AIMS origin is unavailable", a
     assert.equal(response.status, 503);
     assert.equal(body.ready, false);
     assert.equal(body.configuration.ready, true);
-    assert.deepEqual(body.dependencies.aims, { ok: false, status: 502 });
+    assert.deepEqual(body.dependencies.aims, { ok: false, status: 502, upstreamStatus: "unavailable", upstreamDetail: "upstream_not_ready" });
   } finally {
     globalThis.fetch = originalFetch;
   }
