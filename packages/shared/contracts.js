@@ -1,5 +1,3 @@
-export const COMMS_ROLES = Object.freeze(["admin", "reviewer", "operator", "read_only"]);
-
 export const ROLE_PERMISSIONS = Object.freeze({
   admin: new Set(["read", "reply", "approve", "assign", "status", "note", "takeover", "workflow", "quarantine", "settings", "social_setup", "identity", "retention"]),
   reviewer: new Set(["read", "reply", "approve", "assign", "status", "note", "takeover", "workflow", "quarantine", "social_setup", "identity"]),
@@ -10,17 +8,3 @@ export const ROLE_PERMISSIONS = Object.freeze({
 export function roleAllows(role, permission) {
   return Boolean(ROLE_PERMISSIONS[role]?.has(permission));
 }
-
-export const OPERATIONAL_STATUSES = Object.freeze([
-  "open",
-  "pending",
-  "snoozed",
-  "resolved",
-  "blocked",
-  "quarantined",
-  "archived",
-  "escalated",
-]);
-
-export const CHANNELS = Object.freeze(["chat", "email", "facebook", "instagram", "youtube", "form"]);
-export const PRIORITIES = Object.freeze(["critical", "high", "medium", "low"]);

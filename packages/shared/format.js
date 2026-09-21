@@ -42,16 +42,3 @@ export function titleCase(value) {
     .replaceAll(/[_-]+/g, " ")
     .replaceAll(/\b\w/g, (letter) => letter.toUpperCase());
 }
-
-export function safeJson(value, fallback = {}) {
-  if (value && typeof value === "object") return value;
-  try {
-    return JSON.parse(String(value || ""));
-  } catch {
-    return fallback;
-  }
-}
-
-export function clamp(value, minimum, maximum) {
-  return Math.min(maximum, Math.max(minimum, Number(value) || 0));
-}
