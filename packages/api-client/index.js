@@ -137,7 +137,14 @@ export class AimsCommsClient {
   chatStatus() { return this.request("/chat/status"); }
   emailStatus() { return this.request("/email/status"); }
   manualMailAccounts() { return this.request("/manual-mail/accounts"); }
-  manualMailMessages(accountKey, limit = 30) { return this.request(`/manual-mail/${encodeURIComponent(accountKey)}/messages`, { query: { limit } }); }
+  manualMailFolders(accountKey) { return this.request(`/manual-mail/${encodeURIComponent(accountKey)}/folders`); }
+  manualMailMessages(accountKey, limit = 30, folder = "INBOX") { return this.request(`/manual-mail/${encodeURIComponent(accountKey)}/messages`, { query: { limit, folder } }); }
+  moveManualMail(accountKey, uid, folder, destination) {
+    return this.request(`/manual-mail/${encodeURIComponent(accountKey)}/messages/${encodeURIComponent(uid)}/move`, {
+      method: "POST", body: { folder, destination }, idempotent: true,
+    });
+  }
+  deleteManualMail(accountKey, uid, folder) { return this.request(`/manual-mail/${encodeURIComponent(accountKey)}/messages/${encodeURIComponent(uid)}`, { method: "DELETE", query: { folder } }); }
   sendManualMail(accountKey, message) { return this.request(`/manual-mail/${encodeURIComponent(accountKey)}/send`, { method: "POST", body: message, idempotent: true }); }
   reconcileSocialWebhooks() { return this.request("/social/webhooks/reconcile-all", { method: "POST", body: {}, idempotent: true }); }
   drainSocialPoll(limit = 5) { return this.request("/social/poll/drain", { method: "POST", body: { limit }, idempotent: true }); }
