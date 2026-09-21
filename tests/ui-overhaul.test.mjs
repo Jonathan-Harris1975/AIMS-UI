@@ -21,12 +21,15 @@ test('console retains keyboard, touch and responsive queue affordances', async (
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/)
 })
 
-test('CogniPal announces asynchronous state without changing transport behaviour', async () => {
+test('CogniPal announces asynchronous state and loads its isolated production stylesheet', async () => {
   const widget = await readFile(new URL('../apps/widget/cognipal-widget.js', import.meta.url), 'utf8')
+  const styles = await readFile(new URL('../apps/widget/cognipal-widget.css', import.meta.url), 'utf8')
   assert.match(widget, /role="log" aria-live="polite" aria-relevant="additions text"/)
   assert.match(widget, /class="cp-wake" role="status"/)
   assert.match(widget, /class="cp-typing" role="status" aria-label="CogniPal is thinking"/)
-  assert.match(widget, /\.cp-send \{ width:44px; height:44px;/)
+  assert.match(widget, /new URL\("\.\/cognipal-widget\.css", import\.meta\.url\)\.href/)
+  assert.match(widget, /<link rel="stylesheet" href="\$\{escapeHtml\(STYLE_URL\)\}">/)
+  assert.match(styles, /\.cp-send \{ width:44px; height:44px;/)
 })
 
 

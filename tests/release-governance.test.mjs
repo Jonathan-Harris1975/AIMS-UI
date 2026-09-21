@@ -56,6 +56,7 @@ test("production release metadata rejects a checkout mismatch", () => {
 
 test("production deployment is governed by validation, production build and artifact verification", async () => {
   const packageJson = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
+  assert.equal(packageJson.repositoryIdentity, "AIMS-UI");
   assert.equal(packageJson.scripts["deploy:production"], "node scripts/deploy-production.mjs");
   assert.match(packageJson.scripts.validate, /npm run secret:scan/);
   assert.match(packageJson.scripts.validate, /npm run audit:dependencies/);
