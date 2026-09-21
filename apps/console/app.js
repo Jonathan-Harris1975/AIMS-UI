@@ -81,7 +81,7 @@ const state = {
   chatStatus: null,
   emailStatus: null,
   socialBusy: false,
-  manualMail: { accounts: [], accountKey: "admin", messages: [], selectedUid: null, loading: false },
+  manualMail: { accounts: [], accountKey: "admin", folders: [], folder: "INBOX", messages: [], selectedUid: null, loading: false },
 };
 
 const icons = {
@@ -841,6 +841,8 @@ function manualMailView() {
   const mail = state.manualMail;
   const account = mail.accounts.find((item) => item.key === mail.accountKey);
   const selected = mail.messages.find((item) => String(item.uid) === String(mail.selectedUid));
+  const folderOptions = mail.folders.map((item) => `<option value="${escapeHtml(item.name)}" ${item.name === mail.folder ? "selected" : ""}>${escapeHtml(item.name)}</option>`).join("");
+  const moveOptions = mail.folders.filter((item) => item.name !== mail.folder).map((item) => `<option value="${escapeHtml(item.name)}">${escapeHtml(item.name)}</option>`).join("");
   const accountButtons = mail.accounts.map((item) => `
     <button class="button ${item.key === mail.accountKey ? "primary" : "secondary"}"
       data-mail-account="${escapeHtml(item.key)}" ${item.enabled ? "" : "disabled"}>
@@ -859,6 +861,7 @@ function manualMailView() {
     )}
     <section class="manual-mail-toolbar" aria-label="Manual mailboxes">
       ${accountButtons || '<span class="muted">No manual mailboxes are configured.</span>'}
+      <label class="manual-mail-folder">Folder <select data-mail-folder aria-label="Mail folder">${folderOptions}</select></label>
       <button class="button secondary" data-action="refresh-mail" ${account?.enabled ? "" : "disabled"}>Refresh</button>
     </section>
     <section class="manual-mail-layout">
@@ -873,7 +876,14 @@ function manualMailView() {
             <p>From ${escapeHtml(selected.from?.name || selected.from?.address || "Unknown sender")}
               &lt;${escapeHtml(selected.from?.address || "")}&gt;</p>
             <time>${escapeHtml(formatDateTime(selected.receivedAt))}</time></div>
-          <button class="button primary" data-action="reply-mail">Reply</button>
+          <div class="manual-mail-actions">
+            <button class="button primary" data-action="reply-mail">Reply</button>
+            <label class="manual-mail-move"><span class="sr-only">Move to folder</span>
+              <select data-mail-move aria-label="Move email to folder">
+                <option value="">Move to…</option>${moveOptions}
+              </select></label>
+            <button class="button danger" data-action="delete-mail">Delete</button>
+          </div>
         </header>
         <div class="manual-mail-body">${escapeHtml(selected.text || "(No plain-text content)")}</div>
       ` : emptyState("Select a message", "Choose an email to read it here.")}</div>
@@ -1470,6 +1480,9 @@ function bindEvents() {
   root.querySelectorAll("[data-mail-account]").forEach((button) => button.addEventListener("click", () => selectManualMailbox(button.dataset.mailAccount)));
   root.querySelectorAll("[data-mail-uid]").forEach((button) => button.addEventListener("click", () => { state.manualMail.selectedUid = button.dataset.mailUid; render(); }));
   root.querySelector('[data-action="refresh-mail"]')?.addEventListener("click", loadManualMail);
+  root.querySelector("[data-mail-folder]")?.addEventListener("change", (event) => selectManualMailFolder(event.target.value));
+  root.querySelector("[data-mail-move]")?.addEventListener("change", (event) => { if (event.target.value) moveSelectedManualMail(event.target.value); });
+  root.querySelector('[data-action="delete-mail"]')?.addEventListener("click", deleteSelectedManualMail);
   root.querySelector('[data-action="compose-mail"]')?.addEventListener("click", () => openManualMailComposer());
   root.querySelector('[data-action="reply-mail"]')?.addEventListener("click", () => openManualMailComposer(true));
   root.querySelectorAll('[data-action="close-mail-dialog"]').forEach((button) => button.addEventListener("click", () => root.querySelector("#manual-mail-dialog")?.close()));
@@ -1696,7 +1709,13 @@ async function loadManualMail() {
       );
       if (!currentEnabled) state.manualMail.accountKey = state.manualMail.accounts.find((item) => item.enabled)?.key || "admin";
     }
-    const result = await client.manualMailMessages(state.manualMail.accountKey, 30);
+    const folderResult = await client.manualMailFolders(state.manualMail.accountKey);
+    state.manualMail.folders = folderResult.folders || [];
+    if (!state.manualMail.folders.some((item) => item.name === state.manualMail.folder)) {
+      state.manualMail.folder = state.manualMail.folders.find((item) => item.name.toUpperCase() === "INBOX")?.name
+        || state.manualMail.folders[0]?.name || "INBOX";
+    }
+    const result = await client.manualMailMessages(state.manualMail.accountKey, 30, state.manualMail.folder);
     state.manualMail.messages = result.messages || [];
     const selectionExists = state.manualMail.messages.some(
       (item) => String(item.uid) === String(state.manualMail.selectedUid),
@@ -1707,7 +1726,26 @@ async function loadManualMail() {
 }
 
 async function selectManualMailbox(key) {
-  state.manualMail.accountKey = key; state.manualMail.selectedUid = null; state.manualMail.messages = []; await loadManualMail();
+  state.manualMail.accountKey = key; state.manualMail.folder = "INBOX"; state.manualMail.folders = []; state.manualMail.selectedUid = null; state.manualMail.messages = []; await loadManualMail();
+}
+
+async function selectManualMailFolder(folder) {
+  state.manualMail.folder = folder; state.manualMail.selectedUid = null; state.manualMail.messages = []; await loadManualMail();
+}
+
+async function moveSelectedManualMail(destination) {
+  const uid = state.manualMail.selectedUid; if (!uid || !destination) return;
+  try {
+    await client.moveManualMail(state.manualMail.accountKey, uid, state.manualMail.folder, destination);
+    toast(`Email moved to ${destination}.`); state.manualMail.selectedUid = null; await loadManualMail();
+  }
+  catch (error) { toast(error?.message || "Email could not be moved.", "error"); }
+}
+
+async function deleteSelectedManualMail() {
+  const uid = state.manualMail.selectedUid; if (!uid || !confirm("Delete this email permanently?")) return;
+  try { await client.deleteManualMail(state.manualMail.accountKey, uid, state.manualMail.folder); toast("Email deleted."); state.manualMail.selectedUid = null; await loadManualMail(); }
+  catch (error) { toast(error?.message || "Email could not be deleted.", "error"); }
 }
 
 function openManualMailComposer(reply = false) {
