@@ -81,6 +81,7 @@ const state = {
   chatStatus: null,
   emailStatus: null,
   socialBusy: false,
+  manualMail: { accounts: [], accountKey: "admin", messages: [], selectedUid: null, loading: false },
 };
 
 const icons = {
@@ -93,6 +94,7 @@ const icons = {
   workflow: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h6v5H6V3Zm8 13h4v5h-6v-5h2Zm-9-1h6v5H5v-5Zm4-7v3h6v3h2v-5H11V8H9Z"/></svg>`,
   quarantine: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 3 6v6c0 5 3.8 9.7 9 10 5.2-.3 9-5 9-10V6l-9-4Zm-1 5h2v7h-2V7Zm0 9h2v2h-2v-2Z"/></svg>`,
   analytics: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16v2H2V3h2v16Zm3-2v-6h3v6H7Zm5 0V7h3v10h-3Zm5 0V4h3v13h-3Z"/></svg>`,
+  mail: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3V5Zm2 2v1l7 5 7-5V7H5Zm14 10v-6.6l-7 5-7-5V17h14Z"/></svg>`,
   settings: `<svg viewBox="0 0 24 24" aria-hidden="true">
     <path d="m19.4 13 .1-1-.1-1 2-1.5-2-3.4-2.4 1a8 8 0 0 0-1.7-1L15 3h-4l-.4 2.6
       a8 8 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.5-.1 1 .1 1-2 1.5 2 3.4 2.4-1a8 8 0 0 0 1.7 1L11 21h4
@@ -112,6 +114,7 @@ const icons = {
 const navItems = [
   ["dashboard", "Overview", icons.dashboard],
   ["inbox", "Unified inbox", icons.inbox],
+  ["mail", "Mail", icons.mail],
   ["approvals", "Approvals", icons.approval],
   ["contacts", "Contacts", icons.contacts],
   ["workflows", "Workflows", icons.workflow],
@@ -834,6 +837,63 @@ function analyticsView() {
   `);
 }
 
+function manualMailView() {
+  const mail = state.manualMail;
+  const account = mail.accounts.find((item) => item.key === mail.accountKey);
+  const selected = mail.messages.find((item) => String(item.uid) === String(mail.selectedUid));
+  const accountButtons = mail.accounts.map((item) => `
+    <button class="button ${item.key === mail.accountKey ? "primary" : "secondary"}"
+      data-mail-account="${escapeHtml(item.key)}" ${item.enabled ? "" : "disabled"}>
+      ${escapeHtml(item.address)}
+    </button>`).join("");
+  const rows = mail.messages.map((item) => `<button type="button" class="manual-mail-row ${String(item.uid) === String(mail.selectedUid) ? "active" : ""}" data-mail-uid="${escapeHtml(item.uid)}">
+    <strong>${escapeHtml(item.from?.name || item.from?.address || "Unknown sender")}</strong>
+    <span>${escapeHtml(item.subject || "(No subject)")}</span>
+    <time>${escapeHtml(formatRelativeTime(item.receivedAt))}</time>
+  </button>`).join("");
+  return shell(`
+    ${pageHeader(
+      "Mail",
+      "Read and send manual email. These mailboxes remain outside AIMS automation.",
+      `<button class="button primary" data-action="compose-mail" ${account?.enabled ? "" : "disabled"}>Compose</button>`,
+    )}
+    <section class="manual-mail-toolbar" aria-label="Manual mailboxes">
+      ${accountButtons || '<span class="muted">No manual mailboxes are configured.</span>'}
+      <button class="button secondary" data-action="refresh-mail" ${account?.enabled ? "" : "disabled"}>Refresh</button>
+    </section>
+    <section class="manual-mail-layout">
+      <div class="panel manual-mail-list">
+        <header><strong>${escapeHtml(account?.address || "Mailbox")}</strong><span>${mail.messages.length} recent</span></header>
+        ${mail.loading ? '<div class="loading-state" aria-busy="true">Loading mail…</div>'
+          : (rows || emptyState("No recent mail", "This mailbox has no recent messages."))}
+      </div>
+      <div class="panel manual-mail-reader">${selected ? `
+        <header class="manual-mail-message-header">
+          <div><h2>${escapeHtml(selected.subject || "(No subject)")}</h2>
+            <p>From ${escapeHtml(selected.from?.name || selected.from?.address || "Unknown sender")}
+              &lt;${escapeHtml(selected.from?.address || "")}&gt;</p>
+            <time>${escapeHtml(formatDateTime(selected.receivedAt))}</time></div>
+          <button class="button primary" data-action="reply-mail">Reply</button>
+        </header>
+        <div class="manual-mail-body">${escapeHtml(selected.text || "(No plain-text content)")}</div>
+      ` : emptyState("Select a message", "Choose an email to read it here.")}</div>
+    </section>
+    <dialog class="manual-mail-dialog" id="manual-mail-dialog" aria-labelledby="manual-mail-dialog-title">
+      <form method="dialog" class="manual-mail-compose" id="manual-mail-form">
+        <header>
+          <div><h2 id="manual-mail-dialog-title">New email</h2><p>Sending as ${escapeHtml(account?.address || "")}</p></div>
+          <button type="button" class="icon-button" data-action="close-mail-dialog" aria-label="Close">${icons.close}</button>
+        </header>
+        <label>To<input name="to" type="email" required autocomplete="off"></label>
+        <label>Subject<input name="subject" maxlength="500" required></label>
+        <label>Message<textarea name="bodyText" rows="10" required></textarea></label>
+        <input name="inReplyTo" type="hidden"><input name="references" type="hidden">
+        <footer><button type="button" class="button secondary" data-action="close-mail-dialog">Cancel</button><button type="submit" class="button primary">Send</button></footer>
+      </form>
+    </dialog>
+  `);
+}
+
 function settingsView() {
   const identity = state.bootstrap?.identity || {};
   const social = state.socialStatus?.monitoring || {};
@@ -1321,6 +1381,7 @@ function render() {
     workflows: workflowsView,
     quarantine: quarantineView,
     analytics: analyticsView,
+    mail: manualMailView,
     settings: settingsView,
   };
   root.className = "";
@@ -1406,6 +1467,13 @@ function bindEvents() {
   root.querySelectorAll("[data-social-action]").forEach((button) => button.addEventListener("click", () => runSocialAction(button)));
   root.querySelectorAll("[data-social-approval]").forEach((button) => button.addEventListener("click", () => requestSocialModeration(button)));
   root.querySelectorAll("[data-social-approved-id]").forEach((button) => button.addEventListener("click", () => executeApprovedSocialModeration(button)));
+  root.querySelectorAll("[data-mail-account]").forEach((button) => button.addEventListener("click", () => selectManualMailbox(button.dataset.mailAccount)));
+  root.querySelectorAll("[data-mail-uid]").forEach((button) => button.addEventListener("click", () => { state.manualMail.selectedUid = button.dataset.mailUid; render(); }));
+  root.querySelector('[data-action="refresh-mail"]')?.addEventListener("click", loadManualMail);
+  root.querySelector('[data-action="compose-mail"]')?.addEventListener("click", () => openManualMailComposer());
+  root.querySelector('[data-action="reply-mail"]')?.addEventListener("click", () => openManualMailComposer(true));
+  root.querySelectorAll('[data-action="close-mail-dialog"]').forEach((button) => button.addEventListener("click", () => root.querySelector("#manual-mail-dialog")?.close()));
+  root.querySelector("#manual-mail-form")?.addEventListener("submit", submitManualMail);
 }
 
 function bindThemedSelects() {
@@ -1508,7 +1576,8 @@ function navigate(view) {
   state.view = view;
   state.sidebarOpen = false;
   state.notificationOpen = false;
-  if (view === "quarantine" && !state.quarantine.length) loadQuarantine();
+  if (view === "mail") loadManualMail();
+  else if (view === "quarantine" && !state.quarantine.length) loadQuarantine();
   else if (view === "analytics" && !state.metrics) loadMetrics();
   else if (view === "settings" && (!state.socialStatus || !state.providerHealth || !state.chatStatus || !state.emailStatus)) loadSocialStatus({ keepView: true });
   else render();
@@ -1614,6 +1683,58 @@ async function deleteContact() {
     state.contactBusy = false;
     render();
   }
+}
+
+async function loadManualMail() {
+  state.manualMail.loading = true; render();
+  try {
+    if (!state.manualMail.accounts.length) {
+      const result = await client.manualMailAccounts();
+      state.manualMail.accounts = result.accounts || [];
+      const currentEnabled = state.manualMail.accounts.some(
+        (item) => item.key === state.manualMail.accountKey && item.enabled,
+      );
+      if (!currentEnabled) state.manualMail.accountKey = state.manualMail.accounts.find((item) => item.enabled)?.key || "admin";
+    }
+    const result = await client.manualMailMessages(state.manualMail.accountKey, 30);
+    state.manualMail.messages = result.messages || [];
+    const selectionExists = state.manualMail.messages.some(
+      (item) => String(item.uid) === String(state.manualMail.selectedUid),
+    );
+    if (!selectionExists) state.manualMail.selectedUid = state.manualMail.messages[0]?.uid || null;
+  } catch (error) { toast(error?.message || "Mail could not be loaded.", "error"); }
+  finally { state.manualMail.loading = false; render(); }
+}
+
+async function selectManualMailbox(key) {
+  state.manualMail.accountKey = key; state.manualMail.selectedUid = null; state.manualMail.messages = []; await loadManualMail();
+}
+
+function openManualMailComposer(reply = false) {
+  const dialog = root.querySelector("#manual-mail-dialog"); const form = root.querySelector("#manual-mail-form"); if (!dialog || !form) return;
+  form.reset();
+  if (reply) {
+    const message = state.manualMail.messages.find((item) => String(item.uid) === String(state.manualMail.selectedUid)); if (!message) return;
+    form.elements.to.value = message.from?.address || "";
+    form.elements.subject.value = /^re:/i.test(message.subject || "") ? message.subject : `Re: ${message.subject || ""}`;
+    form.elements.inReplyTo.value = message.messageId || "";
+    form.elements.references.value = JSON.stringify([...(message.references || []), message.messageId].filter(Boolean));
+  }
+  dialog.showModal(); form.elements[reply ? "bodyText" : "to"]?.focus();
+}
+
+async function submitManualMail(event) {
+  event.preventDefault(); const form = event.currentTarget; const submit = form.querySelector('[type="submit"]'); submit.disabled = true;
+  try {
+    await client.sendManualMail(state.manualMail.accountKey, {
+      to: [form.elements.to.value],
+      subject: form.elements.subject.value,
+      bodyText: form.elements.bodyText.value,
+      inReplyTo: form.elements.inReplyTo.value,
+      references: JSON.parse(form.elements.references.value || "[]"),
+    });
+    root.querySelector("#manual-mail-dialog")?.close(); toast("Email sent."); await loadManualMail();
+  } catch (error) { toast(error?.message || "Email could not be sent.", "error"); submit.disabled = false; }
 }
 
 async function loadBootstrap() {
