@@ -105,6 +105,8 @@ const icons = {
   arrow: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7-1.4-1.4 5.6-5.6-5.6-5.6L9 5Z"/></svg>`,
   home: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 8-1.3 1.5L18 11v9h-5v-6h-2v6H6v-9l-1.7 1.5L3 11l9-8Z"/></svg>`,
   download: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2v10.2l3.6-3.6 1.4 1.4-6 6-6-6 1.4-1.4 3.6 3.6V3ZM5 19h14v2H5v-2Z"/></svg>`,
+  chevronDown: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.7 8.3 5.3 5.3 5.3-5.3 1.4 1.4-6.7 6.7-6.7-6.7 1.4-1.4Z"/></svg>`,
+  more: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm7 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm7 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4Z"/></svg>`,
 };
 
 const navItems = [
@@ -246,7 +248,7 @@ function shell(content) {
               <button class="nav-item ${isInboxFamilyView() ? "active" : ""}" data-view="inbox"
                 aria-expanded="${isInboxFamilyView() ? "true" : "false"}"
                 ${state.view === "inbox" ? 'aria-current="page"' : ""}>
-                ${icon}<span>${escapeHtml(label)}</span><span class="nav-group-chevron">⌄</span>
+                ${icon}<span>${escapeHtml(label)}</span><span class="nav-group-chevron">${icons.chevronDown}</span>
               </button>
               <div class="nav-submenu" aria-label="Unified inbox sections">
                 ${inboxSubItems.slice(1).map(([subKey, subLabel, subIcon]) => `
@@ -267,7 +269,7 @@ function shell(content) {
           <a class="hive-home-link" href="${escapeHtml(config.hiveHomeUrl)}" aria-label="Return to HIVE">${icons.home}<span>Back to HIVE</span></a>
           <div class="service-card">
             <span class="service-dot live"></span>
-            <div><strong>Live gateway</strong><small>${escapeHtml(config.apiBaseUrl)}</small></div>
+            <div><strong>Connected</strong><small>Protected gateway</small></div>
           </div>
           <div class="user-card">
             <div class="avatar">${escapeHtml(String(identity.actor || "U").charAt(0).toUpperCase())}</div>
@@ -410,7 +412,7 @@ function themedSelect({
     </select>
     <button class="themed-select-trigger" type="button" data-themed-select-trigger aria-haspopup="listbox"
       aria-expanded="false" ${disabled ? "disabled" : ""}>
-      <span>${escapeHtml(label)}</span><b aria-hidden="true">⌄</b>
+      <span>${escapeHtml(label)}</span><b aria-hidden="true">${icons.chevronDown}</b>
     </button>
     <div class="themed-select-menu" role="listbox" aria-label="${escapeHtml(ariaLabel)}">
       ${options.map((option) => `<button type="button"
@@ -424,7 +426,9 @@ function themedSelect({
 function filterBar(compact = false, allowedChannels = null) {
   const optionSet = (values, blank) => [{ value: "", label: blank }, ...values.map((value) => ({ value, label: titleCase(value) }))];
   return `
-    <div class="filter-bar ${compact ? "compact" : ""}">
+    <details class="filter-disclosure">
+      <summary>Filters</summary>
+      <div class="filter-bar ${compact ? "compact" : ""}">
       ${themedSelect({
         value: state.filters.status,
         dataFilter: "status",
@@ -445,8 +449,9 @@ function filterBar(compact = false, allowedChannels = null) {
       })}
       ${themedSelect({ value: state.filters.priority, dataFilter: "priority", ariaLabel: "Filter by priority", options: optionSet(["critical", "high", "medium", "low"], "All priorities") })}
       <label class="check-filter"><input type="checkbox" data-filter="overdue" ${state.filters.overdue ? "checked" : ""}><span>Overdue only</span></label>
-      <button class="text-button" data-action="clear-filters">Clear</button>
-    </div>
+      <button class="text-button" data-action="clear-filters">Clear filters</button>
+      </div>
+    </details>
   `;
 }
 
@@ -460,7 +465,7 @@ function quickFilterBar() {
     return false;
   };
   return `<div class="quick-filters" aria-label="Quick inbox filters">
-    <span>Quick views</span>
+    <span>View</span>
     ${[
       ["all", "All"],
       ["overdue", "Overdue"],
@@ -556,7 +561,7 @@ function dashboardView() {
   return shell(`
     ${pageHeader(
       "Overview",
-      "One calm surface for conversations, approvals and provider health.",
+      "Supervise exceptions first, then scan automated activity and provider health.",
       `<button class="button secondary" data-action="refresh">Refresh data</button>
        <button class="button primary" data-view="inbox">Open inbox</button>`,
     )}
@@ -564,7 +569,7 @@ function dashboardView() {
     <div class="dashboard-grid">
       <section class="panel panel-wide">
         <header class="panel-header">
-          <div><strong>Priority queue</strong><span>Sorted by overdue state and AIMS priority</span></div>
+          <div><strong>Needs attention</strong><span>Overdue and higher-priority conversations appear first</span></div>
           <button class="text-button" data-view="inbox">View all</button>
         </header>
         ${queueTable(urgent, 5, true)}
@@ -592,7 +597,11 @@ function dashboardView() {
 
 function inboxView() {
   return shell(`
-    ${pageHeader("Unified inbox", "Filter and triage every supported channel without losing the thread.", `<button class="button secondary" data-action="refresh">Refresh queue</button>`)}
+    ${pageHeader(
+      "Unified inbox",
+      "Review exceptions across every supported channel. Automated conversations stay visible but quiet.",
+      `<button class="button secondary" data-action="refresh">Refresh queue</button>`,
+    )}
     <section class="panel inbox-panel">
       <header class="panel-header stacked">
         <div>
@@ -751,7 +760,7 @@ function contactsView() {
 function workflowsView() {
   const workflowGroups = state.queue.reduce((acc, row) => ({ ...acc, [row.workflow || "unassigned"]: (acc[row.workflow || "unassigned"] || 0) + 1 }), {});
   return shell(`
-    ${pageHeader("Workflows", "A readable control surface for AIMS workflow definitions, runs and delayed actions.")}
+    ${pageHeader("Workflows", "Monitor active workflow assignments and move to the affected queue when intervention is needed.")}
     <div class="workflow-grid">
       ${Object.entries(workflowGroups).map(([name, count]) => `<article class="workflow-card">
         <div class="workflow-node">${icons.workflow}</div>
@@ -773,7 +782,7 @@ function quarantineView() {
   return shell(`
     ${pageHeader(
       "Quarantine",
-      "Failures stay inspectable and replayable without quietly duplicating provider actions.",
+      "Review classified failures before replaying any provider action.",
       `<button class="button secondary" data-action="load-quarantine">Refresh</button>`,
     )}
     <section class="panel">
@@ -805,7 +814,7 @@ function analyticsView() {
   return shell(`
     ${pageHeader(
       "Analytics",
-      "Volume, response, resolution, automation and failure signals without decorative fog.",
+      "Track response, resolution, automation and failure signals at a glance.",
       `<button class="button secondary" data-action="load-metrics">Refresh metrics</button>`,
     )}
     <div class="metric-grid">
@@ -838,7 +847,7 @@ function settingsView() {
   return shell(`
     ${pageHeader(
       "Settings",
-      "Deployment-visible configuration only. Secrets remain in the gateway and AIMS.",
+      "Review operator-visible configuration, identity and channel health.",
       `<button class="button secondary" data-action="load-social-status">Refresh channel status</button>`,
     )}
     <div class="settings-grid">
@@ -1019,11 +1028,15 @@ function workspaceView() {
             options: ["open", "pending", "snoozed", "resolved", "blocked", "quarantined", "escalated"]
               .map((status) => ({ value: status, label: titleCase(status) })),
           })}
-        ${currentStatus === "resolved" && roleAllows(role, "status")
-          ? `<button class="button secondary archive-button" type="button"
-              data-action="archive-conversation">Archive completed</button>`
-          : ""}
-        ${roleAllows(role, "retention") ? `<button class="button danger" type="button" data-action="delete-conversation">Delete conversation</button>` : ""}
+        ${(currentStatus === "resolved" && roleAllows(role, "status")) || roleAllows(role, "retention") ? `<details class="action-overflow">
+          <summary class="icon-button" aria-label="More conversation actions">${icons.more}</summary>
+          <div class="action-overflow-menu">
+            ${currentStatus === "resolved" && roleAllows(role, "status")
+              ? `<button class="button secondary archive-button" type="button" data-action="archive-conversation">Archive completed</button>`
+              : ""}
+            ${roleAllows(role, "retention") ? `<button class="button danger" type="button" data-action="delete-conversation">Delete conversation</button>` : ""}
+          </div>
+        </details>` : ""}
       </div>
     </section>
     <div class="workspace-grid">
