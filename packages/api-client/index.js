@@ -136,6 +136,9 @@ export class AimsCommsClient {
   providerHealth() { return this.request("/providers/health"); }
   chatStatus() { return this.request("/chat/status"); }
   emailStatus() { return this.request("/email/status"); }
+  manualMailAccounts() { return this.request("/manual-mail/accounts"); }
+  manualMailMessages(accountKey, limit = 30) { return this.request(`/manual-mail/${encodeURIComponent(accountKey)}/messages`, { query: { limit } }); }
+  sendManualMail(accountKey, message) { return this.request(`/manual-mail/${encodeURIComponent(accountKey)}/send`, { method: "POST", body: message, idempotent: true }); }
   reconcileSocialWebhooks() { return this.request("/social/webhooks/reconcile-all", { method: "POST", body: {}, idempotent: true }); }
   drainSocialPoll(limit = 5) { return this.request("/social/poll/drain", { method: "POST", body: { limit }, idempotent: true }); }
   socialAction(conversationId, action, body = {}, { idempotencyKey = "" } = {}) {
