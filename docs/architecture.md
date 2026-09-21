@@ -54,7 +54,7 @@ The public widget cannot call operator routes, read other sessions or mint deleg
 ## Build and release pipeline
 
 1. `npm run validate` runs repository checks, tests, security/dependency gates, a clean build and bundle enforcement.
-2. `scripts/build.mjs` recreates `dist`, rewrites browser-module paths, generates release/build metadata and performs syntax-aware JavaScript compaction while verifying the token stream.
+2. `scripts/build.mjs` recreates `dist`, folds the console's internal JavaScript modules into one production browser module, emits the CogniPal stylesheet as a separate cacheable Shadow-DOM asset, generates release/build metadata and compacts JavaScript/CSS without changing the source-module boundaries.
 3. `config/bundle-budget.json` provides a JavaScript warning threshold and unchanged hard ceiling plus the other asset limits.
 4. `npm run build:production` requires exact release SHA/branch metadata.
 5. `npm run verify:deploy-artifact` proves the generated output still matches the deployment-source digest and release metadata.
