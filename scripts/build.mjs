@@ -4,6 +4,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { computeDeploymentSourceDigest } from "./deployment-artifact.mjs";
 import { resolveReleaseMetadata } from "./release-metadata.mjs";
+import { createConsoleBundle } from "./console-bundle.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const dist = join(root, "dist");
@@ -23,6 +24,17 @@ async function copyFile(source, target) {
   await cp(source, target);
 }
 
+
+function compactCssFiles(paths) {
+  const result = spawnSync(process.execPath, [join(root, "scripts", "compact-css.mjs"), ...paths], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  if (result.status !== 0) {
+    process.stderr.write(result.stderr || result.stdout || "CSS compaction failed.\n");
+    throw new Error("Production CSS compaction failed.");
+  }
+}
 function compactJavaScriptFiles(paths) {
   const result = spawnSync(process.execPath, [
     "--expose-internals",
@@ -41,9 +53,6 @@ await mkdir(siteDir, { recursive: true });
 const consoleDir = join(siteDir, "console");
 await cp(join(root, "apps", "console"), consoleDir, { recursive: true });
 await mkdir(join(consoleDir, "lib"), { recursive: true });
-await copyFile(join(root, "packages", "api-client", "index.js"), join(consoleDir, "lib", "api-client.js"));
-await copyFile(join(root, "packages", "shared", "format.js"), join(consoleDir, "lib", "format.js"));
-await copyFile(join(root, "packages", "shared", "contracts.js"), join(consoleDir, "lib", "contracts.js"));
 await copyFile(join(root, "packages", "theme", "tokens.css"), join(consoleDir, "lib", "tokens.css"));
 
 const consoleIndexPath = join(consoleDir, "index.html");
@@ -52,11 +61,12 @@ consoleIndex = consoleIndex.replace('href="../../packages/theme/tokens.css"', 'h
 await writeFile(consoleIndexPath, consoleIndex);
 
 const consoleAppPath = join(consoleDir, "app.js");
-let consoleApp = await readFile(consoleAppPath, "utf8");
-consoleApp = consoleApp
-  .replace('from "../../packages/api-client/index.js";', 'from "./lib/api-client.js";')
-  .replace('from "../../packages/shared/format.js";', 'from "./lib/format.js";')
-  .replace('from "../../packages/shared/contracts.js";', 'from "./lib/contracts.js";');
+const consoleApp = createConsoleBundle({
+  apiClient: await readFile(join(root, "packages", "api-client", "index.js"), "utf8"),
+  format: await readFile(join(root, "packages", "shared", "format.js"), "utf8"),
+  contracts: await readFile(join(root, "packages", "shared", "contracts.js"), "utf8"),
+  app: await readFile(consoleAppPath, "utf8"),
+});
 await writeFile(consoleAppPath, consoleApp);
 
 // Keep the deployment root useful even when Cloudflare Pages is configured with
@@ -90,6 +100,7 @@ await writeFile(join(siteDir, "root-redirect.js"), rootRedirect);
 const widgetDir = join(siteDir, "widget");
 await mkdir(widgetDir, { recursive: true });
 await copyFile(join(root, "apps", "widget", "cognipal-widget.js"), join(widgetDir, "cognipal-widget.js"));
+await copyFile(join(root, "apps", "widget", "cognipal-widget.css"), join(widgetDir, "cognipal-widget.css"));
 await copyFile(join(root, "apps", "widget", "README.md"), join(widgetDir, "README.md"));
 await cp(join(root, "workers", "gateway"), join(dist, "gateway"), { recursive: true });
 await writeFile(join(dist, "gateway", "build-meta.js"), buildMetadata);
@@ -98,17 +109,21 @@ await copyFile(join(root, "THIRD_PARTY_NOTICES.md"), join(dist, "THIRD_PARTY_NOT
 
 compactJavaScriptFiles([
   join(consoleDir, "app.js"),
-  join(consoleDir, "lib", "api-client.js"),
-  join(consoleDir, "lib", "contracts.js"),
-  join(consoleDir, "lib", "format.js"),
   join(siteDir, "root-redirect.js"),
   join(widgetDir, "cognipal-widget.js"),
   join(dist, "gateway", "build-meta.js"),
   join(dist, "gateway", "index.js"),
 ]);
 
+compactCssFiles([
+  join(consoleDir, "styles.css"),
+  join(consoleDir, "lib", "tokens.css"),
+  join(widgetDir, "cognipal-widget.css"),
+]);
+
 const manifest = {
-  name: "AIMS UI",
+  name: "AIMS-UI",
+  repositoryIdentity: "AIMS-UI",
   version: JSON.parse(await readFile(join(root, "package.json"), "utf8")).version,
   builtAt: new Date().toISOString(),
   releaseSha,
@@ -123,4 +138,4 @@ const manifest = {
 };
 await writeFile(join(dist, "build-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 
-console.log("Built AIMS UI: dist/site (root, console, widget) and dist/gateway");
+console.log("Built AIMS-UI: dist/site (root, console, widget) and dist/gateway");

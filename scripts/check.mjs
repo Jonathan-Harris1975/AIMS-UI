@@ -8,6 +8,7 @@ const required = [
   "apps/console/index.html",
   "apps/console/app.js",
   "apps/widget/cognipal-widget.js",
+  "apps/widget/cognipal-widget.css",
   "apps/console/assets/CogniPal.jpg",
   "workers/gateway/index.js",
   "workers/gateway/schema.sql",

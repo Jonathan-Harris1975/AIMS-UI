@@ -24,6 +24,7 @@ for (const required of [
   "site/index.html",
   "site/console/index.html",
   "site/widget/cognipal-widget.js",
+  "site/widget/cognipal-widget.css",
   "gateway/index.js",
   "gateway/build-meta.js",
 ]) await access(join(dist, required));
