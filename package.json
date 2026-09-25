@@ -21,7 +21,7 @@
     "deploy:production": "node scripts/deploy-production.mjs"
   },
   "engines": {
-    "node": "22.23.2",
+    "node": "22.23.3",
     "npm": "10.9.9"
   },
   "packageManager": "npm@10.9.9"
