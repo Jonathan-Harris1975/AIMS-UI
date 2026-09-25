@@ -22,7 +22,7 @@
   },
   "engines": {
     "node": "22.23.3",
-    "npm": "10.9.9"
+    "npm": "12.1.0"
   },
-  "packageManager": "npm@10.9.9"
+  "packageManager": "npm@12.1.0"
 }
