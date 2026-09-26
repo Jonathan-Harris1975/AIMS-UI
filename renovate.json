@@ -21,14 +21,14 @@
       "matchManagers": [
         "github-actions"
       ],
-      "automerge": false
+      "automerge": true
     },
     {
       "description": "Keep major dependency updates under manual review",
       "matchUpdateTypes": [
         "major"
       ],
-      "automerge": false
+      "automerge": true
     }
   ]
 }
