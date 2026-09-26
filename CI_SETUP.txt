@@ -1,0 +1,27 @@
+AIMS-UI CI setup
+================
+
+Schedule
+- Main validation: Sunday 05:00 UTC, plus push/pull request/manual runs.
+- Security/repository quality: Sunday 05:00 UTC, plus push/pull request/manual runs.
+- Advanced CodeQL: Sunday 05:00 UTC, plus main/pull request runs.
+- Mend Renovate: Sunday 05:00-06:00 Europe/London.
+
+CI-specific secrets
+- None required for Trivy, Gitleaks, actionlint, Lychee, OpenSSF Scorecard or CodeQL.
+- OpenSSF Scorecard uses the workflow-provided GITHUB_TOKEN.
+
+Existing deployment/integration configuration
+- HIVE_UI_ACCESS_KEY, ECOSYSTEM_SMOKE_DISPATCH_TOKEN and related repository variables remain operational integration settings, not new CI scanner secrets.
+
+Dependency lifecycle
+- Dependabot is retained but open-pull-requests-limit is 0.
+- Mend Renovate owns dependency update PR creation.
+- Lockfile maintenance is enabled so package-lock.json will be regenerated automatically if/when npm dependencies and a lockfile exist.
+- GitHub Actions and major dependency updates remain manual review.
+
+Security tool delivery
+- Trivy, Gitleaks, actionlint and Lychee are installed directly from pinned upstream releases by scripts/install_ci_tools.py.
+- Gitleaks scans full Git history and uploads a redacted diagnostic report before failing so historical false positives can be allowlisted by exact fingerprint only.
+- No Hadolint is configured because this repository has no Dockerfile.
+- No standalone ShellCheck job is configured because this repository has no meaningful standalone shell scripts; actionlint still checks embedded workflow shell.

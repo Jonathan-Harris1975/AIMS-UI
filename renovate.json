@@ -2,5 +2,33 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended"
+  ],
+  "timezone": "Europe/London",
+  "schedule": [
+    "after 5:00am and before 6:00am on Sunday"
+  ],
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": [
+      "after 5:00am and before 6:00am on Sunday"
+    ]
+  },
+  "packageRules": [
+    {
+      "description": "Keep GitHub Actions updates under manual review",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "automerge": false
+    },
+    {
+      "description": "Keep major dependency updates under manual review",
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "automerge": false
+    }
   ]
 }
