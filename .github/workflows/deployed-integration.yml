@@ -31,10 +31,12 @@ jobs:
         with:
           node-version: '24.21.0'
           package-manager-cache: false
+      - name: Install pinned npm
+        run: npm install --global npm@12.1.0
       - name: Verify pinned Node/npm toolchain
         run: |
-          test "$(node --version)" = "v22.23.2"
-          test "$(npm --version)" = "10.9.8"
+          test "$(node --version)" = "v24.21.0"
+          test "$(npm --version)" = "12.1.0"
       - name: Verify exact deployed Worker and integration path
         env:
           EXPECTED_DEPLOYMENT_SHA: ${{ inputs.expected_sha || github.event.workflow_run.head_sha || github.sha }}
