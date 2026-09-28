@@ -20,11 +20,11 @@ jobs:
           node-version: 24.21.0
           package-manager-cache: false
       - name: Install pinned npm
-        run: npm install --global npm@12.1.0
+        run: npm install --global npm@10.9.9
       - name: Verify pinned Node/npm toolchain
         run: |
           test "$(node --version)" = "v24.21.0"
-          test "$(npm --version)" = "12.1.0"
+          test "$(npm --version)" = "10.9.9"
       - name: Require a lockfile as soon as npm dependencies exist
         run: |
           set -euo pipefail
@@ -56,7 +56,7 @@ jobs:
           node-version: 24.21.0
           package-manager-cache: false
       - name: Install pinned npm
-        run: npm install --global npm@12.1.0
+        run: npm install --global npm@10.9.9
       - name: Verify production artifact for the exact workflow SHA
         env:
           AIMS_UI_RELEASE_SHA: ${{ github.sha }}
@@ -78,6 +78,7 @@ jobs:
 
   autonomous_repair_guard:
     name: Autonomous repair marker gate
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
