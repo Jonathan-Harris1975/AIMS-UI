@@ -1,0 +1,78 @@
+name: Validate AIMS UI
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '30 2 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.21.0
+          package-manager-cache: false
+      - name: Install pinned npm
+        run: npm install --global npm@12.1.0
+      - name: Verify pinned Node/npm toolchain
+        run: |
+          test "$(node --version)" = "v24.21.0"
+          test "$(npm --version)" = "12.1.0"
+      - name: Require a lockfile as soon as npm dependencies exist
+        run: |
+          set -euo pipefail
+          dependency_count="$(node -e "const p=require('./package.json'); console.log(Object.keys(p.dependencies || {}).length + Object.keys(p.devDependencies || {}).length)")"
+          if [ "$dependency_count" -gt 0 ]; then
+            test -f package-lock.json || { echo 'package-lock.json is required when npm dependencies are present' >&2; exit 1; }
+            npm ci --ignore-scripts --no-audit --no-fund
+          fi
+      - name: Reject committed literal secrets
+        run: python3 scripts/secret_scan.py
+      - run: npm run validate
+
+  release_gate:
+    name: Release gate (exact SHA)
+    needs: [validate]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Require all release checks to be green
+        env:
+          RESULT_VALIDATE: ${{ needs.validate.result }}
+        run: |
+          test "$RESULT_VALIDATE" = "success"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.21.0
+          package-manager-cache: false
+      - name: Install pinned npm
+        run: npm install --global npm@12.1.0
+      - name: Verify production artifact for the exact workflow SHA
+        env:
+          AIMS_UI_RELEASE_SHA: ${{ github.sha }}
+          AIMS_UI_RELEASE_BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          npm run build:production
+          npm run verify:deploy-artifact
+          npm run check:bundle-budget
+      - name: Assert checked-out commit is the workflow SHA
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          printf '{"repository":"%s","sha":"%s","workflow_run":"%s","status":"green"}\n' "$GITHUB_REPOSITORY" "$GITHUB_SHA" "$GITHUB_RUN_ID" > release-attestation.json
+      - name: Retain exact-SHA release attestation
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-attestation-${{ github.sha }}
+          path: release-attestation.json
+          retention-days: 90
+
