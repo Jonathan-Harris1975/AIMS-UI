@@ -1,5 +1,6 @@
 # AIMS-UI
 
+
 AIMS-UI is the browser and edge layer for the AIMS Communications Hub. It ships the operator console, the embeddable CogniPal widget and a Cloudflare Worker gateway. AIMS remains the authoritative backend for communication routing, conversation state, automation, approvals and audit history; AIMS-UI presents those capabilities and keeps privileged credentials out of browser code.
 
 ## Architecture and shipped surfaces
