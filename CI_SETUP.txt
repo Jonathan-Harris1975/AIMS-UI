@@ -25,3 +25,12 @@ Security tool delivery
 - Gitleaks scans full Git history and uploads a redacted diagnostic report before failing so historical false positives can be allowlisted by exact fingerprint only.
 - No Hadolint is configured because this repository has no Dockerfile.
 - No standalone ShellCheck job is configured because this repository has no meaningful standalone shell scripts; actionlint still checks embedded workflow shell.
+
+AUTONOMOUS PROVING-GROUP SETUP
+- Scheduled window: Sunday 02:30 UTC; 2.5 hours reserved before the next repository starts.
+- KiloConnect + Kilo Code Bot: authorise both GitHub integrations for this repository. Failed CI/deployment-watch runs create one deduplicated repair issue mentioning @kilocode-bot.
+- Kilo may prepare dependency-manifest/lockfile/build fixes when evidence requires them, but all changes remain PR-only and must pass existing gates.
+- Mergify config handles explicit superseded/obsolete PR cleanup only; it is not the merge authority.
+- GitHub native branch/ruleset protections remain authoritative. Native Merge Queue can be enabled after required checks are confirmed stable.
+- R2 Council ingestion/publishing is deferred to the HIVE Council implementation; no R2 credentials are introduced by this phase.
+- Codecov and OWASP ZAP are intentionally NOT enabled.

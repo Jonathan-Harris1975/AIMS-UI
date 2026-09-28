@@ -5,7 +5,7 @@
   ],
   "timezone": "Europe/London",
   "schedule": [
-    "after 5:00am and before 6:00am on Sunday"
+    "after 2:30am and before 5:00am on sunday"
   ],
   "prConcurrentLimit": 5,
   "prHourlyLimit": 2,
@@ -21,7 +21,7 @@
   "lockFileMaintenance": {
     "enabled": true,
     "schedule": [
-      "after 5:00am and before 6:00am on Sunday"
+      "after 2:30am and before 5:00am on sunday"
     ],
     "automerge": true
   },
