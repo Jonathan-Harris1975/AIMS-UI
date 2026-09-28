@@ -9,19 +9,31 @@
   ],
   "prConcurrentLimit": 5,
   "prHourlyLimit": 2,
+  "platformAutomerge": true,
+  "minimumReleaseAge": "3 days",
+  "vulnerabilityAlerts": {
+    "automerge": true,
+    "minimumReleaseAge": "0 days",
+    "labels": [
+      "security"
+    ]
+  },
   "lockFileMaintenance": {
     "enabled": true,
     "schedule": [
       "after 5:00am and before 6:00am on Sunday"
-    ]
+    ],
+    "automerge": true
   },
   "packageRules": [
     {
-      "description": "Keep GitHub Actions updates under manual review",
-      "matchManagers": [
-        "github-actions"
+      "description": "Automerge patch, minor and digest updates once the stability window and required checks pass",
+      "matchUpdateTypes": [
+        "patch",
+        "minor",
+        "digest"
       ],
-      "automerge": false
+      "automerge": true
     },
     {
       "description": "Keep major dependency updates under manual review",
