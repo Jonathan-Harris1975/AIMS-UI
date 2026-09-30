@@ -73,6 +73,18 @@ test("CogniPal webhook signature covers timestamp, nonce and exact body", async 
   assert.equal(await cogniPalWebhookSignature(input, secret), expected);
 });
 
+test("HMAC signing ignores incidental whitespace around configured secrets", async () => {
+  const padded = "  test-webhook-secret\n";
+  const trimmed = "test-webhook-secret";
+  const input = { timestamp: "1785888000000", nonce: "nonce-123456", rawBody: '{"message":"hello"}' };
+  const expected = createHmac("sha256", trimmed).update(`${input.timestamp}.${input.nonce}.${input.rawBody}`).digest("hex");
+  assert.equal(await cogniPalWebhookSignature(input, padded), expected);
+
+  const delegation = { method: "PATCH", path: "/comms-hub/conversations/cnv-1/status", timestamp: "1785888000000", actor: "reviewer@example.com", role: "reviewer" };
+  const expectedDelegation = createHmac("sha256", trimmed).update([delegation.method, delegation.path, delegation.timestamp, delegation.actor, delegation.role].join("\n")).digest("hex");
+  assert.equal(await delegatedIdentitySignature(delegation, padded), expectedDelegation);
+});
+
 test("session token is scoped and expires", async () => {
   const secret = "test-session-secret";
   const payload = { sid: "session-1", vid: "visitor-1", site: "example.test", exp: 2_000_000_000 };
