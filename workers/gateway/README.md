@@ -39,7 +39,7 @@ The gateway verifies the current HIVE session, resolves an actor and Comms Hub r
 ## Provisioning
 
 1. Create a dedicated D1 database.
-2. Apply `schema.sql` (for the shipped database, run `wrangler d1 execute database-comms-hub --remote --file=workers/gateway/schema.sql`). Migration/diagnostic checks and functional widget operations verify the schema. `/readyz` deliberately does not query D1 tables; it checks only that the D1 binding required by the widget is configured.
+2. Apply `schema.sql` (for the shipped database, run `wrangler d1 execute database-comms-hub --remote --file=workers/gateway/schema.sql`). Migration/diagnostic checks and functional widget operations verify the schema. `/readyz` deliberately does not query D1 tables; it checks only that the D1 binding required by the widget is configured. As a safety net, the Worker also creates any missing tables and indexes from `schema.sql` (idempotently, once per isolate) before the first widget operation, so a deployment path that never runs a migration cannot leave the public widget answering `500`.
 3. Review the root `wrangler.toml` and set the database identifier, routes and allowed origins for the target environment. Keep the `*/5 * * * *` trigger enabled so the durable widget outbox is drained.
 4. Add every secret with `wrangler secret put`.
 5. From an exact release checkout, run `npm run deploy:production`. This is the governed production deployment path and performs validation, a clean production build, release-metadata verification and artifact-freshness verification before release.

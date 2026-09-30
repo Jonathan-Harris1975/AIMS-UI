@@ -14,6 +14,76 @@ const WIDGET_SYNC_TIMEOUT_MS = 10_000;
 const WIDGET_DELIVERY_MAX_ATTEMPTS = 6;
 const ALLOWED_ROLES = new Set(["admin", "reviewer", "operator", "read_only"]);
 
+// Idempotent copy of workers/gateway/schema.sql (excluding the session-scoped
+// PRAGMA). Provisioning at the deployment layer is not guaranteed: Cloudflare
+// Workers Builds deploys with the default `wrangler deploy` command and a token
+// that cannot run remote D1 migrations, so a fresh production database would
+// otherwise answer every widget request with a D1 "no such table" 500. The
+// Worker therefore creates any missing tables/indexes itself, once per isolate,
+// using the binding it already owns. tests/schema.test.mjs fails if this drifts
+// from workers/gateway/schema.sql.
+export const GATEWAY_SCHEMA_STATEMENTS = Object.freeze([
+  `CREATE TABLE IF NOT EXISTS chat_sessions (
+  id TEXT PRIMARY KEY,
+  visitor_id TEXT NOT NULL,
+  site_id TEXT NOT NULL,
+  origin TEXT NOT NULL,
+  mode TEXT NOT NULL DEFAULT 'automation' CHECK (mode IN ('automation','takeover_requested','human','closed')),
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','closed')),
+  page_url TEXT,
+  referrer TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL
+)`,
+  `CREATE INDEX IF NOT EXISTS idx_chat_sessions_visitor ON chat_sessions(visitor_id, updated_at DESC)`,
+  `CREATE INDEX IF NOT EXISTS idx_chat_sessions_expiry ON chat_sessions(expires_at)`,
+  `CREATE TABLE IF NOT EXISTS chat_messages (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('visitor','assistant','operator','system')),
+  text TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  delivery_status TEXT NOT NULL DEFAULT 'pending' CHECK (delivery_status IN ('pending','accepted','delivered','failed')),
+  provider_message_id TEXT,
+  error_code TEXT,
+  FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE
+)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_chat_messages_provider_id ON chat_messages(provider_message_id) WHERE provider_message_id IS NOT NULL`,
+  `CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id, created_at ASC)`,
+  `CREATE INDEX IF NOT EXISTS idx_chat_messages_rate ON chat_messages(session_id, role, created_at DESC)`,
+  `CREATE INDEX IF NOT EXISTS idx_chat_messages_delivery ON chat_messages(delivery_status, error_code, created_at ASC)`,
+]);
+
+let provisionedDatabase = null;
+let provisioningPromise = null;
+
+// Ensure the D1 schema exists before any widget operation. Re-runs only when the
+// isolate sees a different binding, and resets on failure so a later request can
+// retry instead of being pinned to a rejected promise.
+async function ensureGatewaySchema(env) {
+  const db = requireD1(env);
+  if (provisionedDatabase !== db) {
+    provisionedDatabase = db;
+    provisioningPromise = null;
+  }
+  if (!provisioningPromise) {
+    provisioningPromise = (async () => {
+      if (typeof db.batch === "function") {
+        await db.batch(GATEWAY_SCHEMA_STATEMENTS.map((statement) => db.prepare(statement)));
+        return;
+      }
+      for (const statement of GATEWAY_SCHEMA_STATEMENTS) {
+        await db.prepare(statement).run();
+      }
+    })().catch((error) => {
+      provisioningPromise = null;
+      throw error;
+    });
+  }
+  return provisioningPromise;
+}
+
 function json(payload, { status = 200, headers = {} } = {}) {
   return new Response(JSON.stringify(payload), {
     status,
@@ -438,7 +508,7 @@ async function createWidgetSession(request, env) {
   if (!normalise(env.CHAT_SESSION_SECRET)) {
     throw configurationError("chat_session_secret_unconfigured", "CHAT_SESSION_SECRET is not configured.");
   }
-  requireD1(env);
+  await ensureGatewaySchema(env);
   const payload = await readJson(request);
   const siteId = validateSiteId(payload.siteId);
   const allowedSites = parseCsv(env.WIDGET_ALLOWED_SITE_IDS);
@@ -530,6 +600,7 @@ export async function syncAimsWidgetConversation({ sessionId, visitorId, website
 
 async function listWidgetMessages(request, env, sessionId) {
   const origin = await requireWidgetOrigin(request, env);
+  await ensureGatewaySchema(env);
   const session = await requireSession(request, env, sessionId);
   if (session.row.origin !== origin) throw Object.assign(new Error("Conversation origin does not match this session."), { status: 403, code: "origin_mismatch" });
   const after = normalise(new URL(request.url).searchParams.get("after")).slice(0, 40);
@@ -684,6 +755,7 @@ export async function redeliverPendingVisitorMessages(env, { fetchImpl = fetch, 
 
 async function relayVisitorMessage(request, env, sessionId) {
   const origin = await requireWidgetOrigin(request, env);
+  await ensureGatewaySchema(env);
   const session = await requireSession(request, env, sessionId);
   if (session.row.origin !== origin) throw Object.assign(new Error("Conversation origin does not match this session."), { status: 403, code: "origin_mismatch" });
   if (session.row.status !== "open") throw Object.assign(new Error("This conversation has ended."), { status: 409, code: "session_closed" });
@@ -728,6 +800,7 @@ async function providerSend(request, env, sessionId) {
   if (!env.COGNIPAL_API_KEY || bearerToken(request) !== env.COGNIPAL_API_KEY) {
     return json({ error: "provider_unauthorised", message: "Provider credentials are invalid." }, { status: 401 });
   }
+  await ensureGatewaySchema(env);
   const session = await requireD1(env).prepare("SELECT id, status FROM chat_sessions WHERE id = ?1 LIMIT 1").bind(sessionId).first();
   if (!session) return json({ error: "session_not_found", message: "Chat session was not found." }, { status: 404 });
   if (session.status !== "open") return json({ error: "session_closed", message: "Chat session is closed." }, { status: 409 });
@@ -758,6 +831,7 @@ async function providerSetMode(request, env, sessionId) {
     return json({ error: "mode_invalid", message: "Chat mode is invalid." }, { status: 400 });
   }
   const updatedAt = nowIso();
+  await ensureGatewaySchema(env);
   const update = await requireD1(env).prepare(
     "UPDATE chat_sessions SET mode = ?1, status = CASE WHEN ?1 = 'closed' THEN 'closed' ELSE status END, updated_at = ?2 WHERE id = ?3"
   ).bind(mode, updatedAt, sessionId).run();
