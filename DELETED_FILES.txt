@@ -1,7 +1,0 @@
-.autonomy/repair-requests/36651368923.md
-.autonomy/repair-requests/36651478194.md
-.autonomy/repair-requests/36653006243.md
-.autonomy/repair-requests/36653610225.md
-.autonomy/repair-requests/36653875098.md
-.autonomy/repair-requests/36660478636.md
-.autonomy/repair-requests/36660845148.md
