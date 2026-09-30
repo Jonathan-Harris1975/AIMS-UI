@@ -44,7 +44,7 @@ The gateway verifies the current HIVE session, resolves an actor and Comms Hub r
 4. Add every secret with `wrangler secret put`.
 5. From an exact release checkout, run `npm run deploy:production`. This is the governed production deployment path and performs validation, a clean production build, release-metadata verification and artifact-freshness verification before release.
 6. Set `AIMS_API_BASE_URL` to the live AIMS origin (production: `https://zeroth-kara-jonathanharris-3296ed37.koyeb.app`).
-7. Configure the same webhook secret value in AIMS (`COMMS_HUB_COGINPAL_WEBHOOK_SECRET`) and this Worker (`COGNIPAL_WEBHOOK_SECRET`). The Worker uses it only server-side to relay and synchronise widget traffic with AIMS.
+7. Configure the same webhook secret value in AIMS and this Worker under the canonical name `COMMS_HUB_COGINPAL_WEBHOOK_SECRET` (the name AIMS and the website gateway already use). The legacy `COGNIPAL_WEBHOOK_SECRET` name is still accepted as a fallback. The Worker uses it only server-side to relay and synchronise widget traffic with AIMS.
 8. Configure `CHAT_SESSION_SECRET`, D1, `WIDGET_ALLOWED_ORIGINS` and `WIDGET_ALLOWED_SITE_IDS`; these are required for the shipped public widget.
 9. `COGNIPAL_API_KEY` remains required only for the optional `/sessions/*` provider-compatible routes.
 

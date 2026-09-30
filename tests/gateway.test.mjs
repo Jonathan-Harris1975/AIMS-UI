@@ -85,6 +85,34 @@ test("HMAC signing ignores incidental whitespace around configured secrets", asy
   assert.equal(await delegatedIdentitySignature(delegation, padded), expectedDelegation);
 });
 
+test("CogniPal webhook signing uses the canonical shared secret name", async () => {
+  const secret = "canonical-webhook-secret";
+  let seen = null;
+  await syncAimsWidgetConversation({
+    sessionId: "session-123",
+    visitorId: "visitor-123",
+    websiteId: "jonathan-harris.online",
+    after: "",
+  }, { AIMS_API_BASE_URL: "https://aims.example.test", COMMS_HUB_COGINPAL_WEBHOOK_SECRET: secret }, {
+    fetchImpl: async (target, init) => {
+      const headers = new Headers(init.headers);
+      const rawBody = String(init.body);
+      const timestamp = headers.get("x-coginpal-timestamp");
+      const nonce = headers.get("x-coginpal-nonce");
+      const expected = createHmac("sha256", secret).update(`${timestamp}.${nonce}.${rawBody}`).digest("hex");
+      seen = { signature: headers.get("x-coginpal-signature"), expected };
+      return new Response(JSON.stringify({ exists: false, messages: [] }), { status: 200, headers: { "content-type": "application/json" } });
+    },
+  });
+  assert.equal(seen.signature, `sha256=${seen.expected}`);
+});
+
+test("gateway configuration accepts the canonical and legacy webhook secret names", () => {
+  assert.equal(gatewayConfigurationStatus({}).cogniPalWebhookSecret, false);
+  assert.equal(gatewayConfigurationStatus({ COMMS_HUB_COGINPAL_WEBHOOK_SECRET: "canonical" }).cogniPalWebhookSecret, true);
+  assert.equal(gatewayConfigurationStatus({ COGNIPAL_WEBHOOK_SECRET: "legacy" }).cogniPalWebhookSecret, true);
+});
+
 test("session token is scoped and expires", async () => {
   const secret = "test-session-secret";
   const payload = { sid: "session-1", vid: "visitor-1", site: "example.test", exp: 2_000_000_000 };

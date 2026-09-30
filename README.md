@@ -97,7 +97,7 @@ Non-secret production values are defined in `wrangler.toml`; secrets are configu
 | `AIMS_API_KEY` | secret | server-side AIMS authentication |
 | `COMMS_HUB_RBAC_DELEGATION_SECRET` | secret | signs delegated AIMS operator identity |
 | `CHAT_SESSION_SECRET` | secret | signs public widget session tokens |
-| `COGNIPAL_WEBHOOK_SECRET` | secret | signs widget relay/synchronisation traffic to AIMS |
+| `COMMS_HUB_COGINPAL_WEBHOOK_SECRET` | secret | signs widget relay/synchronisation traffic to AIMS (shared with AIMS and the website gateway) |
 | `HIVE_COMMS_HANDOFF_SECRET` | optional secret | local verification of HIVE hand-off tokens |
 | `COGNIPAL_API_KEY` | optional secret | provider-compatible `/sessions/*` routes only |
 
