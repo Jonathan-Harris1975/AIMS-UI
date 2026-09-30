@@ -77,6 +77,12 @@ test("production deployment is governed by validation, production build and arti
   const wranglerBuild = await readFile(join(root, "scripts", "wrangler-build.mjs"), "utf8");
   assert.match(wranglerBuild, /wranglerCommand === "deploy"/);
   assert.match(wranglerBuild, /\["build:production", "verify:deploy-artifact"\]/);
+  // Cloudflare Workers Builds deploys through `wrangler deploy`, which runs
+  // this hook but not the npm deploy:production wrapper, so the deploy hook
+  // must provision the D1 schema the public widget depends on.
+  assert.match(wranglerBuild, /"d1", "execute"/);
+  assert.match(wranglerBuild, /workers\/gateway\/schema\.sql/);
+  assert.match(wranglerBuild, /--remote/);
 });
 
 test("readiness documentation matches the non-querying D1 readiness contract", async () => {
