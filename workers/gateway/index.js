@@ -182,6 +182,14 @@ function requireD1(env) {
   return env.DB;
 }
 
+// AIMS and the first-party website gateway share this HMAC secret under the
+// canonical name `COMMS_HUB_COGINPAL_WEBHOOK_SECRET`. Accept that name first and
+// keep `COGNIPAL_WEBHOOK_SECRET` as a backwards-compatible fallback so an
+// existing deployment that has not been re-provisioned still works.
+export function cogniPalWebhookSecret(env) {
+  return normalise(env?.COMMS_HUB_COGINPAL_WEBHOOK_SECRET) || normalise(env?.COGNIPAL_WEBHOOK_SECRET);
+}
+
 const CORE_READINESS_KEYS = Object.freeze([
   "aimsApiBaseUrl",
   "aimsApiKey",
@@ -207,7 +215,7 @@ export function gatewayConfigurationStatus(env = {}) {
     delegationSecret: Boolean(normalise(env.COMMS_HUB_RBAC_DELEGATION_SECRET)),
     hiveHandoffSecret: Boolean(normalise(env.HIVE_COMMS_HANDOFF_SECRET)),
     chatSessionSecret: Boolean(normalise(env.CHAT_SESSION_SECRET)),
-    cogniPalWebhookSecret: Boolean(normalise(env.COGNIPAL_WEBHOOK_SECRET)),
+    cogniPalWebhookSecret: Boolean(cogniPalWebhookSecret(env)),
     cogniPalApiKey: Boolean(normalise(env.COGNIPAL_API_KEY)),
     consoleAllowedOrigins: parseCsv(env.CONSOLE_ALLOWED_ORIGINS).length > 0,
     widgetAllowedOrigins: parseCsv(env.WIDGET_ALLOWED_ORIGINS).length > 0,
@@ -563,14 +571,14 @@ export function mapAimsWidgetMessages(messages = []) {
 export async function syncAimsWidgetConversation({ sessionId, visitorId, websiteId, after }, env, { fetchImpl = fetch } = {}) {
   const upstreamBase = baseUrl(env?.AIMS_API_BASE_URL);
   if (!upstreamBase) throw configurationError("aims_api_base_url_unconfigured", "AIMS_API_BASE_URL is not configured.");
-  if (!normalise(env?.COGNIPAL_WEBHOOK_SECRET)) {
-    throw configurationError("cognipal_webhook_secret_unconfigured", "COGNIPAL_WEBHOOK_SECRET is not configured.");
+  if (!cogniPalWebhookSecret(env)) {
+    throw configurationError("cognipal_webhook_secret_unconfigured", "COMMS_HUB_COGINPAL_WEBHOOK_SECRET is not configured.");
   }
 
   const rawBody = JSON.stringify({ sessionId, visitorId, websiteId, after: after || void 0 });
   const timestamp = String(Date.now());
   const nonce = crypto.randomUUID();
-  const signature = await cogniPalWebhookSignature({ timestamp, nonce, rawBody }, env.COGNIPAL_WEBHOOK_SECRET);
+  const signature = await cogniPalWebhookSignature({ timestamp, nonce, rawBody }, cogniPalWebhookSecret(env));
   let response;
   try {
     response = await fetchWithTimeout(fetchImpl, `${upstreamBase}/comms-hub/intake/chat/sync`, {
@@ -666,8 +674,8 @@ async function deliverVisitorMessage({
   fetchImpl = fetch,
 }) {
   if (!baseUrl(env.AIMS_API_BASE_URL)) throw configurationError("aims_api_base_url_unconfigured", "AIMS_API_BASE_URL is not configured.");
-  if (!normalise(env.COGNIPAL_WEBHOOK_SECRET)) {
-    throw configurationError("cognipal_webhook_secret_unconfigured", "COGNIPAL_WEBHOOK_SECRET is not configured.");
+  if (!cogniPalWebhookSecret(env)) {
+    throw configurationError("cognipal_webhook_secret_unconfigured", "COMMS_HUB_COGINPAL_WEBHOOK_SECRET is not configured.");
   }
   const webhook = JSON.stringify({
     sessionId,
@@ -678,7 +686,7 @@ async function deliverVisitorMessage({
   });
   const timestamp = String(Date.now());
   const nonce = crypto.randomUUID();
-  const signature = await cogniPalWebhookSignature({ timestamp, nonce, rawBody: webhook }, env.COGNIPAL_WEBHOOK_SECRET);
+  const signature = await cogniPalWebhookSignature({ timestamp, nonce, rawBody: webhook }, cogniPalWebhookSecret(env));
   let response;
   try {
     response = await fetchWithTimeout(fetchImpl, `${baseUrl(env.AIMS_API_BASE_URL)}/comms-hub/intake/chat`, {
