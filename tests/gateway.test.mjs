@@ -665,3 +665,63 @@ test("gateway readiness fails when the configured AIMS origin is unavailable", a
     globalThis.fetch = originalFetch;
   }
 });
+
+function widgetSessionDb() {
+  const statements = [];
+  const db = {
+    statements,
+    prepare(sql) {
+      const statement = {
+        sql,
+        values: [],
+        bind(...values) {
+          statement.values = values;
+          return statement;
+        },
+        async run() {
+          statements.push({ sql, values: statement.values });
+          return { success: true };
+        },
+        async all() {
+          return { results: [] };
+        },
+        async first() {
+          return null;
+        },
+      };
+      return statement;
+    },
+    async batch(prepared) {
+      for (const statement of prepared) statements.push({ sql: statement.sql, values: statement.values });
+      return prepared.map(() => ({ success: true }));
+    },
+  };
+  return db;
+}
+
+test("widget session creation provisions the D1 schema before writing", async () => {
+  const db = widgetSessionDb();
+  const response = await gateway.fetch(new Request("https://chat.jonathan-harris.online/widget/session", {
+    method: "POST",
+    headers: {
+      origin: "https://jonathan-harris.online",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ siteId: "jonathan-harris.online", pageUrl: "https://jonathan-harris.online/production-readiness-smoke" }),
+  }), {
+    DB: db,
+    CHAT_SESSION_SECRET: "session-secret",
+    WIDGET_ALLOWED_ORIGINS: "https://jonathan-harris.online",
+    WIDGET_ALLOWED_SITE_IDS: "jonathan-harris.online",
+  });
+
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.ok(body.sessionId);
+  assert.ok(body.visitorId);
+  assert.ok(body.token);
+  assert.ok(db.statements.some(({ sql }) => /CREATE TABLE IF NOT EXISTS chat_sessions/.test(sql)));
+  assert.ok(db.statements.some(({ sql }) => /CREATE TABLE IF NOT EXISTS chat_messages/.test(sql)));
+  assert.ok(db.statements.some(({ sql }) => /INSERT INTO chat_sessions/.test(sql)));
+});
+
