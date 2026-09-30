@@ -328,8 +328,15 @@ function base64UrlDecode(value) {
 }
 
 async function importHmacKey(secret) {
-  if (!normalise(secret)) throw new Error("HMAC secret is not configured.");
-  return crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
+  // Every counterpart that shares one of these secrets normalises it before use
+  // (AIMS trims COMMS_HUB_COGINPAL_WEBHOOK_SECRET, COMMS_HUB_RBAC_DELEGATION_SECRET
+  // and the shared hand-off secret; HIVE-UI trims the hand-off secret; the website
+  // gateway trims COMMS_HUB_COGINPAL_WEBHOOK_SECRET). Trimming here keeps a secret
+  // provisioned with incidental surrounding whitespace interoperable instead of
+  // producing an HMAC that every counterpart rejects as an invalid signature.
+  const value = normalise(secret);
+  if (!value) throw new Error("HMAC secret is not configured.");
+  return crypto.subtle.importKey("raw", encoder.encode(value), { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
 }
 
 export async function hmacHex(secret, text) {
