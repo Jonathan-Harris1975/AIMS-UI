@@ -66,6 +66,9 @@ test("production deployment is governed by validation, production build and arti
   assert.match(deployScript, /\["run", "build:production"\]/);
   assert.match(deployScript, /\["run", "verify:deploy-artifact"\]/);
   assert.match(deployScript, /wrangler@4\.135\.0/);
+  assert.match(deployScript, /"d1", "execute"/);
+  assert.match(deployScript, /workers\/gateway\/schema\.sql/);
+  assert.match(deployScript, /extraArguments\.includes\("--dry-run"\)/);
 
   const wrangler = await readFile(join(root, "wrangler.toml"), "utf8");
   assert.match(wrangler, /^main = "dist\/gateway\/index\.js"$/m);
