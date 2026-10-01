@@ -4,3 +4,15 @@ dist/
 .wrangler/
 .DS_Store
 *.log
+
+.ci-tools/
+
+__pycache__/
+
+*.pyc
+
+coverage/
+
+playwright-report/
+
+test-results/

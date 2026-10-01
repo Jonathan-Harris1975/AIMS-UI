@@ -9,7 +9,7 @@
   ],
   "prConcurrentLimit": 5,
   "prHourlyLimit": 2,
-  "platformAutomerge": true,
+  "platformAutomerge": false,
   "minimumReleaseAge": "2 days",
   "vulnerabilityAlerts": {
     "automerge": true,
@@ -42,5 +42,7 @@
       ],
       "automerge": false
     }
-  ]
+  ],
+  "automergeType": "pr-comment",
+  "automergeComment": "@mergifyio queue"
 }
