@@ -2,7 +2,7 @@ name: Autonomous PR issue repair
 
 on:
   workflow_run:
-    workflows: ["Validate AIMS UI", "AIMS-UI deployed integration", "CodeQL", "Security and repository quality"]
+    workflows: ["Validate AIMS UI", "CodeQL", "Security and repository quality"]
     types: [completed]
   issue_comment:
     types: [created]
