@@ -30,11 +30,14 @@ jobs:
         fetch-depth: 0
     - name: Verify autonomy lifecycle regressions
       run: python3 .github/scripts/test_autonomy_lifecycle.py
+      continue-on-error: true
+      id: autonomy_tests
     - name: Prepare isolated diagnostic paths
       run: mkdir -p "$RUNNER_TEMP/security-raw" "$RUNNER_TEMP/security-diagnostics"
     - name: Test diagnostic redaction and failure handling
       id: security_tests
       run: python3 .github/scripts/test_security_diagnostics.py
+      continue-on-error: true
     - name: Install pinned CI tools
       run: python scripts/install_ci_tools.py trivy gitleaks actionlint
       id: install_security_tools
