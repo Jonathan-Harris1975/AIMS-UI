@@ -52,7 +52,6 @@ database_id = "1c926f7c-4c5d-4fac-b26d-839db5e6c66e"
 # HIVE_COMMS_HANDOFF_SECRET (optional when HIVE_IDENTITY_VERIFY_URL is used)
 # Required by the shipped public widget:
 # CHAT_SESSION_SECRET
-# COMMS_HUB_COGINPAL_WEBHOOK_SECRET (shared with AIMS and the website gateway;
-#   the legacy COGNIPAL_WEBHOOK_SECRET name is still accepted as a fallback)
+# COGNIPAL_WEBHOOK_SECRET (shared with AIMS and the website gateway)
 # Optional provider-compatible /sessions/* routes:
 # COGNIPAL_API_KEY
