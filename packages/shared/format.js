@@ -42,3 +42,45 @@ export function titleCase(value) {
     .replaceAll(/[_-]+/g, " ")
     .replaceAll(/\b\w/g, (letter) => letter.toUpperCase());
 }
+
+// Consume the actual AIMS /metrics envelope; absent or obsolete schemas must
+// remain visible instead of being converted to plausible zero-valued reports.
+export function readCommsMetrics(payload) {
+  const metrics = payload?.metrics;
+  const count = (value) => {
+    if (value === null || value === undefined || value === "" || !Number.isFinite(Number(value)) || Number(value) < 0) {
+      throw new TypeError("AIMS returned an invalid metrics response.");
+    }
+    return Number(value);
+  };
+  const rows = (value) => {
+    if (!Array.isArray(value)) throw new TypeError("AIMS returned an invalid metrics response.");
+    return value.map((row) => ({ ...row, count: count(row.count) }));
+  };
+  if (payload?.ok !== true || !metrics?.responseTime || !metrics?.resolutionTime || !Array.isArray(metrics.channels)) {
+    throw new TypeError("AIMS returned an invalid metrics response.");
+  }
+  const responseSeconds = metrics.responseTime.average_seconds;
+  const failures = rows(metrics.failures);
+  const autonomy = metrics.autonomyOutcomes === undefined ? null : rows(metrics.autonomyOutcomes);
+  const newsletter = metrics.newsletterConfirmations === undefined ? null : rows(metrics.newsletterConfirmations);
+  if (payload.workerHealth && (!Array.isArray(payload.workerHealth.workers) || !payload.workerHealth.overall)) {
+    throw new TypeError("AIMS returned an invalid worker health response.");
+  }
+  return {
+    period: metrics.period,
+    conversations: count(metrics.volume?.conversations),
+    averageMinutes: responseSeconds === null ? null : count(responseSeconds) / 60,
+    measured: count(metrics.responseTime.measured),
+    resolved: count(metrics.resolutionTime.resolved),
+    failureCount: failures.reduce((total, row) => total + row.count, 0),
+    channels: metrics.channels.map((row) => ({ channel: row.channel, count: count(row.conversations) })),
+    autonomy,
+    autoSent: autonomy?.filter((row) => row.outcome === "auto_sent").reduce((total, row) => total + row.count, 0) ?? null,
+    held: autonomy?.filter((row) => row.outcome === "held_for_review").reduce((total, row) => total + row.count, 0) ?? null,
+    newsletter,
+    newsletterRequests: metrics.newsletterRequestSignals
+      ? Object.fromEntries(Object.entries(metrics.newsletterRequestSignals).map(([key, value]) => [key, count(value)])) : null,
+    workerHealth: payload.workerHealth || null,
+  };
+}

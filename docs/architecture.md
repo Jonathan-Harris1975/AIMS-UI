@@ -51,6 +51,14 @@ The public widget cannot call operator routes, read other sessions or mint deleg
 
 `/livez` tests only that the Worker executes. `/readyz` checks required production configuration/bindings plus AIMS upstream health and deliberately does not query D1. D1 schema/table validation belongs to migrations, explicit diagnostics and functional widget operations. The deployed-integration workflow is broader than either probe and validates the exact deployed release and real application paths.
 
+## Analytics contract
+
+The console consumes the AIMS `/metrics` envelope, including `metrics` and the separate `workerHealth` snapshot. It reads `volume.conversations`, `responseTime.average_seconds`, `resolutionTime.resolved`, quarantine failure rows and channel rows. Mean first-response time is labelled as an average; quarantine events are counts rather than a fabricated failure rate. Queue size is not substituted for reporting-window volume.
+
+`autonomyOutcomes` is one current outcome per conversation in the cohort defined by its first decision time; pending/undecided conversations are excluded. SMTP confirmation acceptance and confirmed consent are displayed separately. Newsletter request counters are cumulative for the backend state file and are not date-filtered or guaranteed shared across backend instances. Worker health is a current snapshot outside the reporting window.
+
+Loading and invalid/backend/network responses stay visible. A failed refresh labels previously loaded results rather than replacing them with zeroes. Older backends without autonomy/newsletter fields show those sections as unavailable. Malformed required schemas fail instead of reporting success.
+
 ## Build and release pipeline
 
 1. `npm run validate` runs repository checks, tests, security/dependency gates, a clean build and bundle enforcement.
@@ -62,3 +70,7 @@ The public widget cannot call operator routes, read other sessions or mint deleg
 7. Post-deploy integration checks validate the published exact SHA and production bindings/application flow.
 
 All production credentials are deployment configuration. Source defaults do not contain live secrets or silently enable provider access.
+
+Workspace status changes retain the complete returned operations record, including its incremented version, before another mutation. A conflicting update preserves the last confirmed local state. The queue route accepts the client's `ownerId` and `aiStatus` filters; the backend maps `ownerId` to the repository's `owner` field.
+
+The current bootstrap loads at most 50 conversations and browser filters operate on that loaded subset. Overview, approval and workflow summaries describe loaded records; an empty local subset is not proof that the entire service has no reviews outstanding. Use the protected queue API for additional filtered inspection; the existing `before` timestamp boundary is not a snapshot cursor for the priority ordering. This limitation needs separate pagination acceptance before claiming complete backlog coverage.

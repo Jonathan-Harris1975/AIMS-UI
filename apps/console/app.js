@@ -1,5 +1,5 @@
 import { AimsCommsClient, AimsApiError } from "../../packages/api-client/index.js";
-import { escapeHtml, formatDateTime, formatRelativeTime, secondsToAge, titleCase } from "../../packages/shared/format.js";
+import { escapeHtml, formatDateTime, formatRelativeTime, secondsToAge, titleCase, readCommsMetrics } from "../../packages/shared/format.js";
 import { roleAllows } from "../../packages/shared/contracts.js";
 
 const root = document.querySelector("#app");
@@ -76,6 +76,9 @@ const state = {
   notificationOpen: false,
   quarantine: [],
   metrics: null,
+  metricsLoading: false,
+  metricsError: null,
+  metricsLoadedAt: null,
   socialStatus: null,
   providerHealth: null,
   chatStatus: null,
@@ -379,10 +382,10 @@ function summaryCards() {
   const automationRate = rows.length ? Math.round((automated / rows.length) * 100) : 0;
   return `
     <div class="summary-grid">
-      ${summaryCard("Open conversations", open, "Across every channel", "blue")}
-      ${summaryCard("Needs review", approvals, "Approval-gated actions", "purple")}
-      ${summaryCard("Response overdue", overdue, overdue ? "Needs attention now" : "Targets are clear", overdue ? "red" : "green")}
-      ${summaryCard("Automation assigned", `${automationRate}%`, `${automated} of ${rows.length || 0} conversations`, "cyan")}
+      ${summaryCard("Open conversations", open, "In the loaded queue", "blue")}
+      ${summaryCard("Needs review", approvals, "Loaded approval-gated actions", "purple")}
+      ${summaryCard("Response overdue", overdue, overdue ? "Loaded conversations need attention" : "No loaded overdue targets", overdue ? "red" : "green")}
+      ${summaryCard("Automation assigned", `${automationRate}%`, `${automated} of ${rows.length || 0} loaded conversations`, "cyan")}
     </div>
   `;
 }
@@ -578,7 +581,7 @@ function dashboardView() {
         ${queueTable(urgent, 5, true)}
       </section>
       <section class="panel channel-panel">
-        <header class="panel-header"><div><strong>Channel mix</strong><span>Current queue distribution</span></div></header>
+        <header class="panel-header"><div><strong>Channel mix</strong><span>Loaded queue distribution</span></div></header>
         <div class="channel-bars">
           ${channelCounts.map(([channel, count]) => `<div>
             <span>${escapeHtml(channelLabel(channel))}</span>
@@ -609,7 +612,7 @@ function inboxView() {
       <header class="panel-header stacked">
         <div>
           <strong>${queueRows().length} conversations</strong>
-          <span>Live filters remain local until refresh, preventing accidental query storms.</span>
+          <span>Filters apply to the loaded queue of up to 50 conversations. Refresh to check for changes.</span>
         </div>
         ${quickFilterBar()}${filterBar()}
       </header>
@@ -679,7 +682,7 @@ function pendingApprovals() {
 function approvalsView() {
   const approvals = pendingApprovals();
   return shell(`
-    ${pageHeader("Approvals", "Risky actions remain parked until an authorised reviewer makes the decision.")}
+    ${pageHeader("Approvals", "Review requirements in the loaded queue. Risky actions remain parked until an authorised reviewer makes the decision.")}
     <div class="cards-list">
       ${approvals.length ? approvals.map((approval) => `
         <article class="approval-card">
@@ -695,7 +698,7 @@ function approvalsView() {
           </div>
           <div class="approval-actions"><button class="button secondary" data-conversation-id="${escapeHtml(approval.conversationId)}">Review context</button></div>
         </article>
-      `).join("") : emptyState("No approvals waiting", "The approval runway is clear.")}
+      `).join("") : emptyState("No approvals in the loaded queue", "Refresh the queue to check for new review requirements.")}
     </div>
   `);
 }
@@ -763,13 +766,13 @@ function contactsView() {
 function workflowsView() {
   const workflowGroups = state.queue.reduce((acc, row) => ({ ...acc, [row.workflow || "unassigned"]: (acc[row.workflow || "unassigned"] || 0) + 1 }), {});
   return shell(`
-    ${pageHeader("Workflows", "Monitor active workflow assignments and move to the affected queue when intervention is needed.")}
+    ${pageHeader("Workflows", "Monitor workflow assignments in the loaded queue and inspect conversations when intervention is needed.")}
     <div class="workflow-grid">
       ${Object.entries(workflowGroups).map(([name, count]) => `<article class="workflow-card">
         <div class="workflow-node">${icons.workflow}</div>
         <div>
           <strong>${escapeHtml(titleCase(name))}</strong>
-          <span>${count} active conversation${count === 1 ? "" : "s"}</span>
+          <span>${count} loaded conversation${count === 1 ? "" : "s"}</span>
           <small>Definition and transition controls connect through the protected gateway.</small>
         </div>
         <button class="button secondary" data-view="inbox">Inspect queue</button>
@@ -811,28 +814,55 @@ function quarantineView() {
 }
 
 function analyticsView() {
-  const metrics = state.metrics || {};
-  const byChannel = metrics.volume?.byChannel || {};
-  const maximum = Math.max(1, ...Object.values(byChannel));
+  const metrics = state.metrics;
+  const header = pageHeader(
+    "Analytics",
+    "Track response, resolution, automation and failure signals at a glance.",
+    `<button class="button secondary" data-action="load-metrics" ${state.metricsLoading ? "disabled" : ""}>Refresh metrics</button>`,
+  );
+  const notice = state.metricsLoading
+    ? `<p role="status">Loading metrics…</p>`
+    : state.metricsError ? `<p role="alert">${escapeHtml(state.metricsError)} ${metrics ? "Previous results are shown below." : "Select Refresh metrics to retry."}</p>` : "";
+  if (!metrics) return shell(`${header}<section class="panel">${notice || '<p>Metrics have not been loaded.</p>'}</section>`);
+  const maximum = Math.max(1, ...metrics.channels.map((row) => row.count));
+  const countList = (rows, label) => rows === null ? '<p>Not available from this backend version.</p>'
+    : rows.length ? `<ul>${rows.map((row) => `<li>${escapeHtml(label(row))}: <strong>${row.count}</strong></li>`).join("")}</ul>`
+      : '<p>No recorded outcomes in this reporting window.</p>';
   return shell(`
-    ${pageHeader(
-      "Analytics",
-      "Track response, resolution, automation and failure signals at a glance.",
-      `<button class="button secondary" data-action="load-metrics">Refresh metrics</button>`,
-    )}
+    ${header}${notice}
+    <p>Reporting window: ${escapeHtml(formatDateTime(metrics.period?.from))} – ${escapeHtml(formatDateTime(metrics.period?.to))}.
+      Loaded ${escapeHtml(formatDateTime(state.metricsLoadedAt))}.</p>
     <div class="metric-grid">
-      ${summaryCard("Conversation volume", metrics.volume?.total ?? state.queue.length, "Selected reporting window", "blue")}
-      ${summaryCard("Median response", `${metrics.response?.medianMinutes ?? "–"}m`, `${metrics.response?.overdue ?? 0} overdue`, "cyan")}
-      ${summaryCard("Resolution rate", `${Math.round((metrics.resolution?.rate || 0) * 100)}%`, `${metrics.resolution?.resolved ?? 0} resolved`, "green")}
-      ${summaryCard("Failure rate", `${((metrics.failures?.rate || 0) * 100).toFixed(1)}%`, `${metrics.failures?.total ?? 0} failures`, "red")}
+      ${summaryCard("Conversation volume", metrics.conversations, "Selected reporting window", "blue")}
+      ${summaryCard("Average first response", metrics.averageMinutes === null ? "–" : `${metrics.averageMinutes.toFixed(1)}m`, `${metrics.measured} measured`, "cyan")}
+      ${summaryCard("Resolved conversations", metrics.resolved, "Created in this reporting window", "green")}
+      ${summaryCard("Quarantine events", metrics.failureCount, "Events recorded in this reporting window", "red")}
+      ${summaryCard("Sent autonomously", metrics.autoSent ?? "–", "Current conversation outcomes in the decision cohort", "green")}
+      ${summaryCard("Held for review", metrics.held ?? "–", "Pending/undecided conversations excluded", "blue")}
     </div>
     <section class="panel analytics-panel">
       <header class="panel-header"><div><strong>Volume by channel</strong><span>Relative share in the current reporting window</span></div></header>
-      <div class="analytics-bars">${Object.entries(byChannel).map(([channel, count]) => `<div>
-        <span>${escapeHtml(channelLabel(channel))}</span>
-        <div><i style="width:${Math.round((count / maximum) * 100)}%"></i></div>
-        <b>${count}</b>
-      </div>`).join("")}</div>
+      <div class="analytics-bars">${metrics.channels.map(({ channel, count }) => `<div>
+        <span>${escapeHtml(channelLabel(channel))}</span><div><i style="width:${Math.round((count / maximum) * 100)}%"></i></div><b>${count}</b>
+      </div>`).join("") || '<p>No conversations in this reporting window.</p>'}</div>
+    </section>
+    <section class="panel analytics-panel">
+      <header class="panel-header"><div><strong>Autonomous and review outcomes</strong><span>One current outcome per conversation; retries do not add conversations.</span></div></header>
+      ${countList(metrics.autonomy, (row) => `${channelLabel(row.channel)} · ${titleCase(row.outcome)}${row.reason ? ` · ${titleCase(row.reason)}` : ""}`)}
+    </section>
+    <section class="panel analytics-panel">
+      <header class="panel-header"><div><strong>Newsletter confirmation</strong><span>SMTP acceptance and confirmed consent are separate outcomes.</span></div></header>
+      ${countList(metrics.newsletter, (row) => titleCase(row.outcome))}
+      <p>Signup request counters are cumulative for the backend state file, outside this reporting window.</p>
+      ${metrics.newsletterRequests
+        ? countList(Object.entries(metrics.newsletterRequests).map(([outcome, count]) => ({ outcome, count })), (row) => titleCase(row.outcome))
+        : '<p>Request counters unavailable.</p>'}
+    </section>
+    <section class="panel analytics-panel">
+      <header class="panel-header"><div><strong>Worker health</strong><span>Latest heartbeat snapshot, outside the reporting window.</span></div></header>
+      <p>${escapeHtml(titleCase(metrics.workerHealth?.overall || "unknown"))} · Checked ${escapeHtml(formatDateTime(metrics.workerHealth?.checkedAt))}</p>
+      <ul>${(metrics.workerHealth?.workers || []).map((worker) => `<li>${escapeHtml(titleCase(worker.category))} (${escapeHtml(worker.key)}):
+        ${escapeHtml(titleCase(worker.status))}</li>`).join("")}</ul>
     </section>
   `);
 }
@@ -1786,6 +1816,7 @@ async function loadBootstrap() {
     await fetchOperationalStatus();
     const requestedView = location.hash.slice(1);
     state.view = requestedView && routableViews.has(requestedView) ? requestedView : state.view;
+    if (state.view === "analytics") await loadMetrics();
   } catch (error) {
     state.error = error instanceof Error ? error : new Error(String(error));
   } finally {
@@ -1803,21 +1834,30 @@ async function loadQuarantine() {
 }
 
 async function loadMetrics() {
+  if (state.metricsLoading) return;
+  state.metricsLoading = true;
+  state.metricsError = null;
+  state.view = "analytics";
+  render();
   try {
-    state.metrics = (await client.metrics()).metrics;
-    state.view = "analytics";
+    state.metrics = readCommsMetrics(await client.metrics());
+    state.metricsLoadedAt = new Date().toISOString();
+  } catch (error) {
+    state.metricsError = error.message || "Metrics could not be loaded.";
+  } finally {
+    state.metricsLoading = false;
     render();
-  } catch (error) { toast(error.message || "Metrics could not be loaded.", "error"); }
+  }
 }
 
 async function updateWorkspaceStatus(event) {
   const status = event.target.value;
   try {
-    await client.updateStatus(state.selectedConversationId, status, { expectedVersion: state.workspace?.workspace?.operations?.version ?? null });
+    const result = await client.updateStatus(state.selectedConversationId, status, { expectedVersion: state.workspace?.workspace?.operations?.version ?? null });
     const operations = state.workspace?.workspace?.operations;
-    if (operations) operations.operational_status = status;
+    if (operations) Object.assign(operations, result.result);
     const queueItem = state.queue.find((row) => row.id === state.selectedConversationId);
-    if (queueItem) queueItem.operational_status = status;
+    if (queueItem) Object.assign(queueItem, result.result);
     toast(`Conversation moved to ${titleCase(status)}.`);
   } catch (error) { toast(error.message || "Status could not be updated.", "error"); }
 }

@@ -56,6 +56,18 @@ test("client exposes AIMS error payloads", async () => {
   });
 });
 
+test("client rejects false success and unusable successful HTTP responses", async () => {
+  for (const payload of [{ ok: false, error: "operation_failed" }, null, [], "invalid"]) {
+    const client = new AimsCommsClient({
+      baseUrl: "/console/api",
+      fetchImpl: async () => new Response(JSON.stringify(payload), { status: 200 }),
+    });
+    await assert.rejects(client.queue(), (error) => error instanceof AimsApiError && error.status === 200);
+  }
+  const client = new AimsCommsClient({ baseUrl: "/console/api", fetchImpl: async () => new Response("<html>Gateway error</html>") });
+  await assert.rejects(client.bootstrap(), { code: "aims_response_invalid" });
+});
+
 
 test("client downloads binary attachments with the console handoff token", async () => {
   let captured;

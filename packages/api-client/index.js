@@ -67,11 +67,14 @@ export class AimsCommsClient {
       signal,
     });
     const payload = await response.json().catch(() => null);
-    if (!response.ok) {
+    if (!response.ok || payload?.ok === false) {
       throw new AimsApiError(
         payload?.message || payload?.error || `AIMS request failed with status ${response.status}.`,
         { status: response.status, code: payload?.error || "aims_api_error", payload },
       );
+    }
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+      throw new AimsApiError("AIMS returned an invalid response.", { status: response.status, code: "aims_response_invalid" });
     }
     return payload;
   }
