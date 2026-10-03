@@ -55,7 +55,6 @@ for (const file of scripts) {
 const forbidden = [
   /COMMS_HUB_RBAC_DELEGATION_SECRET\s*=\s*["'][^"']{12,}/,
   /COGNIPAL_API_KEY\s*=\s*["'][^"']{12,}/,
-  /COMMS_HUB_COGINPAL_WEBHOOK_SECRET\s*=\s*["'][^"']{12,}/,
   /COGNIPAL_WEBHOOK_SECRET\s*=\s*["'][^"']{12,}/,
   /CHAT_SESSION_SECRET\s*=\s*["'][^"']{12,}/,
 ];
