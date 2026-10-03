@@ -183,11 +183,9 @@ function requireD1(env) {
 }
 
 // AIMS and the first-party website gateway share this HMAC secret under the
-// canonical name `COMMS_HUB_COGINPAL_WEBHOOK_SECRET`. Accept that name first and
-// keep `COGNIPAL_WEBHOOK_SECRET` as a backwards-compatible fallback so an
-// existing deployment that has not been re-provisioned still works.
+// canonical name `COGNIPAL_WEBHOOK_SECRET`.
 export function cogniPalWebhookSecret(env) {
-  return normalise(env?.COMMS_HUB_COGINPAL_WEBHOOK_SECRET) || normalise(env?.COGNIPAL_WEBHOOK_SECRET);
+  return normalise(env?.COGNIPAL_WEBHOOK_SECRET);
 }
 
 const CORE_READINESS_KEYS = Object.freeze([
@@ -197,7 +195,6 @@ const CORE_READINESS_KEYS = Object.freeze([
   "consoleAllowedOrigins",
   "assets",
 ]);
-
 const WIDGET_READINESS_KEYS = Object.freeze([
   "chatSessionSecret",
   "cogniPalWebhookSecret",
@@ -337,9 +334,9 @@ function base64UrlDecode(value) {
 
 async function importHmacKey(secret) {
   // Every counterpart that shares one of these secrets normalises it before use
-  // (AIMS trims COMMS_HUB_COGINPAL_WEBHOOK_SECRET, COMMS_HUB_RBAC_DELEGATION_SECRET
+  // (AIMS trims COGNIPAL_WEBHOOK_SECRET, COMMS_HUB_RBAC_DELEGATION_SECRET
   // and the shared hand-off secret; HIVE-UI trims the hand-off secret; the website
-  // gateway trims COMMS_HUB_COGINPAL_WEBHOOK_SECRET). Trimming here keeps a secret
+  // gateway trims COGNIPAL_WEBHOOK_SECRET). Trimming here keeps a secret
   // provisioned with incidental surrounding whitespace interoperable instead of
   // producing an HMAC that every counterpart rejects as an invalid signature.
   const value = normalise(secret);
@@ -572,7 +569,7 @@ export async function syncAimsWidgetConversation({ sessionId, visitorId, website
   const upstreamBase = baseUrl(env?.AIMS_API_BASE_URL);
   if (!upstreamBase) throw configurationError("aims_api_base_url_unconfigured", "AIMS_API_BASE_URL is not configured.");
   if (!cogniPalWebhookSecret(env)) {
-    throw configurationError("cognipal_webhook_secret_unconfigured", "COMMS_HUB_COGINPAL_WEBHOOK_SECRET is not configured.");
+    throw configurationError("cognipal_webhook_secret_unconfigured", "COGNIPAL_WEBHOOK_SECRET is not configured.");
   }
 
   const rawBody = JSON.stringify({ sessionId, visitorId, websiteId, after: after || void 0 });
@@ -598,7 +595,6 @@ export async function syncAimsWidgetConversation({ sessionId, visitorId, website
     console.warn("aimsUiGateway.widgetSync.unreachable", { sessionId, error: error?.message || String(error) });
     throw Object.assign(new Error("Conversation updates are temporarily unavailable."), { status: 502, code: "aims_sync_unreachable" });
   }
-
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
     const status = response.status >= 500 || response.status === 429 ? 502 : response.status;
@@ -675,7 +671,7 @@ async function deliverVisitorMessage({
 }) {
   if (!baseUrl(env.AIMS_API_BASE_URL)) throw configurationError("aims_api_base_url_unconfigured", "AIMS_API_BASE_URL is not configured.");
   if (!cogniPalWebhookSecret(env)) {
-    throw configurationError("cognipal_webhook_secret_unconfigured", "COMMS_HUB_COGINPAL_WEBHOOK_SECRET is not configured.");
+    throw configurationError("cognipal_webhook_secret_unconfigured", "COGNIPAL_WEBHOOK_SECRET is not configured.");
   }
   const webhook = JSON.stringify({
     sessionId,
