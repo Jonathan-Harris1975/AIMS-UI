@@ -1,6 +1,6 @@
 const CONSOLE_IMPORTS = [
   'import { AimsCommsClient, AimsApiError } from "../../packages/api-client/index.js";',
-  'import { escapeHtml, formatDateTime, formatRelativeTime, secondsToAge, titleCase } from "../../packages/shared/format.js";',
+  'import { escapeHtml, formatDateTime, formatRelativeTime, secondsToAge, titleCase, readCommsMetrics } from "../../packages/shared/format.js";',
   'import { roleAllows } from "../../packages/shared/contracts.js";',
 ];
 
