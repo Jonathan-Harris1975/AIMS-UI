@@ -93,7 +93,7 @@ test("CogniPal webhook signing uses the canonical shared secret name", async () 
     visitorId: "visitor-123",
     websiteId: "jonathan-harris.online",
     after: "",
-  }, { AIMS_API_BASE_URL: "https://aims.example.test", COMMS_HUB_COGINPAL_WEBHOOK_SECRET: secret }, {
+  }, { AIMS_API_BASE_URL: "https://aims.example.test", COGNIPAL_WEBHOOK_SECRET: secret }, {
     fetchImpl: async (target, init) => {
       const headers = new Headers(init.headers);
       const rawBody = String(init.body);
@@ -107,10 +107,9 @@ test("CogniPal webhook signing uses the canonical shared secret name", async () 
   assert.equal(seen.signature, `sha256=${seen.expected}`);
 });
 
-test("gateway configuration accepts the canonical and legacy webhook secret names", () => {
+test("gateway configuration accepts the canonical webhook secret name", () => {
   assert.equal(gatewayConfigurationStatus({}).cogniPalWebhookSecret, false);
-  assert.equal(gatewayConfigurationStatus({ COMMS_HUB_COGINPAL_WEBHOOK_SECRET: "canonical" }).cogniPalWebhookSecret, true);
-  assert.equal(gatewayConfigurationStatus({ COGNIPAL_WEBHOOK_SECRET: "legacy" }).cogniPalWebhookSecret, true);
+  assert.equal(gatewayConfigurationStatus({ COGNIPAL_WEBHOOK_SECRET: "canonical" }).cogniPalWebhookSecret, true);
 });
 
 test("session token is scoped and expires", async () => {
@@ -764,4 +763,3 @@ test("widget session creation provisions the D1 schema before writing", async ()
   assert.ok(db.statements.some(({ sql }) => /CREATE TABLE IF NOT EXISTS chat_messages/.test(sql)));
   assert.ok(db.statements.some(({ sql }) => /INSERT INTO chat_sessions/.test(sql)));
 });
-
