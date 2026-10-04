@@ -18,10 +18,10 @@ DEPENDENCY / LOCKFILE POLICY
 - Dependabot's GitHub Actions entry has open-pull-requests-limit: 0; add an npm entry only when the first npm dependency and lockfile are committed together.
 - Mend Renovate is the dependency-update owner.
 - Renovate runs in the Sunday 02:30-05:00 Europe/London window.
-- Renovate lockFileMaintenance is enabled and may automerge only after required CI permits the PR to merge.
-- npm patch/minor updates may automerge after required CI passes.
+- Renovate lockFileMaintenance is enabled and receives `dependency:auto-eligible`; Renovate remains merge-disabled and trusted admission/Mergify decide whether it merges.
+- npm patch/minor updates receive `dependency:auto-eligible` and may be admitted after required CI passes.
 - npm major updates remain manual.
-- GitHub Actions patch/minor/digest updates follow the committed Renovate automerge policy and remain gated by repository checks; major updates remain manual.
+- GitHub Actions patch/minor/digest updates follow the committed Renovate eligibility-label policy and remain gated by repository checks; major updates remain manual.
 - A dependency change must commit package.json and package-lock.json together. The Validate AIMS UI workflow requires and installs the lockfile as soon as dependencies exist.
 
 SCHEDULE
