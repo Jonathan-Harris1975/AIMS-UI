@@ -62,3 +62,16 @@ export function resolveReleaseMetadata({ env = process.env, required = false, gi
     releaseBranch,
   };
 }
+
+// Artifact builds may run on pull requests; only deployment to the production
+// gateway is restricted to main. Check every provider signal so an explicit
+// release label cannot disguise a feature-branch Workers Build.
+export function resolveProductionDeploymentMetadata({ env = process.env, git = defaultGit } = {}) {
+  const metadata = resolveReleaseMetadata({ env, git, required: true });
+  const branches = [metadata.releaseBranch, env.WORKERS_CI_BRANCH,
+    env.GITHUB_HEAD_REF, env.GITHUB_REF_NAME].map(clean).filter(Boolean);
+  if (branches.some((branch) => branch !== "main")) {
+    throw new Error("Production deployment requires the main branch; feature branches must not deploy this gateway.");
+  }
+  return metadata;
+}

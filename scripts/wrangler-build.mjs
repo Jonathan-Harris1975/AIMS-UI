@@ -2,11 +2,13 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveProductionDeploymentMetadata } from "./release-metadata.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const wranglerCommand = String(process.env.WRANGLER_COMMAND || "").trim();
 const productionCommand = wranglerCommand === "deploy";
+if (productionCommand) resolveProductionDeploymentMetadata();
 const scripts = productionCommand
   ? ["build:production", "verify:deploy-artifact"]
   : ["build"];

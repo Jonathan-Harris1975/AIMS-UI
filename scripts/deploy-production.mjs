@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { resolveReleaseMetadata } from "./release-metadata.mjs";
+import { resolveProductionDeploymentMetadata } from "./release-metadata.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -14,7 +14,7 @@ for (const argument of extraArguments) {
   }
 }
 
-const { releaseSha, releaseBranch } = resolveReleaseMetadata({ required: true });
+const { releaseSha, releaseBranch } = resolveProductionDeploymentMetadata();
 const env = {
   ...process.env,
   AIMS_UI_RELEASE_SHA: releaseSha,

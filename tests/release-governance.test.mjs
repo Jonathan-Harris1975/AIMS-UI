@@ -1,12 +1,40 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { resolveReleaseMetadata } from "../scripts/release-metadata.mjs";
+import { resolveReleaseMetadata, resolveProductionDeploymentMetadata } from "../scripts/release-metadata.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const fullSha = "0123456789abcdef0123456789abcdef01234567";
+
+test("production deployment accepts main and rejects feature branches including disguised provider builds", () => {
+  assert.equal(resolveProductionDeploymentMetadata({ env: {}, git: gitFixture() }).releaseBranch, "main");
+  assert.throws(() => resolveProductionDeploymentMetadata({ env: {}, git: gitFixture({ branch: "codex/recovery" }) }), /requires the main branch/);
+  assert.throws(() => resolveProductionDeploymentMetadata({
+    env: { AIMS_UI_RELEASE_SHA: fullSha, AIMS_UI_RELEASE_BRANCH: "main", WORKERS_CI_BRANCH: "codex/recovery" },
+    git: gitFixture({ branch: "" }),
+  }), /requires the main branch/);
+  assert.equal(resolveProductionDeploymentMetadata({
+    env: { WORKERS_CI_COMMIT_SHA: fullSha, WORKERS_CI_BRANCH: "main" },
+    git: gitFixture({ branch: "" }),
+  }).releaseBranch, "main");
+  // PR builds remain available to the release gate.
+  assert.equal(resolveReleaseMetadata({ required: true, env: {}, git: gitFixture({ branch: "codex/recovery" }) }).releaseBranch, "codex/recovery");
+});
+
+test("both production entry points reject a feature branch before invoking build or remote schema tools", () => {
+  for (const script of ["deploy-production.mjs", "wrangler-build.mjs"]) {
+    const result = spawnSync(process.execPath, [join(root, "scripts", script)], {
+      encoding: "utf8",
+      env: { PATH: "", WORKERS_CI_COMMIT_SHA: fullSha, WORKERS_CI_BRANCH: "codex/recovery", WRANGLER_COMMAND: "deploy" },
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Production deployment requires the main branch/);
+    assert.equal(result.stdout, "");
+  }
+});
 
 function gitFixture({ sha = fullSha, branch = "main" } = {}) {
   return (args) => {
