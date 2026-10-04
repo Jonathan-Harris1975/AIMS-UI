@@ -3,5 +3,6 @@
   "deployment": "deployed-integration.yml",
   "artifact": "deployed-integration-attestation-",
   "dast": true,
-  "dispatch_step": "Dispatch repository Council to Kilo"
+  "dispatch_step": "Dispatch repository Council to Kilo",
+  "ci_start": "Sat 13:30"
 }
