@@ -1,0 +1,7 @@
+{
+  "ci": "ci.yml",
+  "deployment": "deployed-integration.yml",
+  "artifact": "deployed-integration-attestation-",
+  "dast": true,
+  "dispatch_step": "Dispatch repository Council to Kilo"
+}
