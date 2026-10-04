@@ -23,10 +23,10 @@ DEFAULT_BRANCH = os.environ.get("DEFAULT_BRANCH", "main")
 REPAIR_APP_LOGIN = os.environ.get("REPAIR_APP_LOGIN", "")
 REQUIRED_WORKFLOWS = [item.strip() for item in os.environ.get("REQUIRED_WORKFLOWS", "").split("|") if item.strip()]
 MANAGED_LABEL = "automation:branch-pr"
-ALLOWED_PREFIXES = ("fix/", "feat/", "chore/", "ci/", "work/", "codex/")
+ALLOWED_PREFIXES = ("fix/", "feat/", "chore/", "ci/", "work/")
 EXCLUDED_PREFIXES = ("autonomy/", "renovate/", "dependabot/", "mergify/", "tmp/", "temp/", "internal/")
 BLOCKING_LABELS = {"autonomy:human-hold", "do-not-merge", "do not merge", "hold"}
-BRANCH_RE = re.compile(r"^(fix|feat|chore|ci|work|codex)/[A-Za-z0-9._/-]+$")
+BRANCH_RE = re.compile(r"^(fix|feat|chore|ci|work)/[A-Za-z0-9._/-]+$")
 
 
 def log(message: str) -> None:
