@@ -17,7 +17,7 @@ DEPENDENCY / LOCKFILE POLICY
 ----------------------------
 - Dependabot's GitHub Actions entry has open-pull-requests-limit: 0; add an npm entry only when the first npm dependency and lockfile are committed together.
 - Mend Renovate is the dependency-update owner.
-- Renovate runs in the Sunday 02:30-05:00 Europe/London window.
+- Renovate runs in the Saturday 11:00-13:30 Europe/London pre-CI window.
 - Renovate lockFileMaintenance is enabled and receives `dependency:auto-eligible`; Renovate remains merge-disabled and trusted admission/Mergify decide whether it merges.
 - npm patch/minor updates receive `dependency:auto-eligible` and may be admitted after required CI passes.
 - npm major updates remain manual.
