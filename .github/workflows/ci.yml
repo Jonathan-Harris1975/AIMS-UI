@@ -20,13 +20,17 @@ jobs:
           node-version: 24.21.0
           package-manager-cache: false
       - name: Install pinned npm
-        run: npm install --global npm@10.9.9
+        run: |
+          npm ci --prefix .github/ci-toolchain --ignore-scripts --no-audit --no-fund
+          export PATH="$GITHUB_WORKSPACE/.github/ci-toolchain/node_modules/.bin:$PATH"
       - name: Verify pinned Node/npm toolchain
         run: |
+          export PATH="$GITHUB_WORKSPACE/.github/ci-toolchain/node_modules/.bin:$PATH"
           test "$(node --version)" = "v24.21.0"
-          test "$(npm --version)" = "10.9.9"
+          test "$(npm --version)" = "$(node -p 'require("./.github/ci-toolchain/package-lock.json").packages["node_modules/npm"].version')"
       - name: Require a lockfile as soon as npm dependencies exist
         run: |
+          export PATH="$GITHUB_WORKSPACE/.github/ci-toolchain/node_modules/.bin:$PATH"
           set -euo pipefail
           dependency_count="$(node -e "const p=require('./package.json'); console.log(Object.keys(p.dependencies || {}).length + Object.keys(p.devDependencies || {}).length)")"
           if [ "$dependency_count" -gt 0 ]; then
@@ -34,8 +38,12 @@ jobs:
             npm ci --ignore-scripts --no-audit --no-fund
           fi
       - name: Reject committed literal secrets
-        run: python3 scripts/secret_scan.py
-      - run: npm run validate
+        run: |
+          export PATH="$GITHUB_WORKSPACE/.github/ci-toolchain/node_modules/.bin:$PATH"
+          python3 scripts/secret_scan.py
+      - run: |
+          export PATH="$GITHUB_WORKSPACE/.github/ci-toolchain/node_modules/.bin:$PATH"
+          npm run validate
 
   release_gate:
     name: Release gate (exact SHA)
@@ -58,17 +66,21 @@ jobs:
           node-version: 24.21.0
           package-manager-cache: false
       - name: Install pinned npm
-        run: npm install --global npm@10.9.9
+        run: |
+          npm ci --prefix .github/ci-toolchain --ignore-scripts --no-audit --no-fund
+          export PATH="$GITHUB_WORKSPACE/.github/ci-toolchain/node_modules/.bin:$PATH"
       - name: Verify production artifact for the exact workflow SHA
         env:
           AIMS_UI_RELEASE_SHA: ${{ github.sha }}
           AIMS_UI_RELEASE_BRANCH: ${{ github.head_ref || github.ref_name }}
         run: |
+          export PATH="$GITHUB_WORKSPACE/.github/ci-toolchain/node_modules/.bin:$PATH"
           npm run build:production
           npm run verify:deploy-artifact
           npm run check:bundle-budget
       - name: Assert checked-out commit is the workflow SHA
         run: |
+          export PATH="$GITHUB_WORKSPACE/.github/ci-toolchain/node_modules/.bin:$PATH"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           printf '{"repository":"%s","sha":"%s","workflow_run":"%s","status":"green"}\n' "$GITHUB_REPOSITORY" "$GITHUB_SHA" "$GITHUB_RUN_ID" > release-attestation.json
       - name: Retain exact-SHA release attestation

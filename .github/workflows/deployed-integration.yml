@@ -46,11 +46,14 @@ jobs:
           node-version: '24.21.0'
           package-manager-cache: false
       - name: Install pinned npm
-        run: npm install --global npm@10.9.9
+        run: |
+          npm ci --prefix .github/ci-toolchain --ignore-scripts --no-audit --no-fund
+          export PATH="$GITHUB_WORKSPACE/.github/ci-toolchain/node_modules/.bin:$PATH"
       - name: Verify pinned Node/npm toolchain
         run: |
+          export PATH="$GITHUB_WORKSPACE/.github/ci-toolchain/node_modules/.bin:$PATH"
           test "$(node --version)" = "v24.21.0"
-          test "$(npm --version)" = "10.9.9"
+          test "$(npm --version)" = "$(node -p 'require("./.github/ci-toolchain/package-lock.json").packages["node_modules/npm"].version')"
       - name: Verify exact deployed Worker and integration path
         env:
           EXPECTED_DEPLOYMENT_SHA: ${{ inputs.expected_sha || github.event.workflow_run.head_sha || github.sha }}
@@ -59,6 +62,7 @@ jobs:
           WEBSITE_ORIGIN: ${{ vars.WEBSITE_BASE_URL || 'https://jonathan-harris.online' }}
           HIVE_UI_ACCESS_KEY: ${{ secrets.HIVE_UI_ACCESS_KEY }}
         run: |
+          export PATH="$GITHUB_WORKSPACE/.github/ci-toolchain/node_modules/.bin:$PATH"
           set -o pipefail
           npm run test:deployed | tee deployed-integration.log
       - name: Record deployed-integration attestation
@@ -66,6 +70,7 @@ jobs:
           EXPECTED_DEPLOYMENT_SHA: ${{ inputs.expected_sha || github.event.workflow_run.head_sha || github.sha }}
           HIVE_UI_ACCESS_KEY: ${{ secrets.HIVE_UI_ACCESS_KEY }}
         run: |
+          export PATH="$GITHUB_WORKSPACE/.github/ci-toolchain/node_modules/.bin:$PATH"
           if [ -n "${HIVE_UI_ACCESS_KEY:-}" ]; then
             status="deployed-integration-green-full"
           else
@@ -89,6 +94,7 @@ jobs:
           ECOSYSTEM_SMOKE_REPOSITORY: ${{ vars.ECOSYSTEM_SMOKE_REPOSITORY }}
           SOURCE_SHA: ${{ inputs.expected_sha || github.event.workflow_run.head_sha || github.sha }}
         run: |
+          export PATH="$GITHUB_WORKSPACE/.github/ci-toolchain/node_modules/.bin:$PATH"
           set -euo pipefail
           if [ -z "${ECOSYSTEM_SMOKE_DISPATCH_TOKEN:-}" ]; then
             echo "::warning::ECOSYSTEM_SMOKE_DISPATCH_TOKEN is not configured in AIMS-UI; the optional cross-repository MAST dispatch was skipped."
