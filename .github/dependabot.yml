@@ -2,12 +2,10 @@ version: 2
 updates:
   # This repository currently has no npm dependencies. Add an npm entry when
   # the first dependency and package-lock.json are committed together.
-  - package-ecosystem: "github-actions"
+  - package-ecosystem: "github-actions" # zizmor: ignore[dependabot-cooldown] Renovate owns version updates; Dependabot remains for security updates.
     directory: "/"
     schedule:
       interval: "weekly"
-    cooldown:
-      default-days: 7
     open-pull-requests-limit: 0
     commit-message:
       prefix: "deps(ci)"
