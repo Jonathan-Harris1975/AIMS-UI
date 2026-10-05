@@ -42,6 +42,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write
+      attestations: write
     steps:
       - name: Require all release checks to be green
         env:
@@ -63,6 +65,40 @@ jobs:
           npm run build:production
           npm run verify:deploy-artifact
           npm run check:bundle-budget
+      - name: Package verified production artifact for provenance
+        run: tar -C dist -czf "aims-ui-dist-${GITHUB_SHA}.tar.gz" .
+
+      - name: Generate production artifact SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
+        with:
+          path: dist
+          format: spdx-json
+          output-file: aims-ui.sbom.spdx.json
+          upload-artifact: false
+
+      - name: Attest production artifact provenance
+        if: github.event_name != 'pull_request'
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        with:
+          subject-path: aims-ui-dist-${{ github.sha }}.tar.gz
+
+      - name: Attest production artifact SBOM
+        if: github.event_name != 'pull_request'
+        uses: actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34 # v3
+        with:
+          subject-path: aims-ui-dist-${{ github.sha }}.tar.gz
+          sbom-path: aims-ui.sbom.spdx.json
+
+      - name: Retain supply-chain evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: aims-ui-supply-chain-${{ github.sha }}
+          path: |
+            aims-ui-dist-${{ github.sha }}.tar.gz
+            aims-ui.sbom.spdx.json
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Assert checked-out commit is the workflow SHA
         run: |
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
