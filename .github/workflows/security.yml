@@ -25,7 +25,6 @@ jobs:
     - name: Checkout repository with full history
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       with:
-        persist-credentials: false
         fetch-depth: 0
     - name: Verify autonomy lifecycle regressions
       run: python3 .github/scripts/test_autonomy_lifecycle.py
@@ -168,8 +167,6 @@ jobs:
     timeout-minutes: 15
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-    with:
-      persist-credentials: false
     - name: Install pinned Lychee
       continue-on-error: true
       run: python scripts/install_ci_tools.py lychee
