@@ -7,8 +7,8 @@ on:
     types: [submitted, edited]
   pull_request_review_comment:
     types: [created, edited]
-  workflow_run:
-    workflows: ["Validate AIMS UI", "CodeQL", "Security and repository quality", "Branch PR signal"]
+  workflow_run: # zizmor: ignore[dangerous-triggers] trusted default-branch reconciler independently verifies PR identity and exact-head checks
+    workflows: ["Validate AIMS UI", "CodeQL", "Security and repository quality", "Item 6 hardening", "Branch PR signal"]
     types: [requested, completed]
   # Safety-net reconciliation around the weekend window, plus one daily sweep.
   schedule:
@@ -41,6 +41,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2
+        with:
+          egress-policy: audit
       - name: Mint autonomous repair GitHub App token
         id: app_token
         env:
@@ -117,5 +121,5 @@ jobs:
           REPAIR_APP_LOGIN: ${{ steps.app_token.outputs.repair_app_login }}
           KILO_REPAIR_PR_LOGIN: ${{ vars.KILO_REPAIR_PR_LOGIN }}
           CURRENT_RUN_ID: ${{ github.run_id }}
-          REQUIRED_WORKFLOWS: "Validate AIMS UI|CodeQL|Security and repository quality"
+          REQUIRED_WORKFLOWS: "Validate AIMS UI|CodeQL|Security and repository quality|Item 6 hardening"
         run: python .github/scripts/trusted_automation.py
