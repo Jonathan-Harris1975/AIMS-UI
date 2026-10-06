@@ -1,5 +1,6 @@
 name: Deployment failure diagnostics
 
+# zizmor: ignore[dangerous-triggers] read-only diagnostics execute trusted default-branch code and never check out source-run content
 on:
   workflow_run:
     workflows: ['*']
