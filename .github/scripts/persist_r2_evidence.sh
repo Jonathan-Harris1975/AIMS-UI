@@ -12,11 +12,7 @@ source_path="${3:?file or directory required}"
 : "${R2_ACCESS_KEY_ID:?R2_ACCESS_KEY_ID secret required}"
 : "${R2_SECRET_ACCESS_KEY:?R2_SECRET_ACCESS_KEY secret required}"
 
-bucket="${R2_BUCKET_REPOSITORIES:-hive-repositories}"
-if [[ "$bucket" != "hive-repositories" ]]; then
-  echo "::error::Repository evidence must use the existing hive-repositories bucket, got: $bucket"
-  exit 1
-fi
+bucket="hive-repositories"
 if ! python3 - "$R2_ENDPOINT" <<'PY'
 import sys
 from urllib.parse import urlsplit
