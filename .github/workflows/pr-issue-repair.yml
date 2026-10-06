@@ -121,9 +121,8 @@ jobs:
       issues: write
       pull-requests: write
       security-events: read
-# zizmor: ignore[dangerous-triggers] trusted event router; workflow_run accepts only failed PR runs and executes default-branch router code
 'on':
-  workflow_run:
+  workflow_run: # zizmor: ignore[dangerous-triggers] failed-PR metadata only; repair logic is checked out from the trusted default branch
     workflows:
     - Validate AIMS UI
     - CodeQL
