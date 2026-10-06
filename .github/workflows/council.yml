@@ -171,7 +171,6 @@ jobs:
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          R2_BUCKET_REPOSITORIES: hive-repositories
           TARGET_SHA: ${{ steps.target.outputs.sha }}
         shell: bash
         run: |
