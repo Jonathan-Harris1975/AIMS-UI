@@ -37,6 +37,8 @@ jobs:
       id: autonomy_tests
     - name: Verify PR blocker recovery regressions
       id: blocker_recovery_tests
+      # Continue only long enough to retain diagnostics; the final enforcement
+      # step treats a failed outcome here as a hard security-gate failure.
       continue-on-error: true
       run: python3 .github/scripts/test_pr_blocker_recovery.py
     - name: Prepare isolated diagnostic paths
@@ -44,6 +46,8 @@ jobs:
     - name: Test diagnostic redaction and failure handling
       id: security_tests
       run: python3 .github/scripts/test_security_diagnostics.py
+      # Continue only to generate/upload bounded diagnostics. The final
+      # enforcement step still fails this required job on a failed outcome.
       continue-on-error: true
     - name: Install pinned CI tools
       run: python scripts/install_ci_tools.py trivy gitleaks actionlint
