@@ -22,6 +22,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
+    - name: Harden runner
+      uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2
+      with:
+        egress-policy: audit
     - name: Checkout repository with full history
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       with:
@@ -166,6 +170,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+    - name: Harden runner
+      uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2
+      with:
+        egress-policy: audit
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
     - name: Install pinned Lychee
       continue-on-error: true
@@ -184,6 +192,10 @@ jobs:
       actions: read
       checks: read
     steps:
+    - name: Harden runner
+      uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2
+      with:
+        egress-policy: audit
     - name: Install pinned Scorecard CLI from source
       continue-on-error: true
       env:
