@@ -10,6 +10,8 @@ import os
 import re
 import subprocess
 import sys
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -28,11 +30,14 @@ KILO_LOGIN = os.environ.get("KILO_REPAIR_PR_LOGIN") or "kilo-code-bot[bot]"
 CARRIER_PREFIX = "[autonomy] Repair "
 BRANCH_PR_LABEL = "automation:branch-pr"
 BRANCH_PR_RE = re.compile(r"^(fix|feat|chore|ci|work|codex)/[A-Za-z0-9._/-]+$")
+COUNCIL_FREEZE_LABEL = "autonomy:council-freeze"
+LONDON = ZoneInfo("Europe/London")
 URL_END = r"(?![A-Za-z0-9/_-])"
 
 KILO_SENSITIVE_PREFIXES = (
     ".github/workflows/",
     ".github/actions/",
+    ".github/scripts/",
     ".github/CODEOWNERS",
     ".github/dependabot.yml",
     ".mergify.yml",
@@ -43,6 +48,12 @@ KILO_SENSITIVE_PREFIXES = (
     "CI_SETUP.txt",
 )
 KILO_SENSITIVE_EXACT = {
+    "kilo.jsonc",
+    ".github/scripts/trusted_automation.py",
+    ".github/scripts/branch_pr_automation.py",
+    ".github/scripts/pr_blocker_recovery.py",
+    ".github/scripts/pr_repair_router.py",
+    ".github/scripts/kilo_failure_classifier.py",
     "scripts/secret_scan.py",
     "scripts/install_ci_tools.py",
     "scripts/verify_ci_tool_checksums.py",
@@ -100,6 +111,139 @@ def issue_labels(pr: dict[str, Any]) -> set[str]:
     return {str(x.get("name", "")) for x in pr.get("labels", [])}
 
 
+def remove_label(number: int, label: str) -> None:
+    encoded = urllib.parse.quote(label, safe="")
+    try:
+        delete(f"/repos/{REPO}/issues/{number}/labels/{encoded}", expected=(200, 204))
+    except ApiError as exc:
+        if exc.status != 404:
+            raise
+
+
+def _github_time(value: str) -> datetime:
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def current_weekend_bounds(now: datetime | None = None) -> tuple[datetime, datetime] | None:
+    """Return the active Fri 20:00 -> Mon 04:00 Europe/London envelope."""
+    local_now = (now or datetime.now(timezone.utc)).astimezone(LONDON)
+    # Python weekday(): Monday=0 .. Sunday=6, so Friday=4. Subtracting 4 and
+    # taking modulo 7 yields days back to the most recent Friday (Fri->0,
+    # Sat->1, Sun->2, Mon->3, Tue->4, Wed->5, Thu->6), anchoring the
+    # Fri 20:00-Mon 04:00 Europe/London evidence envelope.
+    days_since_friday = (local_now.weekday() - 4) % 7
+    friday = (local_now - timedelta(days=days_since_friday)).replace(
+        hour=20, minute=0, second=0, microsecond=0
+    )
+    end = friday + timedelta(days=2, hours=8)
+    if friday <= local_now < end:
+        return friday, end
+    return None
+
+
+def _resolve_branch_sha() -> str:
+    """Fetch and validate the current default-branch SHA."""
+    branch = get(f"/repos/{REPO}/branches/{DEFAULT_BRANCH}")
+    sha = str(branch.get("commit", {}).get("sha", ""))
+    if not re.fullmatch(r"[0-9a-f]{40}", sha):
+        raise RuntimeError("Could not resolve current default-branch SHA for Council freeze")
+    return sha
+
+
+def _fetch_branch_runs() -> list[dict[str, Any]]:
+    """Fetch complete branch workflow evidence, bounded to 1,000 runs."""
+    encoded_branch = urllib.parse.quote(DEFAULT_BRANCH, safe="")
+    runs: list[dict[str, Any]] = []
+    total_count: int | None = None
+    for page in range(1, 11):
+        payload = get(
+            f"/repos/{REPO}/actions/runs?branch={encoded_branch}&per_page=100&page={page}"
+        )
+        chunk = payload.get("workflow_runs", []) if isinstance(payload, dict) else []
+        if total_count is None and isinstance(payload, dict):
+            raw_total = payload.get("total_count")
+            if isinstance(raw_total, int) and raw_total >= 0:
+                total_count = raw_total
+        runs.extend(chunk)
+
+        # A short page is authoritative pagination evidence that there is no next
+        # page, even if total_count is briefly stale or overestimated.
+        if len(chunk) < 100:
+            return runs
+
+        # total_count is still useful for the exact 1,000-run boundary: when the
+        # tenth full page completes the advertised result set, it is complete.
+        if total_count is not None and len(runs) >= total_count:
+            return runs
+
+    # Ten full pages without proving completeness would exceed the bounded
+    # evidence window. Fail closed instead of silently certifying truncated data.
+    raise RuntimeError("Workflow-run pagination exceeded the safe 1,000-run limit")
+
+
+def council_evidence_freeze() -> tuple[bool, str]:
+    """Freeze routine merges after exact-SHA weekend CI until Council succeeds."""
+    bounds = current_weekend_bounds()
+    if bounds is None:
+        return False, "outside the weekend evidence envelope"
+
+    current_sha = _resolve_branch_sha()
+    runs = _fetch_branch_runs()
+
+    # Re-read main after collecting evidence. Retry one race using the new SHA;
+    # if main moves a second time, fail closed rather than certify stale evidence.
+    current_after = _resolve_branch_sha()
+    if current_after != current_sha:
+        log(
+            f"default branch advanced from {current_sha[:12]} to {current_after[:12]} "
+            "during Council evidence evaluation; retrying once with the new SHA"
+        )
+        current_sha = current_after
+        runs = _fetch_branch_runs()
+        current_after = _resolve_branch_sha()
+        if current_after != current_sha:
+            return True, (
+                f"default branch moved from {current_sha[:12]} to {current_after[:12]} "
+                "during Council evidence evaluation"
+            )
+
+    start_utc, end_utc = (value.astimezone(timezone.utc) for value in bounds)
+
+    def in_window(run: dict[str, Any]) -> bool:
+        created = str(run.get("created_at", ""))
+        if not created:
+            return False
+        when = _github_time(created)
+        return start_utc <= when < end_utc
+
+    ci_runs = [
+        run for run in runs
+        if run.get("name") == "Validate AIMS UI"
+        and run.get("event") != "pull_request"
+        and run.get("status") == "completed"
+        and run.get("conclusion") == "success"
+        and run.get("head_sha") == current_sha
+        and in_window(run)
+    ]
+    if not ci_runs:
+        return False, f"no successful weekend Validate AIMS UI evidence exists for {current_sha[:12]}"
+
+    ci_run = max(ci_runs, key=lambda run: int(run.get("id", 0)))
+    ci_time = _github_time(str(ci_run["created_at"]))
+    council_runs = [
+        run for run in runs
+        if run.get("name") == "Repository Council"
+        and run.get("status") == "completed"
+        and run.get("conclusion") == "success"
+        and run.get("head_sha") == current_sha
+        and in_window(run)
+        and _github_time(str(run.get("created_at", ""))) >= ci_time
+    ]
+    if council_runs:
+        return False, f"Council completed for weekend evidence SHA {current_sha[:12]}"
+    return True, f"weekend CI PASS is recorded for {current_sha[:12]} and Council has not completed"
+
+
 def ensure_label(name: str, color: str, description: str) -> None:
     try:
         post(f"/repos/{REPO}/labels", {"name": name, "color": color, "description": description}, expected=(201,))
@@ -144,19 +288,23 @@ def renovate_auto_eligible(pr: dict[str, Any]) -> bool:
     return is_renovate(pr) and "dependency:auto-eligible" in issue_labels(pr)
 
 
-def is_managed_branch_pr(pr: dict[str, Any]) -> bool:
-    """Recognise trusted same-repository implementation PRs without giving them merge authority."""
+def is_managed_branch_identity(pr: dict[str, Any]) -> bool:
+    """Recognise a trusted same-repository branch-controller PR identity."""
     labels = issue_labels(pr)
     branch = str(pr.get("head", {}).get("ref", ""))
     return (
         pr.get("user", {}).get("login") == REPAIR_APP_LOGIN
         and pr.get("state") == "open"
-        and not pr.get("draft")
         and is_same_repo(pr)
         and pr.get("base", {}).get("ref") == DEFAULT_BRANCH
         and BRANCH_PR_LABEL in labels
         and BRANCH_PR_RE.fullmatch(branch) is not None
     )
+
+
+def is_managed_branch_pr(pr: dict[str, Any]) -> bool:
+    """Return merge-admission eligible managed branch identity."""
+    return is_managed_branch_identity(pr) and not pr.get("draft")
 
 
 def is_repair_carrier_identity(pr: dict[str, Any]) -> bool:
@@ -177,6 +325,19 @@ def is_carrier(pr: dict[str, Any]) -> bool:
     return (
         is_repair_carrier_identity(pr)
         and not labels.intersection({"autonomy:human-hold", "autonomy:superseded", "autonomy:obsolete"})
+    )
+
+
+def is_kilo_implementation_identity(pr: dict[str, Any]) -> bool:
+    """Recognise a Kilo implementation only after trusted linkage labels exist."""
+    labels = issue_labels(pr)
+    return (
+        pr.get("user", {}).get("login") == KILO_LOGIN
+        and pr.get("state") == "open"
+        and is_same_repo(pr)
+        and pr.get("base", {}).get("ref") == DEFAULT_BRANCH
+        and "autonomy:kilo-implementation" in labels
+        and "autonomy:repair" in labels
     )
 
 
@@ -260,7 +421,7 @@ def adopt_linked_kilo_prs(open_prs: list[dict[str, Any]]) -> None:
         log(f"Trusted Kilo implementation PR #{pr['number']} linked to source PR #{source}.")
 
 
-def admission_kind(pr: dict[str, Any]) -> str | None:
+def automation_kind(pr: dict[str, Any]) -> str | None:
     labels = issue_labels(pr)
     if is_renovate(pr):
         return "renovate"
@@ -268,15 +429,14 @@ def admission_kind(pr: dict[str, Any]) -> str | None:
         return "branch-pr"
     if is_carrier(pr):
         return "carrier"
-    if (pr.get("user", {}).get("login") == KILO_LOGIN and is_same_repo(pr) and
-            "autonomy:kilo-implementation" in labels and "autonomy:repair" in labels):
+    if is_kilo_implementation_identity(pr):
         return "kilo"
     return None
 
 
 def current_pr_for_sha(open_prs: list[dict[str, Any]], sha: str) -> dict[str, Any] | None:
     matches = [pr for pr in open_prs if pr.get("head", {}).get("sha") == sha]
-    eligible = [pr for pr in matches if admission_kind(pr)]
+    eligible = [pr for pr in matches if automation_kind(pr)]
     return eligible[0] if len(eligible) == 1 else None
 
 
@@ -289,7 +449,7 @@ def admit_waiting_runs(open_prs: list[dict[str, Any]]) -> None:
         pr = current_pr_for_sha(open_prs, sha)
         if pr is None:
             continue
-        kind = admission_kind(pr)
+        kind = automation_kind(pr)
         if kind == "kilo" and (linked_kilo_carrier(pr, carriers) is None and
                                 linked_kilo_review_source(pr, open_prs) is None):
             continue
@@ -334,17 +494,53 @@ def all_required_checks_green(pr: dict[str, Any]) -> tuple[bool, str]:
 
     # Mergify and the repository ruleset evaluate any additional required contexts.
     # Optional review, link and external-service checks cannot become an extra gate here.
-    return True, "required CI and security workflows succeeded"
+    return True, "all required exact-head workflows succeeded"
+
+
+def pr_file_details(number: int) -> list[dict[str, Any]]:
+    files: list[dict[str, Any]] = []
+    for page in range(1, 11):
+        chunk = get(f"/repos/{REPO}/pulls/{number}/files?per_page=100&page={page}")
+        files.extend(chunk)
+        if len(chunk) < 100:
+            return files
+    raise RuntimeError(f"PR #{number} has too many changed files to verify safely")
 
 
 def pr_files(number: int) -> list[str]:
-    names: list[str] = []
-    for page in range(1, 11):
-        chunk = get(f"/repos/{REPO}/pulls/{number}/files?per_page=100&page={page}")
-        names.extend(str(item.get("filename", "")) for item in chunk)
-        if len(chunk) < 100:
-            return names
-    raise RuntimeError(f"PR #{number} has too many changed files to verify safely")
+    return [str(item.get("filename", "")) for item in pr_file_details(number)]
+
+
+RENOVATE_ACTION_PIN_LINE = re.compile(
+    r"""\s*uses:\s*['"]?[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@[0-9a-f]{40}['"]?\s*(?:#.*)?"""
+)
+
+
+def renovate_sensitive_changes_are_dependency_pins(number: int) -> bool:
+    """Allow Renovate protected workflow edits only for immutable action SHA pins.
+
+    Renovate owns GitHub Action revision updates, but not workflow logic or any
+    other governance/security control. Missing patches fail closed.
+    """
+    sensitive = [item for item in pr_file_details(number)
+                 if sensitive_file(str(item.get("filename", "")))]
+    if not sensitive:
+        return True
+    for item in sensitive:
+        path = str(item.get("filename", ""))
+        if not path.startswith(".github/workflows/"):
+            return False
+        patch_text = item.get("patch")
+        if not isinstance(patch_text, str) or not patch_text:
+            return False
+        changed = [
+            line[1:].strip()
+            for line in patch_text.splitlines()
+            if line[:1] in {"+", "-"} and not line.startswith(("+++", "---"))
+        ]
+        if not changed or any(RENOVATE_ACTION_PIN_LINE.fullmatch(line) is None for line in changed):
+            return False
+    return True
 
 
 def sensitive_file(path: str) -> bool:
@@ -380,12 +576,12 @@ def approve_pr(number: int, sha: str) -> None:
         f"/repos/{REPO}/pulls/{number}/reviews",
         {
             "event": "APPROVE",
-            "body": "Trusted automation approval: exact-head CI, CodeQL and repository security checks passed.",
+            "body": "Trusted automation approval: all required exact-head workflows passed.",
             "commit_id": sha,
         },
         expected=(200, 201),
     )
-    log(f"Approved PR #{number} at {sha[:12]} after trusted checks passed.")
+    log(f"Approved PR #{number} at {sha[:12]} after all required exact-head workflows passed.")
 
 
 def admit_to_mergify(number: int) -> None:
@@ -397,7 +593,7 @@ def admit_to_mergify(number: int) -> None:
         log(f"PR #{number} is already admitted to Mergify.")
         return
     add_labels(number, ["autonomy:admitted"])
-    log(f"Admitted PR #{number} to Mergify after exact-head CI, CodeQL and security verification.")
+    log(f"Admitted PR #{number} to Mergify after all required exact-head workflows passed.")
 
 
 def reconcile_stale_carriers(open_prs: list[dict[str, Any]]) -> None:
@@ -431,8 +627,94 @@ def reconcile_stale_carriers(open_prs: list[dict[str, Any]]) -> None:
         log(f"Closed retired repair carrier PR #{number}.")
 
 
+def reconcile_retired_implementations(open_prs: list[dict[str, Any]]) -> None:
+    """Close only verified retired implementation PR identities.
+
+    This replaces Mergify Workflow Automation rules that are not enabled for
+    this repository. Arbitrary labelled PRs are never closed.
+    """
+    for pr in open_prs:
+        labels = issue_labels(pr)
+        if not labels.intersection({"autonomy:superseded", "autonomy:obsolete"}):
+            continue
+        if not (is_managed_branch_identity(pr) or is_kilo_implementation_identity(pr)):
+            continue
+        number = int(pr["number"])
+        request("PATCH", f"/repos/{REPO}/pulls/{number}", {"state": "closed"})
+        if "autonomy:admitted" in labels:
+            remove_label(number, "autonomy:admitted")
+        log(f"Closed retired verified implementation PR #{number}.")
+
+
+def refresh_behind_kilo_prs(open_prs: list[dict[str, Any]]) -> None:
+    """Bring verified Kilo implementation branches up to the current base.
+
+    The trusted repair App may update a branch but never merge it. Every update
+    changes the head SHA and therefore forces the normal exact-head checks to
+    run again before Mergify can admit a merge.
+    """
+    carriers = [source for source in open_prs if is_carrier(source)]
+    base_sha = _resolve_branch_sha()
+
+    for pr in open_prs:
+        if not is_kilo_implementation_identity(pr) or pr.get("draft"):
+            continue
+        labels = issue_labels(pr)
+        if labels.intersection(
+            {"autonomy:human-hold", "autonomy:superseded", "autonomy:obsolete", COUNCIL_FREEZE_LABEL}
+        ):
+            continue
+        if (linked_kilo_carrier(pr, carriers) is None and
+                linked_kilo_review_source(pr, open_prs) is None):
+            continue
+
+        number = int(pr["number"])
+        head_sha = str(pr.get("head", {}).get("sha", ""))
+        if not re.fullmatch(r"[0-9a-f]{40}", head_sha):
+            continue
+
+        comparison = get(f"/repos/{REPO}/compare/{base_sha}...{head_sha}")
+        if int(comparison.get("behind_by", 0)) <= 0:
+            continue
+
+        fresh = get(f"/repos/{REPO}/pulls/{number}")
+        if (
+            not is_kilo_implementation_identity(fresh)
+            or fresh.get("draft")
+            or str(fresh.get("head", {}).get("sha", "")) != head_sha
+            or issue_labels(fresh).intersection(
+                {"autonomy:human-hold", "autonomy:superseded", "autonomy:obsolete", COUNCIL_FREEZE_LABEL}
+            )
+        ):
+            log(f"Kilo PR #{number} changed while base refresh was being evaluated; waiting.")
+            continue
+
+        # Fail closed on a moving base rather than updating against evidence
+        # collected for a stale default-branch tip.
+        if _resolve_branch_sha() != base_sha:
+            log(f"Default branch moved while Kilo PR #{number} was being evaluated; waiting.")
+            return
+
+        try:
+            request(
+                "PUT",
+                f"/repos/{REPO}/pulls/{number}/update-branch",
+                {"expected_head_sha": head_sha},
+                expected=(200, 202),
+            )
+        except ApiError as exc:
+            if exc.status in (409, 422):
+                log(f"Kilo PR #{number} could not be refreshed safely yet (HTTP {exc.status}); waiting.")
+                continue
+            raise
+
+        if "autonomy:admitted" in labels:
+            remove_label(number, "autonomy:admitted")
+        log(f"Requested trusted base refresh for Kilo PR #{number} at {head_sha[:12]}.")
+
+
 def reconcile_pr(pr: dict[str, Any]) -> None:
-    kind = admission_kind(pr)
+    kind = automation_kind(pr)
     if kind is None or pr.get("draft"):
         return
     labels = issue_labels(pr)
@@ -448,15 +730,44 @@ def reconcile_pr(pr: dict[str, Any]) -> None:
         # Renovate eligibility is explicit metadata; manual/unlabelled updates remain human merge decisions.
         return
 
-    if kind in {"kilo", "branch-pr"}:
-        sensitive = [path for path in pr_files(int(pr["number"])) if sensitive_file(path)]
-        if sensitive:
-            source = "repair" if kind == "kilo" else "managed branch"
-            place_human_hold(
-                pr,
-                f"the {source} PR changes governance/security automation files: " + ", ".join(sensitive[:8]),
-            )
+    # The evidence freeze applies to routine dependency/feature merges. A linked
+    # Kilo implementation is an authorised repair exception: if it changes main,
+    # the exact-SHA evidence is invalidated and CI/Council must be regenerated.
+    if kind in {"renovate", "branch-pr"}:
+        frozen, freeze_reason = council_evidence_freeze()
+        number = int(pr["number"])
+        if frozen:
+            if "autonomy:admitted" in labels:
+                remove_label(number, "autonomy:admitted")
+            if COUNCIL_FREEZE_LABEL not in labels:
+                add_labels(number, [COUNCIL_FREEZE_LABEL])
+            log(f"PR #{number} ({kind}) held by Council evidence freeze: {freeze_reason}.")
             return
+        if COUNCIL_FREEZE_LABEL in labels:
+            remove_label(number, COUNCIL_FREEZE_LABEL)
+            log(f"PR #{number} ({kind}) released from Council evidence freeze: {freeze_reason}.")
+
+    if kind in {"kilo", "branch-pr", "renovate"}:
+        number = int(pr["number"])
+        sensitive = [path for path in pr_files(number) if sensitive_file(path)]
+        if sensitive:
+            if kind == "renovate" and renovate_sensitive_changes_are_dependency_pins(number):
+                log(
+                    f"Renovate PR #{number} changes protected workflow files only through immutable "
+                    "GitHub Action revision pins; continuing through exact-head gates."
+                )
+            else:
+                source = {
+                    "kilo": "repair",
+                    "branch-pr": "managed branch",
+                    "renovate": "Renovate",
+                }[kind]
+                place_human_hold(
+                    pr,
+                    f"the {source} PR changes governance/security automation files beyond its authorised boundary: "
+                    + ", ".join(sensitive[:8]),
+                )
+                return
 
     if kind == "kilo":
         carriers = [source for source in list_open_prs() if is_carrier(source)]
@@ -501,12 +812,17 @@ def main() -> int:
     ensure_label("autonomy:human-hold", "FBCA04", "Automation must stop for human action")
     ensure_label("autonomy:obsolete", "D4C5F9", "Repair carrier is no longer current")
     ensure_label("autonomy:admitted", "0E8A16", "Exact-head CI/security verification complete; Mergify may merge")
+    ensure_label(COUNCIL_FREEZE_LABEL, "D93F0B", "Routine merge held after weekend CI PASS until Council completes on the same SHA")
 
     open_prs = list_open_prs()
     reconcile_stale_carriers(open_prs)
     open_prs = list_open_prs()  # refresh after stale-carrier lifecycle changes
     adopt_linked_kilo_prs(open_prs)
     open_prs = list_open_prs()  # refresh labels after Kilo correlation
+    reconcile_retired_implementations(open_prs)
+    open_prs = list_open_prs()  # refresh after trusted retirement
+    refresh_behind_kilo_prs(open_prs)
+    open_prs = list_open_prs()  # refresh heads/labels after any accepted base update
     admit_waiting_runs(open_prs)
 
     # Reconcile current trusted PRs. Runs admitted above will normally become ready on a later
