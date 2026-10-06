@@ -26,10 +26,11 @@ DEPENDENCY / LOCKFILE POLICY
 
 SCHEDULE
 --------
-- CodeQL Advanced: Sunday 02:30 UTC.
-- Security/repository-quality workflow: Sunday 02:30 UTC, plus normal PR/push execution.
-- Renovate: Sunday 02:30-05:00 Europe/London.
-- Validate AIMS UI also runs Sunday 02:30 UTC, and normal CI runs immediately on pushes and pull requests.
+- Renovate: Saturday 11:00-13:30 Europe/London pre-CI window.
+- Weekend CI phase: Saturday 13:30 Europe/London; the launcher dispatches Validate AIMS UI, CodeQL and repository security together.
+- DAST phase: Saturday 20:00 Europe/London when DAST_ENABLED=true and an authorised DAST_TARGET_URL is configured.
+- Repository Council: Sunday 13:30 Europe/London after CI/deployment evidence has settled.
+- Normal CI, CodeQL and security workflows still run on their configured push/pull-request events.
 
 CI TOOLS ADDED
 --------------
@@ -61,7 +62,7 @@ Cloudflare AIMS-UI production build toolchain
 - GitHub CI remains deterministic: its workflows explicitly install and assert npm 10.9.9 before installation and validation. Do not re-add packageManager or engines.npm without first validating Cloudflare's build-tool detection.
 
 AUTONOMOUS PROVING-GROUP SETUP
-- Scheduled window: Sunday 02:30 UTC; 2.5 hours reserved before the next repository starts.
+- Scheduled CI window: Saturday 13:30-16:00 Europe/London, following the Saturday 11:00-13:30 Renovate window.
 - KiloConnect + Kilo Code Bot: authorise both GitHub integrations for this repository. Failed default-branch CI/deployment-watch runs create one deduplicated repair PR and trigger Kilo Cloud Agent; actionable PR review comments and failed PR checks trigger it directly.
 - Kilo may prepare dependency-manifest/lockfile/build fixes when evidence requires them, but all changes remain PR-only and must pass existing gates.
 - Mergify is the sole automation merge arbiter for admitted routine PRs; repository rulesets and required checks remain independent hard gates.
