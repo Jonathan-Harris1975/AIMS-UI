@@ -25,6 +25,22 @@ KILO = {"kilo-code-bot", "kilo-code-bot[bot]"}
 KILO_IMPLEMENTER = os.environ.get("KILO_REPAIR_PR_LOGIN") or "kilo-code-bot[bot]"
 REPAIR_APP_LOGIN = os.environ.get("REPAIR_APP_LOGIN", "")
 KILO_MACHINE_CONTRACT = Path(__file__).resolve().parents[1] / "kilo-machine-repair-contract.md"
+PROTECTED_CONTROL_PATHS = {
+    "kilo.jsonc",
+    ".mergify.yml",
+    "renovate.json",
+    ".github/dependabot.yml",
+    ".github/CODEOWNERS",
+    "SECURITY.md",
+    "AUTONOMY.md",
+    "CI_SETUP.txt",
+}
+PROTECTED_CONTROL_PREFIXES = (
+    ".github/workflows/",
+    ".github/actions/",
+    ".github/scripts/",
+)
+
 class RepairConfigurationError(RuntimeError):
     """Safe-to-report repair-controller configuration failure."""
 
@@ -60,6 +76,15 @@ def all_pages(path: str) -> list[dict]:
     raise ValueError("GitHub result exceeded the safe 1,000-entry limit")
 
 
+def protected_control_change(number: int) -> bool:
+    files = all_pages(f"/repos/{REPO}/pulls/{number}/files")
+    return any(
+        str(row.get("filename", "")) in PROTECTED_CONTROL_PATHS
+        or str(row.get("filename", "")).startswith(PROTECTED_CONTROL_PREFIXES)
+        for row in files
+    )
+
+
 def pr_details(number: int) -> dict | None:
     pr = api("GET", f"/repos/{REPO}/pulls/{number}")
     if (pr.get("state") != "open" or pr.get("draft") or
@@ -68,6 +93,9 @@ def pr_details(number: int) -> dict | None:
         return None
     labels = {label.get("name") for label in pr.get("labels", [])}
     if labels.intersection({"autonomy:obsolete", "autonomy:superseded", "autonomy:human-hold"}):
+        return None
+    if protected_control_change(number):
+        print(f"PR #{number} changes protected automation/governance controls; Kilo repair routing is intentionally disabled.")
         return None
     # Carrier PRs only record a failed run; Kilo must fix a separate branch.
     head = pr.get("head", {})
