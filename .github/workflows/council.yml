@@ -57,7 +57,7 @@ jobs:
           REPO: ${{ github.repository }}
           TARGET_SHA: ${{ steps.target.outputs.sha }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-          REQUIRED_WORKFLOWS: "Validate AIMS UI|CodeQL|Security and repository quality"
+          REQUIRED_WORKFLOWS: "Validate AIMS UI|CodeQL|Security and repository quality|Item 6 hardening"
         shell: bash
         run: |
           set -euo pipefail
