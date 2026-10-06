@@ -497,14 +497,50 @@ def all_required_checks_green(pr: dict[str, Any]) -> tuple[bool, str]:
     return True, "all required exact-head workflows succeeded"
 
 
-def pr_files(number: int) -> list[str]:
-    names: list[str] = []
+def pr_file_details(number: int) -> list[dict[str, Any]]:
+    files: list[dict[str, Any]] = []
     for page in range(1, 11):
         chunk = get(f"/repos/{REPO}/pulls/{number}/files?per_page=100&page={page}")
-        names.extend(str(item.get("filename", "")) for item in chunk)
+        files.extend(chunk)
         if len(chunk) < 100:
-            return names
+            return files
     raise RuntimeError(f"PR #{number} has too many changed files to verify safely")
+
+
+def pr_files(number: int) -> list[str]:
+    return [str(item.get("filename", "")) for item in pr_file_details(number)]
+
+
+RENOVATE_ACTION_PIN_LINE = re.compile(
+    r"""\s*uses:\s*['"]?[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@[0-9a-f]{40}['"]?\s*(?:#.*)?"""
+)
+
+
+def renovate_sensitive_changes_are_dependency_pins(number: int) -> bool:
+    """Allow Renovate protected workflow edits only for immutable action SHA pins.
+
+    Renovate owns GitHub Action revision updates, but not workflow logic or any
+    other governance/security control. Missing patches fail closed.
+    """
+    sensitive = [item for item in pr_file_details(number)
+                 if sensitive_file(str(item.get("filename", "")))]
+    if not sensitive:
+        return True
+    for item in sensitive:
+        path = str(item.get("filename", ""))
+        if not path.startswith(".github/workflows/"):
+            return False
+        patch_text = item.get("patch")
+        if not isinstance(patch_text, str) or not patch_text:
+            return False
+        changed = [
+            line[1:].strip()
+            for line in patch_text.splitlines()
+            if line[:1] in {"+", "-"} and not line.startswith(("+++", "---"))
+        ]
+        if not changed or any(RENOVATE_ACTION_PIN_LINE.fullmatch(line) is None for line in changed):
+            return False
+    return True
 
 
 def sensitive_file(path: str) -> bool:
@@ -694,6 +730,9 @@ def reconcile_pr(pr: dict[str, Any]) -> None:
         # Renovate eligibility is explicit metadata; manual/unlabelled updates remain human merge decisions.
         return
 
+    # The evidence freeze applies to routine dependency/feature merges. A linked
+    # Kilo implementation is an authorised repair exception: if it changes main,
+    # the exact-SHA evidence is invalidated and CI/Council must be regenerated.
     if kind in {"renovate", "branch-pr"}:
         frozen, freeze_reason = council_evidence_freeze()
         number = int(pr["number"])
@@ -708,15 +747,27 @@ def reconcile_pr(pr: dict[str, Any]) -> None:
             remove_label(number, COUNCIL_FREEZE_LABEL)
             log(f"PR #{number} ({kind}) released from Council evidence freeze: {freeze_reason}.")
 
-    if kind in {"kilo", "branch-pr"}:
-        sensitive = [path for path in pr_files(int(pr["number"])) if sensitive_file(path)]
+    if kind in {"kilo", "branch-pr", "renovate"}:
+        number = int(pr["number"])
+        sensitive = [path for path in pr_files(number) if sensitive_file(path)]
         if sensitive:
-            source = "repair" if kind == "kilo" else "managed branch"
-            place_human_hold(
-                pr,
-                f"the {source} PR changes governance/security automation files: " + ", ".join(sensitive[:8]),
-            )
-            return
+            if kind == "renovate" and renovate_sensitive_changes_are_dependency_pins(number):
+                log(
+                    f"Renovate PR #{number} changes protected workflow files only through immutable "
+                    "GitHub Action revision pins; continuing through exact-head gates."
+                )
+            else:
+                source = {
+                    "kilo": "repair",
+                    "branch-pr": "managed branch",
+                    "renovate": "Renovate",
+                }[kind]
+                place_human_hold(
+                    pr,
+                    f"the {source} PR changes governance/security automation files beyond its authorised boundary: "
+                    + ", ".join(sensitive[:8]),
+                )
+                return
 
     if kind == "kilo":
         carriers = [source for source in list_open_prs() if is_carrier(source)]
