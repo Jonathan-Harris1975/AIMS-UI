@@ -226,7 +226,7 @@ def council_evidence_freeze() -> tuple[bool, str]:
         and in_window(run)
     ]
     if not ci_runs:
-        return False, f"no successful weekend AIMS CI evidence exists for {current_sha[:12]}"
+        return False, f"no successful weekend Validate AIMS UI evidence exists for {current_sha[:12]}"
 
     ci_run = max(ci_runs, key=lambda run: int(run.get("id", 0)))
     ci_time = _github_time(str(ci_run["created_at"]))
