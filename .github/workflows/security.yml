@@ -65,7 +65,10 @@ jobs:
         jobs:
           broken:
             runs-on: ubuntu-latest
-            steps: definitely-not-a-list
+            steps:
+              - name: semantic workflow defect
+                uses: actions/checkout@v4
+                run: echo "a step cannot declare both uses and run"
         YAML
         set +e
         .ci-tools/bin/actionlint "$fixture" >/dev/null 2>&1
