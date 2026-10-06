@@ -52,6 +52,33 @@ jobs:
     - name: Install pinned CI tools
       run: python scripts/install_ci_tools.py trivy gitleaks actionlint
       id: install_security_tools
+    - name: Prove actionlint detects a seeded workflow defect
+      if: ${{ !cancelled() && steps.install_security_tools.outcome == 'success' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        fixture="$(mktemp --suffix=.yml)"
+        trap 'rm -f "$fixture"' EXIT
+        cat > "$fixture" <<'YAML'
+        name: seeded-actionlint-defect
+        on: workflow_dispatch
+        jobs:
+          broken:
+            runs-on: ubuntu-latest
+            steps:
+              - uses: actions/checkout@v4
+                with:
+                  definitely-not-a-real-input: true
+        YAML
+        set +e
+        .ci-tools/bin/actionlint "$fixture" >/dev/null 2>&1
+        status=$?
+        set -e
+        if [ "$status" -eq 0 ]; then
+          echo "::error::actionlint accepted the intentionally defective workflow fixture."
+          exit 1
+        fi
+
     - name: Verify Gitleaks exact-fingerprint ignore contract
       if: ${{ !cancelled() && steps.install_security_tools.outcome == 'success' }}
       shell: bash
