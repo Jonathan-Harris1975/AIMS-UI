@@ -84,21 +84,25 @@ jobs:
         with:
           node-version: 24.21.0
 
-      - name: Prove malformed Renovate configuration is rejected
+      - name: Prove malformed Renovate configurations are rejected
         shell: bash
         run: |
           set -euo pipefail
-          fixture="$(mktemp)"
-          trap 'rm -f "$fixture"' EXIT
-          printf '{"extends":["config:recommended"],"packageRules":"not-an-array"}\n' > "$fixture"
-          set +e
-          npx --yes --package=renovate@44.133.0 renovate-config-validator --strict "$fixture"
-          status=$?
-          set -e
-          if [ "$status" -eq 0 ]; then
-            echo "::error::Strict Renovate validation accepted an intentionally malformed fixture."
-            exit 1
-          fi
+          fixture_dir="$(mktemp -d)"
+          trap 'rm -rf "$fixture_dir"' EXIT
+          printf '%s\n' '{"extends":["config:recommended"],"packageRules":"not-an-array"}' > "$fixture_dir/package-rules.json"
+          printf '%s\n' '{"extends":["config:recommended"],"schedule":42}' > "$fixture_dir/schedule.json"
+          printf '%s\n' '{"extends":["config:recommended"],"packageRules":[{"matchUpdateTypes":["definitely-not-an-update-type"]}]}' > "$fixture_dir/update-type.json"
+          for fixture in "$fixture_dir"/*.json; do
+            set +e
+            npx --yes --package=renovate@44.133.0 renovate-config-validator --strict "$fixture"
+            status=$?
+            set -e
+            if [ "$status" -eq 0 ]; then
+              echo "::error::Strict Renovate validation accepted malformed fixture: $(basename "$fixture")"
+              exit 1
+            fi
+          done
 
       - name: Validate final Renovate configuration
         run: npx --yes --package=renovate@44.133.0 renovate-config-validator --strict renovate.json
