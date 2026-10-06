@@ -1,8 +1,7 @@
 name: AIMS-UI deployed integration
 
-# zizmor: ignore[dangerous-triggers] exact-SHA post-CI verifier; only successful same-repository main push runs are accepted below
 on:
-  workflow_run:
+  workflow_run: # zizmor: ignore[dangerous-triggers] exact-SHA verifier accepts only successful same-repository main pushes
     workflows: ["Validate AIMS UI"]
     types: [completed]
   workflow_dispatch:
