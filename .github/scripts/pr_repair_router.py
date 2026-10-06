@@ -25,6 +25,10 @@ KILO = {"kilo-code-bot", "kilo-code-bot[bot]"}
 KILO_IMPLEMENTER = os.environ.get("KILO_REPAIR_PR_LOGIN") or "kilo-code-bot[bot]"
 REPAIR_APP_LOGIN = os.environ.get("REPAIR_APP_LOGIN", "")
 KILO_MACHINE_CONTRACT = Path(__file__).resolve().parents[1] / "kilo-machine-repair-contract.md"
+class RepairConfigurationError(RuntimeError):
+    """Safe-to-report repair-controller configuration failure."""
+
+
 REPAIRABLE = re.compile(r"\b(fail(?:s|ed|ure)?|break(?:s|ing)?|broken|regression|mismatch|"
                         r"vulnerab\w*|security|unsafe|incorrect|bug|error|risk|suggest|"
                         r"should|fix|bump|update|regenerat\w*|missing|stale)\b", re.I)
@@ -291,7 +295,7 @@ def dispatch(pr: dict, kind: str, findings: list[str]) -> str:
 
     api("POST", f"/repos/{REPO}/issues/{number}/comments", {"body":
         f"{marker}\nAutonomous Kilo repair requested for the current {kind} findings through the machine webhook. "
-        "No human reply, GitHub account link, or @kilocode-bot command is required. "
+        "No human reply, GitHub account link, or Kilo mention command is required. "
         "The source PR remains governed by its normal checks."})
     print(f"Sent autonomous {kind} repair for PR #{number} at {sha[:12]} to Kilo.")
     return 'requested'
@@ -299,7 +303,8 @@ def dispatch(pr: dict, kind: str, findings: list[str]) -> str:
 
 def safe_route_error(exc: Exception) -> str:
     """Return a bounded routing diagnostic without exposing API details."""
-    message = str(exc)
+    if isinstance(exc, RepairConfigurationError):
+        return str(exc)
     return f"{type(exc).__name__}; detail withheld"
 
 
@@ -317,6 +322,6 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as exc:
-        print(f"::warning::PR repair routing unavailable: {safe_route_error(exc)}. "
+        print(f"::error::PR repair routing unavailable: {safe_route_error(exc)}. "
               "The source CI/security result remains authoritative.", file=sys.stderr)
-        sys.exit(0)
+        sys.exit(1)
