@@ -67,7 +67,7 @@ AUTONOMOUS PROVING-GROUP SETUP
 - Kilo may prepare dependency-manifest/lockfile/build fixes when evidence requires them, but all changes remain PR-only and must pass existing gates.
 - Mergify is the sole automation merge arbiter for admitted routine PRs; repository rulesets and required checks remain independent hard gates.
 - Native GitHub auto-merge is not requested by repository automation, and Renovate/Kilo do not receive merge authority.
-- R2 Council ingestion/publishing is deferred to the HIVE Council implementation; no R2 credentials are introduced by this phase.
+- DAST evidence is persisted to the private `hive-repositories` R2 bucket using repository secrets `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, and `R2_SECRET_ACCESS_KEY`; keys bind repository, exact SHA, workflow run ID and run attempt. Council currently persists dispatch evidence only because the Kilo Council webhook does not return the completed Council result. Final Council-result persistence remains HOLD until that result/callback is exposed.
 - Codecov and OWASP ZAP are intentionally NOT enabled.
 
 - GitHub Actions must be allowed to create pull requests in repository Actions settings for the autonomous repair-PR workflow.
@@ -101,3 +101,12 @@ KILO GITHUB + COUNCIL SETUP
 - `KILO_REPAIR_TRIGGER_URL` is no longer used by ordinary PR/default-branch repair. It remains required only by the current manual Repository Council workflow, which is a separate exact-SHA certification path.
 - Keep GitHub code-scanning and required CI/security checks independent of Kilo. Kilo cannot dismiss alerts, weaken scanners, change broad allow-lists, merge or deploy.
 - Live proof remains mandatory: an authenticated bot finding must cause a Kilo implementation without a human approval prompt, and the resulting PR must still pass the repository's exact-head gates before Mergify may merge it.
+
+
+CTO.NEW TASK LANE
+-----------------
+- cto.new is planned-engineering only and remains issue/task-driven.
+- Do not create generic programme-ledger, lease, checkpoint, or dummy cto.new issues.
+- A cto.new PR must not receive trusted automation admission until the live GitHub integration proves the originating actionable task and stable PR identity.
+- The public cto.new documentation currently confirms repository connection and task-based execution but does not define a stable GitHub bot login/assignment contract. Therefore AIMS-UI must fail closed rather than hard-code a guessed identity.
+- Kilo remains the deterministic CI/runtime repair owner. Cross-agent same-fingerprint mutation is forbidden; full Kilo/cto.new lease/transfer acceptance remains HOLD until the cto.new GitHub task lane can be exercised end-to-end.
