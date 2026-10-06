@@ -153,15 +153,15 @@ jobs:
           fi
           echo "Council dispatched for ${REPO}@${TARGET_SHA}."
           mkdir -p "$RUNNER_TEMP/council-r2"
-          prompt_sha256="$(printf '%s' "$task" | sha256sum | awk '{print $1}')"
+          task_sha256="$(printf '%s' "$task" | sha256sum | awk '{print $1}')"
           jq -n \
             --arg repository "$REPO" \
             --arg sha "$TARGET_SHA" \
             --arg run_id "$GITHUB_RUN_ID" \
             --arg run_attempt "$GITHUB_RUN_ATTEMPT" \
             --arg run_url "$RUN_URL" \
-            --arg prompt_sha256 "$prompt_sha256" \
-            '{repository:$repository,sha:$sha,workflow_run_id:$run_id,workflow_run_attempt:$run_attempt,council_run:$run_url,status:"DISPATCHED",final_result_persisted:false,prompt_sha256:$prompt_sha256}' \
+            --arg task_sha256 "$task_sha256" \
+            '{repository:$repository,sha:$sha,workflow_run_id:$run_id,workflow_run_attempt:$run_attempt,council_run:$run_url,status:"DISPATCHED",final_result_persisted:false,task_sha256:$task_sha256}' \
             > "$RUNNER_TEMP/council-r2/dispatch-evidence.json"
 
 
