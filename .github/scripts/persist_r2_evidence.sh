@@ -17,8 +17,23 @@ if [[ "$bucket" != "hive-repositories" ]]; then
   echo "::error::Repository evidence must use the existing hive-repositories bucket, got: $bucket"
   exit 1
 fi
-if [[ ! "$R2_ENDPOINT" =~ ^https://[^/]+\.r2\.cloudflarestorage\.com/?$ ]]; then
-  echo "::error::R2_ENDPOINT must be the private Cloudflare R2 S3 endpoint."
+if ! python3 - "$R2_ENDPOINT" <<'PY'
+import sys
+from urllib.parse import urlsplit
+url = urlsplit(sys.argv[1])
+valid = (
+    url.scheme == "https"
+    and bool(url.hostname)
+    and url.username is None
+    and url.password is None
+    and not url.query
+    and not url.fragment
+    and url.path in ("", "/")
+)
+raise SystemExit(0 if valid else 1)
+PY
+then
+  echo "::error::R2_ENDPOINT must be a credential-free HTTPS S3 endpoint with no path, query or fragment."
   exit 1
 fi
 if [[ ! "$exact_sha" =~ ^[0-9a-f]{40}$ ]]; then
@@ -39,7 +54,18 @@ upload_one() {
   local relative="$2"
   local key="${prefix}/${relative}"
   echo "Persisting evidence: s3://${bucket}/${key}"
-  curl --fail-with-body --silent --show-error     --retry 3 --retry-delay 2 --retry-all-errors     --aws-sigv4 "aws:amz:auto:s3"     --user "${R2_ACCESS_KEY_ID}:${R2_SECRET_ACCESS_KEY}"     --header "Content-Type: application/octet-stream"     --upload-file "$file"     "${endpoint}/${bucket}/${key}"
+  local userpwd escaped_userpwd
+  userpwd="${R2_ACCESS_KEY_ID}:${R2_SECRET_ACCESS_KEY}"
+  escaped_userpwd="${userpwd//\\/\\\\}"
+  escaped_userpwd="${escaped_userpwd//\"/\\\"}"
+  printf 'user = "%s"\n' "$escaped_userpwd" | \
+    curl --fail-with-body --silent --show-error \
+      --retry 3 --retry-delay 2 --retry-all-errors \
+      --aws-sigv4 "aws:amz:auto:s3" \
+      --config - \
+      --header "Content-Type: application/octet-stream" \
+      --upload-file "$file" \
+      "${endpoint}/${bucket}/${key}"
 }
 
 if [[ -d "$source_path" ]]; then
