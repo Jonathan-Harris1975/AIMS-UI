@@ -65,10 +65,7 @@ jobs:
         jobs:
           broken:
             runs-on: ubuntu-latest
-            steps:
-              - uses: actions/checkout@v4
-                with:
-                  definitely-not-a-real-input: true
+            steps: definitely-not-a-list
         YAML
         set +e
         .ci-tools/bin/actionlint "$fixture" >/dev/null 2>&1
