@@ -14,6 +14,10 @@ jobs:
       trusted: ${{ steps.actor.outputs.trusted }}
       repair_app_login: ${{ steps.repair_app.outputs.login }}
     steps:
+    - name: Harden runner
+      uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2
+      with:
+        egress-policy: audit
     - name: Discover installed repair App login
       id: repair_app
       env:
@@ -75,6 +79,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+    - name: Harden runner
+      uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2
+      with:
+        egress-policy: audit
     - name: Check out trusted router from default branch
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       with:
@@ -86,7 +94,6 @@ jobs:
       env:
         GH_TOKEN: ${{ github.token }}
         DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-        KILO_REPAIR_TRIGGER_URL: ${{ secrets.KILO_REPAIR_TRIGGER_URL }}
         KILO_REPAIR_PR_LOGIN: ${{ vars.KILO_REPAIR_PR_LOGIN }}
         REPAIR_APP_LOGIN: ${{ needs.authenticate_actor.outputs.repair_app_login }}
       run: python3 .github/scripts/pr_repair_router.py
@@ -94,7 +101,6 @@ jobs:
       env:
         GH_TOKEN: ${{ github.token }}
         DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-        KILO_REPAIR_TRIGGER_URL: ${{ secrets.KILO_REPAIR_TRIGGER_URL }}
         KILO_REPAIR_PR_LOGIN: ${{ vars.KILO_REPAIR_PR_LOGIN }}
         REPAIR_APP_LOGIN: ${{ needs.authenticate_actor.outputs.repair_app_login }}
       run: python3 .github/scripts/pr_blocker_recovery.py
@@ -115,6 +121,7 @@ jobs:
       issues: write
       pull-requests: write
       security-events: read
+# zizmor: ignore[dangerous-triggers] trusted event router; workflow_run accepts only failed PR runs and executes default-branch router code
 'on':
   workflow_run:
     workflows:
