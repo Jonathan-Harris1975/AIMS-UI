@@ -1,8 +1,7 @@
 name: Autonomous main-branch repair PR
 
-# zizmor: ignore[dangerous-triggers] same-repository default-branch repair router; source run metadata is gated before any mutation
 on:
-  workflow_run:
+  workflow_run: # zizmor: ignore[dangerous-triggers] same-repository default-branch repair router; source metadata is gated before mutation
     workflows: ["Validate AIMS UI", "CodeQL", "Security and repository quality"]
     types: [completed]
   workflow_dispatch:
