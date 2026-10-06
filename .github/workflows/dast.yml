@@ -33,3 +33,44 @@ jobs:
           allow_issue_writing: false
           fail_action: true
           artifact_name: dast-zap-full-${{ github.run_id }}
+
+
+      - name: Package exact-SHA DAST evidence
+        if: always()
+        env:
+          ZAP_OUTCOME: ${{ steps.zap.outcome }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/dast-r2"
+          shopt -s nullglob
+          reports=(report_json.json report_html.html report_md.md)
+          copied=0
+          for report in "${reports[@]}"; do
+            if [ -f "$report" ]; then
+              cp "$report" "$RUNNER_TEMP/dast-r2/"
+              copied=$((copied + 1))
+            fi
+          done
+          jq -n \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg sha "$GITHUB_SHA" \
+            --arg run_id "$GITHUB_RUN_ID" \
+            --arg run_attempt "$GITHUB_RUN_ATTEMPT" \
+            --arg outcome "$ZAP_OUTCOME" \
+            --argjson report_files "$copied" \
+            '{repository:$repository,sha:$sha,workflow_run_id:$run_id,workflow_run_attempt:$run_attempt,scanner:"OWASP ZAP full scan",outcome:$outcome,report_files:$report_files}' \
+            > "$RUNNER_TEMP/dast-r2/evidence.json"
+          if [ "$copied" -eq 0 ]; then
+            echo "::error::ZAP produced no report files; refusing to fabricate DAST report evidence."
+            exit 1
+          fi
+
+      - name: Persist DAST evidence to hive-repositories R2
+        if: always()
+        env:
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_REPOSITORIES: hive-repositories
+        run: bash .github/scripts/persist_r2_evidence.sh dast "$GITHUB_SHA" "$RUNNER_TEMP/dast-r2"
