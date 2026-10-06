@@ -84,7 +84,26 @@ jobs:
         with:
           node-version: 24.21.0
 
-      - name: Validate Renovate configuration
+      - name: Prove malformed Renovate configurations are rejected
+        shell: bash
+        run: |
+          set -euo pipefail
+          fixture_dir="$(mktemp -d)"
+          trap 'rm -rf "$fixture_dir"' EXIT
+          printf '%s\n' '{"extends":["config:recommended"],"packageRules":"not-an-array"}' > "$fixture_dir/package-rules.json"
+          printf '%s\n' '{"extends":["config:recommended"],"prConcurrentLimit":"five"}' > "$fixture_dir/concurrency-limit.json"
+          for fixture in "$fixture_dir"/*.json; do
+            set +e
+            npx --yes --package=renovate@44.133.0 renovate-config-validator --strict "$fixture"
+            status=$?
+            set -e
+            if [ "$status" -eq 0 ]; then
+              echo "::error::Strict Renovate validation accepted malformed fixture: $(basename "$fixture")"
+              exit 1
+            fi
+          done
+
+      - name: Validate final Renovate configuration
         run: npx --yes --package=renovate@44.133.0 renovate-config-validator --strict renovate.json
 
   sbom:

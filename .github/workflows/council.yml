@@ -152,3 +152,31 @@ jobs:
             exit 1
           fi
           echo "Council dispatched for ${REPO}@${TARGET_SHA}."
+          mkdir -p "$RUNNER_TEMP/council-r2"
+          task_sha256="$(printf '%s' "$task" | sha256sum | awk '{print $1}')"
+          jq -n \
+            --arg repository "$REPO" \
+            --arg sha "$TARGET_SHA" \
+            --arg run_id "$GITHUB_RUN_ID" \
+            --arg run_attempt "$GITHUB_RUN_ATTEMPT" \
+            --arg run_url "$RUN_URL" \
+            --arg task_sha256 "$task_sha256" \
+            '{repository:$repository,sha:$sha,workflow_run_id:$run_id,workflow_run_attempt:$run_attempt,council_run:$run_url,status:"DISPATCHED",final_result_persisted:false,task_sha256:$task_sha256}' \
+            > "$RUNNER_TEMP/council-r2/dispatch-evidence.json"
+
+
+      - name: Persist Council dispatch evidence to hive-repositories R2
+        if: always() && steps.target.outputs.sha != ''
+        env:
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "$RUNNER_TEMP/council-r2/dispatch-evidence.json" || {
+            echo "::error::Council was not successfully dispatched; no Council evidence will be fabricated."
+            exit 1
+          }
+          bash .github/scripts/persist_r2_evidence.sh council-dispatch "$TARGET_SHA" "$RUNNER_TEMP/council-r2"
