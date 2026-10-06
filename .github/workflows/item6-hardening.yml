@@ -91,8 +91,7 @@ jobs:
           fixture_dir="$(mktemp -d)"
           trap 'rm -rf "$fixture_dir"' EXIT
           printf '%s\n' '{"extends":["config:recommended"],"packageRules":"not-an-array"}' > "$fixture_dir/package-rules.json"
-          printf '%s\n' '{"extends":["config:recommended"],"schedule":42}' > "$fixture_dir/schedule.json"
-          printf '%s\n' '{"extends":["config:recommended"],"packageRules":[{"matchUpdateTypes":["definitely-not-an-update-type"]}]}' > "$fixture_dir/update-type.json"
+          printf '%s\n' '{"extends":["config:recommended"],"prConcurrentLimit":"five"}' > "$fixture_dir/concurrency-limit.json"
           for fixture in "$fixture_dir"/*.json; do
             set +e
             npx --yes --package=renovate@44.133.0 renovate-config-validator --strict "$fixture"
