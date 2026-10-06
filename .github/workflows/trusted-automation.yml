@@ -1,6 +1,5 @@
 name: Trusted automation admission for Mergify
 
-# zizmor: ignore[dangerous-triggers] privileged reconciler always executes trusted default-branch code and independently verifies PR identity/check state
 on:
   issue_comment:
     types: [created]
@@ -8,7 +7,7 @@ on:
     types: [submitted, edited]
   pull_request_review_comment:
     types: [created, edited]
-  workflow_run:
+  workflow_run: # zizmor: ignore[dangerous-triggers] trusted default-branch reconciler independently verifies PR identity and exact-head checks
     workflows: ["Validate AIMS UI", "CodeQL", "Security and repository quality", "Item 6 hardening", "Branch PR signal"]
     types: [requested, completed]
   # Safety-net reconciliation around the weekend window, plus one daily sweep.
