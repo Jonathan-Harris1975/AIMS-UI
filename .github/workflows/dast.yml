@@ -73,6 +73,7 @@ jobs:
         if: always()
         env:
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-        run: bash .github/scripts/persist_r2_evidence.sh dast "$GITHUB_SHA" "$RUNNER_TEMP/dast-r2"
+        run: python3 .github/scripts/persist_ci_report_r2.py dast "$GITHUB_SHA" "$RUNNER_TEMP/dast-r2"
