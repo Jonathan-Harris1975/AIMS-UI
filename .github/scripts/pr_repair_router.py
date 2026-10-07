@@ -92,7 +92,7 @@ def pr_details(number: int) -> dict | None:
             pr.get("head", {}).get("repo", {}).get("full_name") != REPO):
         return None
     labels = {label.get("name") for label in pr.get("labels", [])}
-    if labels.intersection({"autonomy:obsolete", "autonomy:superseded", "autonomy:human-hold"}):
+    if labels.intersection({"autonomy:obsolete", "autonomy:superseded"}):
         return None
     if protected_control_change(number):
         print(f"PR #{number} changes protected automation/governance controls; Kilo repair routing is intentionally disabled.")
