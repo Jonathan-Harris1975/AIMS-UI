@@ -26,6 +26,7 @@ KILO_IMPLEMENTER = os.environ.get("KILO_REPAIR_PR_LOGIN") or "kilo-code-bot[bot]
 REPAIR_APP_LOGIN = os.environ.get("REPAIR_APP_LOGIN", "")
 KILO_MACHINE_CONTRACT = Path(__file__).resolve().parents[1] / "kilo-machine-repair-contract.md"
 PROTECTED_CONTROL_PATHS = {
+    ".github/production-governance.json",
     "kilo.jsonc",
     ".mergify.yml",
     "renovate.json",
