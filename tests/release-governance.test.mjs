@@ -36,8 +36,8 @@ test("blocked Cloudflare deployments identify conflicting branch and commit sign
     }),
     (error) => {
       assert.match(error.message, /requires the main branch/);
-      assert.match(error.message, /"workersCiBranch":"feature\\/cloudflare-preview"/);
-      assert.match(error.message, /"gitBranch":"\\(detached\\/unavailable\\)"/);
+      assert.equal(JSON.parse(error.message.split("Branch evidence: ")[1]).workersCiBranch, "feature/cloudflare-preview");
+      assert.equal(JSON.parse(error.message.split("Branch evidence: ")[1]).gitBranch, "(detached/unavailable)");
       assert.match(error.message, new RegExp(fullSha));
       assert.doesNotMatch(error.message, /must-not-appear|AIMS_API_KEY/);
       return true;
