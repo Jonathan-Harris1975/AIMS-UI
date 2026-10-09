@@ -24,6 +24,27 @@ test("production deployment accepts main and rejects feature branches including 
   assert.equal(resolveReleaseMetadata({ required: true, env: {}, git: gitFixture({ branch: "codex/recovery" }) }).releaseBranch, "codex/recovery");
 });
 
+test("blocked Cloudflare deployments identify conflicting branch and commit signals without exposing environment secrets", () => {
+  assert.throws(
+    () => resolveProductionDeploymentMetadata({
+      env: {
+        WORKERS_CI_BRANCH: "feature/cloudflare-preview",
+        WORKERS_CI_COMMIT_SHA: fullSha,
+        AIMS_API_KEY: "must-not-appear",
+      },
+      git: gitFixture({ branch: "" }),
+    }),
+    (error) => {
+      assert.match(error.message, /requires the main branch/);
+      assert.match(error.message, /"workersCiBranch":"feature\\/cloudflare-preview"/);
+      assert.match(error.message, /"gitBranch":"\\(detached\\/unavailable\\)"/);
+      assert.match(error.message, new RegExp(fullSha));
+      assert.doesNotMatch(error.message, /must-not-appear|AIMS_API_KEY/);
+      return true;
+    },
+  );
+});
+
 test("both production entry points reject a feature branch before invoking build or remote schema tools", () => {
   for (const script of ["deploy-production.mjs", "wrangler-build.mjs"]) {
     const result = spawnSync(process.execPath, [join(root, "scripts", script)], {
