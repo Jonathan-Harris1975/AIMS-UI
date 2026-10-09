@@ -71,7 +71,16 @@ export function resolveProductionDeploymentMetadata({ env = process.env, git = d
   const branches = [metadata.releaseBranch, env.WORKERS_CI_BRANCH,
     env.GITHUB_HEAD_REF, env.GITHUB_REF_NAME].map(clean).filter(Boolean);
   if (branches.some((branch) => branch !== "main")) {
-    throw new Error("Production deployment requires the main branch; feature branches must not deploy this gateway.");
+    const evidence = {
+      resolvedBranch: metadata.releaseBranch,
+      workersCiBranch: clean(env.WORKERS_CI_BRANCH) || "(unset)",
+      githubHeadRef: clean(env.GITHUB_HEAD_REF) || "(unset)",
+      githubRefName: clean(env.GITHUB_REF_NAME) || "(unset)",
+      gitBranch: clean(git(["branch", "--show-current"])) || "(detached/unavailable)",
+      workersCiCommitSha: clean(env.WORKERS_CI_COMMIT_SHA) || "(unset)",
+      gitCommitSha: clean(git(["rev-parse", "HEAD"])) || "(unavailable)",
+    };
+    throw new Error("Production deployment requires the main branch; feature branches must not deploy this gateway. Branch evidence: " + JSON.stringify(evidence));
   }
   return metadata;
 }
