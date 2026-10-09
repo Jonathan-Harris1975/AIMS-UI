@@ -92,7 +92,11 @@ async function main() {
   const aimsUiBase = baseUrl('AIMS_UI_BASE_URL', DEFAULT_AIMS_UI_BASE_URL)
   const hiveUiBase = baseUrl('HIVE_UI_BASE_URL', DEFAULT_HIVE_UI_BASE_URL)
   const websiteOrigin = baseUrl('WEBSITE_ORIGIN', DEFAULT_WEBSITE_ORIGIN)
-  const expectedSha = required('EXPECTED_DEPLOYMENT_SHA')
+  const expectedShaInput = required('EXPECTED_DEPLOYMENT_SHA')
+  if (!/^[0-9a-f]{40}$/i.test(expectedShaInput)) {
+    throw new Error('EXPECTED_DEPLOYMENT_SHA must be a full 40-character Git commit SHA')
+  }
+  const expectedSha = expectedShaInput.toLowerCase()
   const hiveUiAccessKey = String(process.env.HIVE_UI_ACCESS_KEY || '').trim()
 
   const gatewayLiveness = await waitForExpectedRelease(new URL('/livez', aimsUiBase), expectedSha)
