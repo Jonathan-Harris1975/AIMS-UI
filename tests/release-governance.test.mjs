@@ -97,7 +97,7 @@ test("production deployment is governed by validation, production build and arti
   // The deploy wrapper must not provision D1 a second time: Wrangler's build hook owns it.
   assert.doesNotMatch(deployScript, /"d1", "execute"/);
   assert.doesNotMatch(deployScript, /workers\/gateway\/schema\.sql/);
-  assert.match(deployScript, /extraArguments\.includes\("--dry-run"\)/);
+  assert.match(deployScript, /allowedArguments = new Set\(\["--dry-run"\]\)/);
 
   const wrangler = await readFile(join(root, "wrangler.toml"), "utf8");
   assert.match(wrangler, /^main = "dist\/gateway\/index\.js"$/m);
