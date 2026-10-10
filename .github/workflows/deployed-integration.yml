@@ -68,6 +68,7 @@ jobs:
           HIVE_UI_BASE_URL: ${{ vars.HIVE_UI_BASE_URL || 'https://hive.jonathan-harris.online' }}
           WEBSITE_ORIGIN: ${{ vars.WEBSITE_BASE_URL || 'https://jonathan-harris.online' }}
           HIVE_UI_ACCESS_KEY: ${{ secrets.HIVE_UI_ACCESS_KEY }}
+          DEPLOYED_INTEGRATION_REQUIRE_HIVE: 'true'
         run: |
           set -o pipefail
           npm run test:deployed | tee deployed-integration.log

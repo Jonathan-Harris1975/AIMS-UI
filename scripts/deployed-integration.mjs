@@ -179,6 +179,9 @@ async function main() {
       }).catch(() => {})
     }
   } else {
+    if (process.env.DEPLOYED_INTEGRATION_REQUIRE_HIVE === 'true') {
+      throw new Error('HIVE_UI_ACCESS_KEY is required for full deployed integration verification')
+    }
     console.warn('skip 3 - HIVE handoff test skipped because HIVE_UI_ACCESS_KEY is not configured in the AIMS-UI repository')
   }
 
