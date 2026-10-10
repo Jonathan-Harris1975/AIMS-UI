@@ -5,13 +5,11 @@ The scanners require no new credentials. Normal autonomous repair requires the r
 
 The new security workflow uses GitHub's automatically provided GITHUB_TOKEN for OpenSSF Scorecard. Do not create a PAT for Scorecard.
 
-Existing AIMS-UI secrets used by pre-existing workflows are unchanged and are not introduced by this CI update:
+Existing AIMS-UI secrets used by pre-existing workflows:
 - HIVE_UI_ACCESS_KEY
-- ECOSYSTEM_SMOKE_DISPATCH_TOKEN
 
-Existing repository variables used by pre-existing workflows are unchanged:
+Existing repository variables used by pre-existing workflows:
 - AIMS_UI_BASE_URL, HIVE_UI_BASE_URL and WEBSITE_BASE_URL (optional deployed-integration URLs)
-- ECOSYSTEM_SMOKE_REPOSITORY (optional; owner/MAST fallback already exists)
 
 DEPENDENCY / LOCKFILE POLICY
 ----------------------------

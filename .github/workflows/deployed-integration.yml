@@ -93,23 +93,3 @@ jobs:
             deployed-integration.log
           if-no-files-found: warn
           retention-days: 90
-      - name: Trigger central ecosystem smoke when cross-repository dispatch is configured
-        env:
-          ECOSYSTEM_SMOKE_DISPATCH_TOKEN: ${{ secrets.ECOSYSTEM_SMOKE_DISPATCH_TOKEN }}
-          ECOSYSTEM_SMOKE_REPOSITORY: ${{ vars.ECOSYSTEM_SMOKE_REPOSITORY }}
-          SOURCE_SHA: ${{ inputs.expected_sha || github.event.workflow_run.head_sha || github.sha }}
-        run: |
-          set -euo pipefail
-          if [ -z "${ECOSYSTEM_SMOKE_DISPATCH_TOKEN:-}" ]; then
-            echo "::warning::ECOSYSTEM_SMOKE_DISPATCH_TOKEN is not configured in AIMS-UI; the optional cross-repository MAST dispatch was skipped."
-            exit 0
-          fi
-          target="${ECOSYSTEM_SMOKE_REPOSITORY:-${GITHUB_REPOSITORY_OWNER}/MAST}"
-          payload="$(jq -cn --arg ref main --arg repo "$GITHUB_REPOSITORY" --arg sha "$SOURCE_SHA" '{ref:$ref,inputs:{source_repository:$repo,source_sha:$sha}}')"
-          curl --fail-with-body --silent --show-error \
-            --request POST \
-            --header "Authorization: Bearer ${ECOSYSTEM_SMOKE_DISPATCH_TOKEN}" \
-            --header "Accept: application/vnd.github+json" \
-            --header "X-GitHub-Api-Version: 2022-11-28" \
-            --data "$payload" \
-            "https://api.github.com/repos/${target}/actions/workflows/ecosystem-smoke.yml/dispatches"
