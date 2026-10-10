@@ -1,13 +1,41 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { resolveReleaseMetadata, resolveProductionDeploymentMetadata } from "../scripts/release-metadata.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const fullSha = "0123456789abcdef0123456789abcdef01234567";
+
+test("production dry-run validates artifacts without executing remote D1 writes", async (t) => {
+  const bin = await mkdtemp(join(tmpdir(), "aims-dry-run-"));
+  t.after(() => rm(bin, { recursive: true, force: true }));
+  for (const command of ["npm", "npx"]) {
+    const path = join(bin, command);
+    await writeFile(path, `#!/bin/sh\nprintf '%s\\n' '${command}' "$@"\n`);
+    await chmod(path, 0o755);
+  }
+  const env = {
+    PATH: bin, WORKERS_CI_COMMIT_SHA: fullSha, WORKERS_CI_BRANCH: "main",
+    WRANGLER_COMMAND: "deploy", AIMS_UI_DEPLOY_DRY_RUN: "1",
+  };
+  const run = (dryRun) => spawnSync(process.execPath, [join(root, "scripts/wrangler-build.mjs")], {
+    encoding: "utf8", env: { ...env, AIMS_UI_DEPLOY_DRY_RUN: dryRun },
+  });
+  const dry = run("1");
+  assert.equal(dry.status, 0, dry.stderr);
+  assert.match(dry.stdout, /build:production/);
+  assert.match(dry.stdout, /verify:deploy-artifact/);
+  assert.doesNotMatch(dry.stdout, /npx|--remote/);
+  const live = run("0");
+  assert.equal(live.status, 0, live.stderr);
+  assert.match(live.stdout, /--remote/);
+  const wrapper = await readFile(join(root, "scripts/deploy-production.mjs"), "utf8");
+  assert.match(wrapper, /AIMS_UI_DEPLOY_DRY_RUN: extraArguments.includes\("--dry-run"\) \? "1" : "0"/);
+});
 
 test("production deployment accepts main and rejects feature branches including disguised provider builds", () => {
   assert.equal(resolveProductionDeploymentMetadata({ env: {}, git: gitFixture() }).releaseBranch, "main");

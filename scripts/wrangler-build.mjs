@@ -23,7 +23,7 @@ for (const script of scripts) {
 // Builds invokes `wrangler deploy` directly, which runs this hook but never the
 // npm `deploy:production` wrapper. Applying the schema here keeps the deployed
 // gateway writable regardless of which release entry point is used.
-if (productionCommand) {
+if (productionCommand && process.env.AIMS_UI_DEPLOY_DRY_RUN !== "1") {
   const config = readFileSync(join(root, "wrangler.toml"), "utf8");
   const match = config.match(/^\s*database_name\s*=\s*"([^"]+)"/m);
   if (!match) throw new Error("wrangler.toml must declare a D1 database_name for schema provisioning.");

@@ -18,6 +18,7 @@ const env = {
   ...process.env,
   AIMS_UI_RELEASE_SHA: releaseSha,
   AIMS_UI_RELEASE_BRANCH: releaseBranch,
+  AIMS_UI_DEPLOY_DRY_RUN: extraArguments.includes("--dry-run") ? "1" : "0",
 };
 
 function run(command, args) {
