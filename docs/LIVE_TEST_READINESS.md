@@ -1,6 +1,6 @@
 # AIMS-UI controlled live-test readiness evidence ledger
 
-Snapshot: 2026-10-10 UTC. Repository: `Jonathan-Harris1975/AIMS-UI`. Inspected main HEAD: `9734b78babd1583cf5f22bbcf918a38c259d41e0`. This ledger is evidence, not an assertion that production testing has passed.
+Snapshot: 2026-10-10 UTC. Evidence refresh: GitHub API inspection on 2026-10-10. Repository: `Jonathan-Harris1975/AIMS-UI`. Inspected main HEAD: `9734b78babd1583cf5f22bbcf918a38c259d41e0`. This ledger is evidence, not an assertion that production testing has passed.
 
 ## Requirement-to-evidence matrix
 
@@ -10,14 +10,14 @@ Snapshot: 2026-10-10 UTC. Repository: `Jonathan-Harris1975/AIMS-UI`. Inspected m
 | Detection | Cloudflare deployment ID, project/account and revision attestation | blocked | `.github/workflows/deployed-integration.yml` | Current attestation contains repository, SHA, workflow run and status, but no verified Cloudflare deployment ID or account/project identity | Provider deployment API evidence; Cloudflare owner |
 | Detection | Failure classification and deduplication | blocked | `.github/workflows/failure-diagnostics.yml` | Workflow implementation and recent run outcomes not yet verified | Inspect runs and controlled simulation; automation owner |
 | Repair | Trusted bounded repair, incident lock and PR review | blocked | `.github/workflows/autonomous-repair.yml`, `.github/workflows/trusted-automation.yml` | No witnessed end-to-end repair rehearsal | Non-production simulation; automation owner |
-| Safeguards | Exact source digest and branch provenance | verified | `scripts/deployment-artifact.mjs`, `scripts/verify-deploy-artifact.mjs`; `npm run verify:deploy-artifact` | Source digest, release SHA, release branch and required files are checked in implementation; actual production build execution still blocked below | Run on current HEAD; release owner |
+| Safeguards | Exact source digest and branch provenance | blocked | `scripts/deployment-artifact.mjs`, `scripts/verify-deploy-artifact.mjs`; `npm run verify:deploy-artifact` | Source digest, release SHA, release branch and required files are checked in implementation; actual production build execution still blocked below | Run on current HEAD; release owner |
 | Safeguards | Current HEAD CI, dependency audit and build | blocked | `package.json`; `npm run validate && npm run build:production` | Commands available; passing results and run URLs not collected | GitHub Actions / release owner |
 | Safeguards | OIDC claims and provider trust | blocked | `.github/workflows/oidc-readiness.yml` | GitHub OIDC claims are checked in workflow; provider-side audience/trust acceptance not witnessed | Provider configuration / security owner |
 | Safeguards | Rollback, kill switch and traffic cutover | blocked | Deployment configuration to be inspected | No demonstrated rollback rehearsal | Cloudflare owner |
 | Coordination | AIMS/HIVE/HIVE-UI/IRS/MAST/RAMS/website contracts | blocked | `scripts/deployed-integration.mjs` | HIVE handoff test is explicitly skipped when `HIVE_UI_ACCESS_KEY` is absent; remaining cross-repo contracts not verified | Ecosystem owners |
 | Coordination | Controlled failure to incident to repaired deploy | blocked | `scripts/deployed-integration.mjs` and automation workflows | No witnessed safe failure injection and recovery | Automation and Cloudflare owners |
 
-Status 'verified' for source checks means the implementation was inspected, not that the production execution passed. No workflow URL is recorded where no run was observed.
+Status 'verified' for source checks means the implementation was inspected, not that the production execution passed. Observed PR checks at SHA `5f6cc5783f209aa9aa7e64eb6b124e4d5bac16c1`: [Validate AIMS UI](https://github.com/Jonathan-Harris1975/AIMS-UI/actions/runs/38013342547) succeeded, as did [CodeQL](https://github.com/Jonathan-Harris1975/AIMS-UI/actions/runs/38013342568). One external Kilo Code Review check was queued when inspected. [Earlier deployed integration](https://github.com/Jonathan-Harris1975/AIMS-UI/actions/runs/38011483613) succeeded, including the exact-SHA and integration job steps, but later deployed-integration runs were skipped; this does not prove the current Cloudflare revision. PR #143 merge state was `unstable` despite being mergeable; branch protection could not be read through the integration (403). No workflow URL is recorded where no run was observed.
 
 ## Safe live-test runbook
 
