@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { computeDeploymentSourceDigest } from "./deployment-artifact.mjs";
+import { computeDeploymentSourceDigest, computeDeploymentArtifactDigest } from "./deployment-artifact.mjs";
 import { resolveReleaseMetadata } from "./release-metadata.mjs";
 import { createConsoleBundle } from "./console-bundle.mjs";
 
@@ -129,6 +129,7 @@ const manifest = {
   releaseSha,
   releaseBranch,
   sourceDigest,
+  artifactDigest: await computeDeploymentArtifactDigest(dist),
   applications: {
     site: "site",
     console: "site/console/index.html",

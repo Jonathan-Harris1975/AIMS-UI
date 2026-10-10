@@ -1,7 +1,7 @@
 import { access, readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { computeDeploymentSourceDigest } from "./deployment-artifact.mjs";
+import { computeDeploymentSourceDigest, computeDeploymentArtifactDigest } from "./deployment-artifact.mjs";
 import { resolveReleaseMetadata } from "./release-metadata.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -18,6 +18,9 @@ if (manifest.releaseBranch !== releaseBranch) {
 }
 if (manifest.sourceDigest !== sourceDigest) {
   throw new Error("Deployment sources changed after the production build; rebuild before deployment.");
+}
+if (manifest.artifactDigest !== await computeDeploymentArtifactDigest(dist)) {
+  throw new Error("Deployment artifact content does not match the build manifest; rebuild before deployment.");
 }
 
 for (const required of [
