@@ -21,7 +21,9 @@ concurrency:
 jobs:
   integration:
     if: >-
-      ${{ github.event_name == 'workflow_dispatch' ||
+      ${{ (github.event_name == 'workflow_dispatch' &&
+           github.ref == 'refs/heads/main' &&
+           (inputs.expected_sha == '' || inputs.expected_sha == github.sha)) ||
           (github.event.workflow_run.event == 'push' &&
            github.event.workflow_run.conclusion == 'success' &&
            github.event.workflow_run.head_branch == 'main' &&
