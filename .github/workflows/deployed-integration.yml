@@ -4,13 +4,6 @@ on:
   workflow_run: # zizmor: ignore[dangerous-triggers] exact-SHA verifier accepts only successful same-repository main pushes
     workflows: ["Validate AIMS UI"]
     types: [completed]
-  workflow_dispatch:
-    inputs:
-      expected_sha:
-        description: Exact deployed commit SHA to require
-        required: false
-        type: string
-
 permissions:
   contents: read
 
@@ -21,11 +14,10 @@ concurrency:
 jobs:
   integration:
     if: >-
-      ${{ github.event_name == 'workflow_dispatch' ||
-          (github.event.workflow_run.event == 'push' &&
-           github.event.workflow_run.conclusion == 'success' &&
-           github.event.workflow_run.head_branch == 'main' &&
-           github.event.workflow_run.head_repository.full_name == github.repository) }}
+      ${{ github.event.workflow_run.event == 'push' &&
+          github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.head_branch == 'main' &&
+          github.event.workflow_run.head_repository.full_name == github.repository }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -35,11 +27,11 @@ jobs:
           egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.expected_sha || github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ github.event.workflow_run.head_sha }}
           persist-credentials: false
       - name: Validate expected deployed commit SHA
         env:
-          EXPECTED_DEPLOYMENT_SHA: ${{ inputs.expected_sha || github.event.workflow_run.head_sha || github.sha }}
+          EXPECTED_DEPLOYMENT_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           if [[ ! "$EXPECTED_DEPLOYMENT_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
             echo '::error::Expected deployment SHA must be a full 40-character Git commit SHA.' >&2
@@ -47,7 +39,7 @@ jobs:
           fi
       - name: Require checked-out source to match the requested deployment SHA
         env:
-          EXPECTED_DEPLOYMENT_SHA: ${{ inputs.expected_sha || github.event.workflow_run.head_sha || github.sha }}
+          EXPECTED_DEPLOYMENT_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$(printf '%s' "$EXPECTED_DEPLOYMENT_SHA" | tr '[:upper:]' '[:lower:]')"
@@ -63,7 +55,7 @@ jobs:
           test "$(npm --version)" = "10.9.9"
       - name: Verify exact deployed Worker and integration path
         env:
-          EXPECTED_DEPLOYMENT_SHA: ${{ inputs.expected_sha || github.event.workflow_run.head_sha || github.sha }}
+          EXPECTED_DEPLOYMENT_SHA: ${{ github.event.workflow_run.head_sha }}
           AIMS_UI_BASE_URL: ${{ vars.AIMS_UI_BASE_URL || 'https://chat.jonathan-harris.online' }}
           HIVE_UI_BASE_URL: ${{ vars.HIVE_UI_BASE_URL || 'https://hive.jonathan-harris.online' }}
           WEBSITE_ORIGIN: ${{ vars.WEBSITE_BASE_URL || 'https://jonathan-harris.online' }}
@@ -74,7 +66,7 @@ jobs:
           npm run test:deployed | tee deployed-integration.log
       - name: Record deployed-integration attestation
         env:
-          EXPECTED_DEPLOYMENT_SHA: ${{ inputs.expected_sha || github.event.workflow_run.head_sha || github.sha }}
+          EXPECTED_DEPLOYMENT_SHA: ${{ github.event.workflow_run.head_sha }}
           HIVE_UI_ACCESS_KEY: ${{ secrets.HIVE_UI_ACCESS_KEY }}
         run: |
           if [ -n "${HIVE_UI_ACCESS_KEY:-}" ]; then
@@ -88,7 +80,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: deployed-integration-attestation-${{ inputs.expected_sha || github.event.workflow_run.head_sha || github.sha }}
+          name: deployed-integration-attestation-${{ github.event.workflow_run.head_sha }}
           path: |
             deployed-integration-attestation.json
             deployed-integration.log
