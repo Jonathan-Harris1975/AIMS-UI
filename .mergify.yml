@@ -40,7 +40,6 @@ merge_protections:
       - -label = do-not-merge
       - -label = needs-manual-review
       - -label = autonomy:human-hold
-    - -label = autonomy:council-freeze
       - -label = autonomy:council-freeze
       - -label = autonomy:superseded
       - -label = autonomy:obsolete
@@ -60,7 +59,6 @@ queue_rules:
       - check-success = Item 6 / Dependency Review
       - check-success = Item 6 / Renovate config
       - -label = autonomy:human-hold
-    - -label = autonomy:council-freeze
       - -label = autonomy:council-freeze
       - -label = autonomy:obsolete
       - -label = autonomy:superseded
@@ -73,7 +71,6 @@ queue_rules:
       - check-success = Item 6 / Dependency Review
       - check-success = Item 6 / Renovate config
       - -label = autonomy:human-hold
-    - -label = autonomy:council-freeze
       - -label = autonomy:council-freeze
       - -label = autonomy:obsolete
       - -label = autonomy:superseded
