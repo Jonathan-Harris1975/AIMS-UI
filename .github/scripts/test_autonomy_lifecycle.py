@@ -518,6 +518,27 @@ class CouncilEvidenceFreezeTests(unittest.TestCase):
         self.assertTrue(frozen)
         self.assertIn(new_sha[:12], reason)
 
+    def test_branch_runs_query_is_limited_to_weekend_and_current_sha(self):
+        page = {"workflow_runs": [], "total_count": 0}
+        bounds = (
+            datetime(2026, 10, 2, 20, 0, tzinfo=automation.LONDON),
+            datetime(2026, 10, 5, 4, 0, tzinfo=automation.LONDON),
+        )
+        with (
+            patch.object(automation, "current_weekend_bounds", return_value=bounds),
+            patch.object(automation, "get", return_value=page) as request,
+        ):
+            runs = automation._fetch_branch_runs(self.sha)
+
+        self.assertEqual(runs, [])
+        path = request.call_args.args[0]
+        self.assertIn("branch=main", path)
+        self.assertIn(f"head_sha={self.sha}", path)
+        self.assertIn(
+            "created=2026-10-02T19%3A00%3A00Z..2026-10-05T03%3A00%3A00Z",
+            path,
+        )
+
     def test_short_final_page_wins_over_stale_total_count(self):
         page = {"workflow_runs": [], "total_count": 150}
         with patch.object(automation, "get", return_value=page):
