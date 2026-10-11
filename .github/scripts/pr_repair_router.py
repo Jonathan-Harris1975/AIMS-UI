@@ -307,6 +307,16 @@ def dispatch(pr: dict, kind: str, findings: list[str]) -> str:
         "task": instruction,
         "findings": findings[:12],
     }
+    # Persist deduplication before the external call so a lost GitHub
+    # acknowledgement cannot cause the same repair to be dispatched twice.
+    reservation = api("POST", f"/repos/{REPO}/issues/{number}/comments", {"body":
+        f"{marker}\nAutonomous Kilo repair handoff reserved for the current {kind} findings. "
+        "Check the linked workflow run for dispatch outcome; repeated dispatch is suppressed. "
+        "The source PR remains governed by its normal checks."})
+    reservation_id = (reservation or {}).get("id") if isinstance(reservation, dict) else None
+    if not isinstance(reservation_id, int):
+        raise RuntimeError("Could not persist the repair handoff deduplication marker")
+
     request = urllib.request.Request(
         url,
         data=json.dumps(payload).encode(),
@@ -321,11 +331,12 @@ def dispatch(pr: dict, kind: str, findings: list[str]) -> str:
         raise RuntimeError(f"Kilo trigger returned HTTP {exc.code}") from None
     except urllib.error.URLError:
         raise RuntimeError("Kilo trigger could not be reached") from None
-
-    api("POST", f"/repos/{REPO}/issues/{number}/comments", {"body":
-        f"{marker}\nAutonomous Kilo repair requested for the current {kind} findings through the machine webhook. "
-        "No human reply, GitHub account link, or Kilo mention command is required. "
-        "The source PR remains governed by its normal checks."})
+    try:
+        api("PATCH", f"/repos/{REPO}/issues/comments/{reservation_id}", {"body":
+            f"{marker}\nKilo accepted the repair request for {kind}. "
+            "The source PR remains governed by its normal checks."})
+    except Exception:
+        print("::warning::Kilo accepted the repair request, but its acknowledgement could not be updated; the persisted marker still suppresses duplicate dispatch.")
     print(f"Sent autonomous {kind} repair for PR #{number} at {sha[:12]} to Kilo.")
     return 'requested'
 
