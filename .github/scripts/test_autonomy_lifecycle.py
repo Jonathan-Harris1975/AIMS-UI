@@ -405,6 +405,7 @@ class CouncilEvidenceFreezeTests(unittest.TestCase):
                 side_effect=[
                     {"commit": {"sha": self.sha}},
                     runs,
+                    runs,
                     {"commit": {"sha": self.sha}},
                 ],
             ),
@@ -439,6 +440,7 @@ class CouncilEvidenceFreezeTests(unittest.TestCase):
                 side_effect=[
                     {"commit": {"sha": self.sha}},
                     runs,
+                    runs,
                     {"commit": {"sha": self.sha}},
                 ],
             ),
@@ -465,7 +467,9 @@ class CouncilEvidenceFreezeTests(unittest.TestCase):
                 side_effect=[
                     {"commit": {"sha": self.sha}},
                     runs,
+                    runs,
                     {"commit": {"sha": "e" * 40}},
+                    runs,
                     runs,
                     {"commit": {"sha": "f" * 40}},
                 ],
@@ -508,7 +512,9 @@ class CouncilEvidenceFreezeTests(unittest.TestCase):
                 side_effect=[
                     {"commit": {"sha": self.sha}},
                     first_runs,
+                    first_runs,
                     {"commit": {"sha": new_sha}},
+                    second_runs,
                     second_runs,
                     {"commit": {"sha": new_sha}},
                 ],
