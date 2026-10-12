@@ -654,14 +654,15 @@ class ProductionGovernanceProtectionTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("dispatch-state: rejected-http-400", log)
 
-        code, log = invoke(marker_rows="99\\trejected", curl_status="400")
+        code, log = invoke(marker_rows="99\trejected", curl_status="400")
         self.assertEqual(code, 1)
         self.assertIn("gh api --method POST", log)
 
-        code, log = invoke(marker_rows="99\\trejected\\n100\\trejected")
+        code, log = invoke(marker_rows="99\trejected\n100\trejected")
         self.assertEqual(code, 0)
         self.assertNotIn("gh api --method POST", log)
         self.assertNotIn("CURL", log)
+
 
         code, log = invoke(curl_status="503")
         self.assertEqual(code, 1)
