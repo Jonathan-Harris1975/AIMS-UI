@@ -4,6 +4,9 @@ import json
 import inspect
 from datetime import datetime, timezone
 import os
+import subprocess
+import tempfile
+import textwrap
 from pathlib import Path
 import unittest
 from unittest.mock import patch
@@ -584,6 +587,119 @@ class ProductionGovernanceProtectionTests(unittest.TestCase):
         policy = json.loads((root / "kilo.jsonc").read_text(encoding="utf-8"))
         for tool in ("edit", "write", "apply_patch"):
             self.assertEqual(policy["permission"][tool][path], "deny")
+
+    def test_main_repair_handoff_states_control_real_shell_dispatch(self):
+        root = Path(__file__).resolve().parents[1]
+        workflow = (root / "workflows/autonomous-repair.yml").read_text(encoding="utf-8")
+        start = workflow.index("          dispatch_kilo() {")
+        end = workflow.index('\n\n          if [ "$RUN_CONCLUSION"', start)
+        dispatch = textwrap.dedent(workflow[start:end])
+
+        harness = """\
+        set -euo pipefail
+        REPO=owner/repo
+        REPAIR_APP_LOGIN=repair[bot]
+        RUN_ID=123
+        RUN_URL=https://github.com/owner/repo/actions/runs/123
+        RUN_NAME=CI
+        HEAD_SHA=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        DEFAULT_BRANCH=main
+        KILO_REPAIR_TRIGGER_URL=https://example.invalid/repair
+        gh() {
+          printf 'GH %s\\n' "$*" >> "$CALL_LOG"
+          case "$*" in
+            *--paginate*) printf '[]' ;;
+            *--method\\ POST*) printf '99' ;;
+          esac
+        }
+        jq() {
+          case " $* " in
+            *' -n '*) printf '{}' ;;
+            *) printf '%s' "$MARKER_ROWS" ;;
+          esac
+        }
+        python3() { return 0; }
+        cat() { printf 'contract'; }
+        curl() {
+          printf 'CURL %s\n' "$CURL_STATUS" >> "$CALL_LOG"
+          if [ "$CURL_FAIL" = 1 ]; then return 7; fi
+          printf '%s' "$CURL_STATUS"
+        }
+        """ + dispatch + "\ndispatch_kilo 7\n"
+
+        def invoke(marker_rows="", curl_status="202", curl_fail="0"):
+            with tempfile.TemporaryDirectory() as directory:
+                log_path = Path(directory) / "calls.log"
+                env = {
+                    **os.environ,
+                    "CALL_LOG": str(log_path),
+                    "MARKER_ROWS": marker_rows,
+                    "CURL_STATUS": curl_status,
+                    "CURL_FAIL": curl_fail,
+                }
+                result = subprocess.run(
+                    ["bash", "-c", harness],
+                    text=True,
+                    capture_output=True,
+                    env=env,
+                    check=False,
+                )
+                return result.returncode, log_path.read_text() if log_path.exists() else ""
+
+        code, log = invoke(curl_status="400")
+        self.assertEqual(code, 1)
+        self.assertIn("dispatch-state: rejected-http-400", log)
+
+        code, log = invoke(marker_rows="99\trejected", curl_status="400")
+        self.assertEqual(code, 1)
+        self.assertIn("GH api --method POST", log)
+
+        code, log = invoke(marker_rows="99\trejected\n100\trejected")
+        self.assertEqual(code, 0)
+        self.assertNotIn("GH api --method POST", log)
+        self.assertNotIn("CURL", log)
+
+
+        code, log = invoke(curl_status="503")
+        self.assertEqual(code, 1)
+        self.assertIn("dispatch-state: uncertain-http-503", log)
+        code, retry_log = invoke(marker_rows="99\tuncertain")
+        self.assertEqual(code, 0)
+        self.assertNotIn("GH api --method POST", retry_log)
+        self.assertNotIn("CURL", retry_log)
+
+        code, log = invoke(curl_fail="1")
+        self.assertEqual(code, 1)
+        self.assertIn("dispatch-state: uncertain-http-000", log)
+        code, retry_log = invoke(marker_rows="99\tuncertain")
+        self.assertEqual(code, 0)
+        self.assertNotIn("GH api --method POST", retry_log)
+        self.assertNotIn("CURL", retry_log)
+
+
+
+    def test_main_repair_reserves_marker_before_kilo_and_acknowledges_after(self):
+        root = Path(__file__).resolve().parents[1]
+        workflow = (root / "workflows/autonomous-repair.yml").read_text(encoding="utf-8")
+        start = workflow.index("dispatch_kilo() {")
+        end = workflow.index('\n\n          if [ "$RUN_CONCLUSION"', start)
+        dispatch = workflow[start:end]
+        for operation in ("gh api --method POST", 'status="$(curl', "gh api --method PATCH"):
+            self.assertIn(operation, dispatch)
+        reservation = dispatch.index("gh api --method POST")
+        request = dispatch.index('status="$(curl')
+        acknowledgement = dispatch.rindex("gh api --method PATCH")
+        self.assertLess(reservation, request)
+        self.assertLess(request, acknowledgement)
+        self.assertIn('--field body="$marker', dispatch)
+        self.assertIn("--jq '.id'", dispatch)
+        self.assertIn("dispatch-state: pending", dispatch)
+        self.assertIn("dispatch-state: accepted", dispatch)
+        self.assertIn("dispatch-state: rejected-http-$status", dispatch)
+        self.assertIn('rejected_attempts" -ge 2', dispatch)
+        self.assertEqual(dispatch.count("for patch_attempt in 1 2; do"), 2)
+        self.assertIn("both attempts to mark the reservation retryable failed", dispatch)
+        self.assertIn('status="000"', dispatch)
 
 
 if __name__ == "__main__":
