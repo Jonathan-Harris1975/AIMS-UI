@@ -381,6 +381,8 @@ class Recovery(unittest.TestCase):
                 return {"sha": "b" * 40}
             if method == "POST" and path.endswith("/issues/7/comments"):
                 posted.append(payload["body"])
+                return {"id": 99}
+            if method == "PATCH" and path.endswith("/issues/comments/99"):
                 return {}
             raise AssertionError((method, path, payload))
 
@@ -476,6 +478,8 @@ class Recovery(unittest.TestCase):
                 return {"sha": "b" * 40}
             if method == "POST" and path.endswith("/issues/7/comments"):
                 posted.append(payload["body"])
+                return {"id": 99}
+            if method == "PATCH" and path.endswith("/issues/comments/99"):
                 return {}
             raise AssertionError((method, path, payload))
 
@@ -544,6 +548,94 @@ class Recovery(unittest.TestCase):
             m.router.dispatch(self.pr, "merge-conflict-" + "b" * 40, ["conflict"])
         api.assert_not_called()
 
+
+
+    def test_persisted_marker_precedes_dispatch_and_survives_ack_failure(self):
+        events = []
+        saved = []
+        def api(method, path, payload=None):
+            if method == "POST" and path.endswith("/comments"):
+                saved.append(payload["body"])
+                events.append("reservation")
+                return {"id": 99}
+            if method == "PATCH" and path.endswith("/comments/99"):
+                events.append("acknowledgement")
+                raise RuntimeError("transient GitHub failure")
+            raise AssertionError((method, path, payload))
+
+        response = MagicMock()
+        response.__enter__.return_value.status = 202
+        def send(*args, **kwargs):
+            events.append("webhook")
+            return response
+
+        with (
+            patch.object(m.router, "all_pages", return_value=[]),
+            patch.object(m.router, "valid_kilo_webhook_url", return_value=True),
+            patch.object(m.router, "machine_contract", return_value="machine contract"),
+            patch.object(m.router, "api", side_effect=api),
+            patch.object(m.router.urllib.request, "urlopen", side_effect=send),
+            patch.dict(os.environ, {"KILO_REPAIR_TRIGGER_URL": "https://example.invalid/repair"}),
+            patch("builtins.print"),
+        ):
+            self.assertEqual(m.router.dispatch(self.pr, "review", ["finding"]), "requested")
+        self.assertEqual(events, ["reservation", "webhook", "acknowledgement"])
+        self.assertIn("<!-- kilo-auto-repair:" + "a" * 40 + ":review -->", saved[0])
+
+        with (
+            patch.object(
+                m.router,
+                "all_pages",
+                return_value=[{"user": {"login": "github-actions[bot]"}, "body": saved[0]}],
+            ),
+            patch.object(m.router.urllib.request, "urlopen") as retry,
+        ):
+            self.assertEqual(m.router.dispatch(self.pr, "review", ["finding"]), "already-requested")
+            retry.assert_not_called()
+
+
+
+    def test_explicit_http_rejection_allows_only_bounded_retry(self):
+        marker = "<!-- kilo-auto-repair:" + "a" * 40 + ":review -->"
+        comments = []
+        events = []
+        def api(method, path, payload=None):
+            if method == "POST" and path.endswith("/comments"):
+                comments.append({"user": {"login": "github-actions[bot]"}, "body": payload["body"]})
+                events.append("reserve")
+                return {"id": len(comments)}
+            if method == "PATCH" and path.endswith("/issues/comments/1"):
+                comments[0]["body"] = payload["body"]
+                events.append("mark-rejected")
+                return {}
+            if method == "PATCH" and path.endswith("/issues/comments/2"):
+                comments[1]["body"] = payload["body"]
+                events.append("ack")
+                return {}
+            raise AssertionError((method, path, payload))
+
+        accepted = MagicMock()
+        accepted.__enter__.return_value.status = 202
+        rejected = m.router.urllib.error.HTTPError(
+            "https://example.invalid/repair", 429, "rate limited", {}, None
+        )
+        with (
+            patch.object(m.router, "all_pages", side_effect=[[], comments]),
+            patch.object(m.router, "api", side_effect=api),
+            patch.object(m.router, "valid_kilo_webhook_url", return_value=True),
+            patch.object(m.router, "machine_contract", return_value="machine contract"),
+            patch.object(m.router.urllib.request, "urlopen", side_effect=[rejected, accepted]),
+            patch.dict(os.environ, {"KILO_REPAIR_TRIGGER_URL": "https://example.invalid/repair"}),
+            patch("builtins.print"),
+        ):
+            with self.assertRaises(RuntimeError):
+                m.router.dispatch(self.pr, "review", ["finding"])
+            self.assertIn("dispatch-state: rejected-http-429", comments[0]["body"])
+            self.assertEqual(m.router.dispatch(self.pr, "review", ["finding"]), "requested")
+
+        self.assertEqual(events, ["reserve", "mark-rejected", "reserve", "ack"])
+        self.assertIn("dispatch-state: accepted", comments[1]["body"])
+        self.assertEqual(len(comments), 2)
 
 if __name__ == "__main__":
     unittest.main()
