@@ -345,7 +345,7 @@ def dispatch(pr: dict, kind: str, findings: list[str]) -> str:
         raise RuntimeError("Kilo trigger could not be reached") from None
     try:
         api("PATCH", f"/repos/{REPO}/issues/comments/{reservation_id}", {"body":
-            f"{marker}\nKilo accepted the repair request for {kind}. "
+            f"{marker}\ndispatch-state: accepted\nKilo accepted the repair request for {kind}. "
             "The source PR remains governed by its normal checks."})
     except Exception:
         print("::warning::Kilo accepted the repair request, but its acknowledgement could not be updated; the persisted marker still suppresses duplicate dispatch.")
