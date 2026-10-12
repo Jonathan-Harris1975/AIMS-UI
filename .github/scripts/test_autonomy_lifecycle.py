@@ -657,11 +657,11 @@ class ProductionGovernanceProtectionTests(unittest.TestCase):
 
         code, log = invoke(marker_rows="99\trejected", curl_status="400")
         self.assertEqual(code, 1)
-        self.assertIn("gh api --method POST", log)
+        self.assertIn("GH api --method POST", log)
 
         code, log = invoke(marker_rows="99\trejected\n100\trejected")
         self.assertEqual(code, 0)
-        self.assertNotIn("gh api --method POST", log)
+        self.assertNotIn("GH api --method POST", log)
         self.assertNotIn("CURL", log)
 
 
@@ -670,7 +670,7 @@ class ProductionGovernanceProtectionTests(unittest.TestCase):
         self.assertIn("dispatch-state: uncertain-http-503", log)
         code, retry_log = invoke(marker_rows="99\tuncertain")
         self.assertEqual(code, 0)
-        self.assertNotIn("gh api --method POST", retry_log)
+        self.assertNotIn("GH api --method POST", retry_log)
         self.assertNotIn("CURL", retry_log)
 
         code, log = invoke(curl_fail="1")
@@ -678,7 +678,7 @@ class ProductionGovernanceProtectionTests(unittest.TestCase):
         self.assertIn("dispatch-state: uncertain-http-000", log)
         code, retry_log = invoke(marker_rows="99\tuncertain")
         self.assertEqual(code, 0)
-        self.assertNotIn("gh api --method POST", retry_log)
+        self.assertNotIn("GH api --method POST", retry_log)
         self.assertNotIn("CURL", retry_log)
 
 
@@ -689,9 +689,9 @@ class ProductionGovernanceProtectionTests(unittest.TestCase):
         start = workflow.index("dispatch_kilo() {")
         end = workflow.index('\n\n          if [ "$RUN_CONCLUSION"', start)
         dispatch = workflow[start:end]
-        for operation in ("gh api --method POST", 'status="$(curl', "gh api --method PATCH"):
+        for operation in ("GH api --method POST", 'status="$(curl', "gh api --method PATCH"):
             self.assertIn(operation, dispatch)
-        reservation = dispatch.index("gh api --method POST")
+        reservation = dispatch.index("GH api --method POST")
         request = dispatch.index('status="$(curl')
         acknowledgement = dispatch.rindex("gh api --method PATCH")
         self.assertLess(reservation, request)
