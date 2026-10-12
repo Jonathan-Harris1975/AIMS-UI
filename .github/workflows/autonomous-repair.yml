@@ -149,7 +149,7 @@ jobs:
           dispatch_kilo() {
             local repair_pr="$1" marker marker_rows latest_state rejected_attempts contract carrier_url payload status patch_attempt rejected_body accepted_body
             marker="<!-- kilo-main-repair:${RUN_ID} -->"
-            marker_rows="$(gh api --paginate "repos/${REPO}/issues/${repair_pr}/comments" | \
+            # Emit one row per matching marker: comment ID and dispatch state.\n            marker_rows="$(gh api --paginate "repos/${REPO}/issues/${repair_pr}/comments" | \
               jq -r --arg login "$REPAIR_APP_LOGIN" --arg marker "$marker" \
                 '.[] | select(.user.login == $login and (.body | contains($marker))) | [.id, (if (.body | contains("dispatch-state: rejected-http-")) then "rejected" else "pending" end)] | @tsv')"
             if [ -n "$marker_rows" ]; then
@@ -182,7 +182,7 @@ jobs:
               --arg task "$task" \
               '{repository:$repository,carrier_pr:$carrier_pr,failed_sha:$failed_sha,failed_run:$failed_run,workflow:$workflow,kind:"main-branch-repair",task:$task}')"
             reservation_id="$(gh api --method POST "repos/${REPO}/issues/${repair_pr}/comments" \
-              --field body="$marker dispatch-state: pending Kilo repair handoff reserved for $RUN_URL; inspect this exact run before retrying." \
+              --field body="$marker dispatch-state: pending Kilo repair handoff reserved for $RUN_URL; inspect this exact run before retrying; only mark rejected after confirming Kilo did not accept delivery." \
               --jq '.id')"
             if [[ ! "$reservation_id" =~ ^[0-9]+$ ]]; then
               echo "::error::Could not persist the Kilo repair deduplication marker for run $RUN_ID." >&2
