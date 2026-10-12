@@ -150,11 +150,25 @@ jobs:
             local repair_pr="$1" marker marker_rows latest_state rejected_attempts contract carrier_url payload status patch_attempt rejected_body accepted_body uncertain_body
             marker="<!-- kilo-main-repair:${RUN_ID} -->"
             # Emit one row per matching marker: comment ID and dispatch state.
-            marker_rows="$(gh api --paginate "repos/${REPO}/issues/${repair_pr}/comments" | \
-              jq -r --arg login "$REPAIR_APP_LOGIN" --arg marker "$marker" \
-                '.[] | select(.user.login == $login and (.body | contains($marker))) | [.id, (if (.body | contains("dispatch-state: rejected-http-")) then "rejected" elif (.body | contains("dispatch-state: accepted")) then "accepted" elif (.body | contains("dispatch-state: uncertain-http-")) then "uncertain" else "pending" end)] | @tsv')"
+            # Read exact-run handoff markers as TSV rows: GitHub comment ID, then dispatch state.
+            marker_rows="$(gh api --paginate "repos/${REPO}/issues/${repair_pr}/comments" |
+              jq -r --arg login "$REPAIR_APP_LOGIN" --arg marker "$marker" '
+                .[]
+                | select(.user.login == $login and (.body | contains($marker)))
+                | [
+                    .id,
+                    (if (.body | contains("dispatch-state: rejected-http-")) then "rejected"
+                     elif (.body | contains("dispatch-state: accepted")) then "accepted"
+                     elif (.body | contains("dispatch-state: uncertain-http-")) then "uncertain"
+                     else "pending"
+                     end)
+                  ]
+                | @tsv
+              ')"
             if [ -n "$marker_rows" ]; then
               latest_state="$(printf '%s\n' "$marker_rows" | tail -n1 | cut -f2)"
+              # An uncertain delivery may already have reached Kilo. Do not auto-retry it:
+              # inspect delivery history and only mark rejected after confirming no acceptance.
               if [ "$latest_state" != "rejected" ]; then
                 echo "Kilo already has a pending, uncertain or accepted handoff for run $RUN_ID."
                 return
@@ -189,7 +203,7 @@ jobs:
               echo "::error::Could not persist the Kilo repair deduplication marker for run $RUN_ID." >&2
               exit 1
             fi
-                        if ! status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 30 \
+            if ! status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 30 \
               --request POST --header 'Content-Type: application/json' --data "$payload" "$KILO_REPAIR_TRIGGER_URL")"; then
               # Delivery outcome is uncertain; keep the reservation to suppress duplicates.
               status="000"
