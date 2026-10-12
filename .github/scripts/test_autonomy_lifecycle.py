@@ -689,9 +689,9 @@ class ProductionGovernanceProtectionTests(unittest.TestCase):
         start = workflow.index("dispatch_kilo() {")
         end = workflow.index('\n\n          if [ "$RUN_CONCLUSION"', start)
         dispatch = workflow[start:end]
-        for operation in ("GH api --method POST", 'status="$(curl', "gh api --method PATCH"):
+        for operation in ("gh api --method POST", 'status="$(curl', "gh api --method PATCH"):
             self.assertIn(operation, dispatch)
-        reservation = dispatch.index("GH api --method POST")
+        reservation = dispatch.index("gh api --method POST")
         request = dispatch.index('status="$(curl')
         acknowledgement = dispatch.rindex("gh api --method PATCH")
         self.assertLess(reservation, request)
