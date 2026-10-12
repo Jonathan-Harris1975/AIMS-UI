@@ -157,8 +157,8 @@ def _resolve_branch_sha() -> str:
 def _fetch_branch_runs(sha: str | None = None) -> list[dict[str, Any]]:
     """Fetch complete weekend evidence for Council's two relevant workflows.
 
-    Querying every workflow on the branch can exceed GitHub's 1,000-run search
-    window during busy weekends. Council only evaluates CI and Council runs, so
+    Querying every workflow on the branch can exceed GitHub's 1,000-run pagination
+    limit during busy weekends. Council only evaluates CI and Council runs, so
     scope each complete pagination pass to those workflow files. Each remains
     bounded at 1,000 runs and fails closed if completeness cannot be proven.
     """
