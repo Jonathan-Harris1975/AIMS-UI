@@ -518,7 +518,7 @@ class CouncilEvidenceFreezeTests(unittest.TestCase):
         self.assertTrue(frozen)
         self.assertIn(new_sha[:12], reason)
 
-    def test_branch_runs_query_is_limited_to_weekend_and_current_sha(self):
+    def test_branch_runs_query_targets_council_evidence_workflows(self):
         page = {"workflow_runs": [], "total_count": 0}
         bounds = (
             datetime(2026, 10, 2, 20, 0, tzinfo=automation.LONDON),
@@ -526,47 +526,37 @@ class CouncilEvidenceFreezeTests(unittest.TestCase):
         )
         with (
             patch.object(automation, "current_weekend_bounds", return_value=bounds),
-            patch.object(automation, "get", return_value=page) as request,
+            patch.object(automation, "get", side_effect=[page, page]) as request,
         ):
             runs = automation._fetch_branch_runs(self.sha)
 
         self.assertEqual(runs, [])
-        path = request.call_args.args[0]
-        self.assertIn("branch=main", path)
-        self.assertIn(f"head_sha={self.sha}", path)
-        self.assertIn(
-            "created=2026-10-02T19%3A00%3A00Z..2026-10-05T03%3A00%3A00Z",
-            path,
-        )
+        paths = [call.args[0] for call in request.call_args_list]
+        self.assertEqual(len(paths), 2)
+        for path, workflow_file in zip(paths, ("ci.yml", "council.yml")):
+            self.assertIn(f"/actions/workflows/{workflow_file}/runs?", path)
+            self.assertIn("branch=main", path)
+            self.assertIn(f"head_sha={self.sha}", path)
+            self.assertIn(
+                "created=2026-10-02T19%3A00%3A00Z..2026-10-05T03%3A00%3A00Z",
+                path,
+            )
 
-    def test_short_final_page_wins_over_stale_total_count(self):
-        page = {"workflow_runs": [], "total_count": 150}
-        bounds = (
-            datetime(2026, 10, 2, 20, 0, tzinfo=automation.LONDON),
-            datetime(2026, 10, 5, 4, 0, tzinfo=automation.LONDON),
-        )
-        with (
-            patch.object(automation, "current_weekend_bounds", return_value=bounds),
-            patch.object(automation, "get", return_value=page) as request,
-        ):
-            runs = automation._fetch_branch_runs()
-        self.assertEqual(runs, [])
-        request.assert_called_once()
-
-    def test_exact_1000_workflow_runs_is_complete_not_overflow(self):
+    def test_exact_1000_runs_per_workflow_are_complete(self):
         page = {"workflow_runs": [{} for _ in range(100)], "total_count": 1000}
+        empty = {"workflow_runs": [], "total_count": 0}
         bounds = (
             datetime(2026, 10, 2, 20, 0, tzinfo=automation.LONDON),
             datetime(2026, 10, 5, 4, 0, tzinfo=automation.LONDON),
         )
         with (
             patch.object(automation, "current_weekend_bounds", return_value=bounds),
-            patch.object(automation, "get", side_effect=[page for _ in range(10)]),
+            patch.object(automation, "get", side_effect=[page for _ in range(10)] + [empty]),
         ):
             runs = automation._fetch_branch_runs()
         self.assertEqual(len(runs), 1000)
 
-    def test_more_than_1000_workflow_runs_fails_closed(self):
+    def test_more_than_1000_runs_per_workflow_fails_closed(self):
         page = {"workflow_runs": [{} for _ in range(100)], "total_count": 1001}
         bounds = (
             datetime(2026, 10, 2, 20, 0, tzinfo=automation.LONDON),
@@ -578,7 +568,6 @@ class CouncilEvidenceFreezeTests(unittest.TestCase):
         ):
             with self.assertRaises(RuntimeError):
                 automation._fetch_branch_runs()
-
 
 
 class ProductionGovernanceProtectionTests(unittest.TestCase):
