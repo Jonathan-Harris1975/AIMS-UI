@@ -626,6 +626,7 @@ class ProductionGovernanceProtectionTests(unittest.TestCase):
         python3() { return 0; }
         cat() { printf 'contract'; }
         curl() {
+          printf 'CURL %s\n' "$CURL_STATUS" >> "$CALL_LOG"
           if [ "$CURL_FAIL" = 1 ]; then return 7; fi
           printf '%s' "$CURL_STATUS"
         }
