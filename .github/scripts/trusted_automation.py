@@ -155,7 +155,13 @@ def _resolve_branch_sha() -> str:
 
 
 def _fetch_branch_runs(sha: str | None = None) -> list[dict[str, Any]]:
-    """Fetch complete branch workflow evidence, bounded to 1,000 runs."""
+    """Fetch complete weekend evidence for Council's two relevant workflows.
+
+    Querying every workflow on the branch can exceed GitHub's 1,000-run search
+    window during busy weekends. Council only evaluates CI and Council runs, so
+    scope each complete pagination pass to those workflow files. Each remains
+    bounded at 1,000 runs and fails closed if completeness cannot be proven.
+    """
     bounds = current_weekend_bounds()
     if bounds is None:
         return []
@@ -166,32 +172,38 @@ def _fetch_branch_runs(sha: str | None = None) -> list[dict[str, Any]]:
     encoded_branch = urllib.parse.quote(DEFAULT_BRANCH, safe="")
     encoded_sha = f"&head_sha={urllib.parse.quote(sha, safe='')}" if sha else ""
     runs: list[dict[str, Any]] = []
-    total_count: int | None = None
-    for page in range(1, 11):
-        payload = get(
-            f"/repos/{REPO}/actions/runs?branch={encoded_branch}{encoded_sha}&created={created}&per_page=100&page={page}"
-        )
-        chunk = payload.get("workflow_runs", []) if isinstance(payload, dict) else []
-        if total_count is None and isinstance(payload, dict):
-            raw_total = payload.get("total_count")
-            if isinstance(raw_total, int) and raw_total >= 0:
-                total_count = raw_total
-        runs.extend(chunk)
 
-        # A short page is authoritative pagination evidence that there is no next
-        # page, even if total_count is briefly stale or overestimated.
-        if len(chunk) < 100:
-            return runs
+    for workflow_file in ("ci.yml", "council.yml"):
+        encoded_workflow = urllib.parse.quote(workflow_file, safe="")
+        workflow_runs: list[dict[str, Any]] = []
+        total_count: int | None = None
+        for page in range(1, 11):
+            payload = get(
+                f"/repos/{REPO}/actions/workflows/{encoded_workflow}/runs"
+                f"?branch={encoded_branch}{encoded_sha}&created={created}&per_page=100&page={page}"
+            )
+            chunk = payload.get("workflow_runs", []) if isinstance(payload, dict) else []
+            if total_count is None and isinstance(payload, dict):
+                raw_total = payload.get("total_count")
+                if isinstance(raw_total, int) and raw_total >= 0:
+                    total_count = raw_total
+            workflow_runs.extend(chunk)
 
-        # total_count is still useful for the exact 1,000-run boundary: when the
-        # tenth full page completes the advertised result set, it is complete.
-        if total_count is not None and len(runs) >= total_count:
-            return runs
+            # A short page proves there is no next page, even if total_count is stale.
+            if len(chunk) < 100:
+                break
 
-    # Ten full pages without proving completeness would exceed the bounded
-    # evidence window. Fail closed instead of silently certifying truncated data.
-    raise RuntimeError("Workflow-run pagination exceeded the safe 1,000-run limit")
+            # At exactly 1,000, total_count proves the bounded result is complete.
+            if total_count is not None and len(workflow_runs) >= total_count:
+                break
+        else:
+            # Ten full pages without evidence of completeness must fail closed.
+            raise RuntimeError(
+                f"Council evidence pagination exceeded 1,000 runs for {workflow_file}"
+            )
 
+        runs.extend(workflow_runs)
+    return runs
 
 def council_evidence_freeze() -> tuple[bool, str]:
     """Freeze routine merges after exact-SHA weekend CI until Council succeeds."""
