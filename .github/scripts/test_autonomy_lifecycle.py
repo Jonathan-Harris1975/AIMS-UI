@@ -330,7 +330,7 @@ class ManagedBranchOwnershipTests(unittest.TestCase):
         self.assertNotIn("/merge", source)
 
     def test_managed_branch_pr_is_admitted_to_mergify_after_green_checks(self):
-        admit = self.enterContext(patch.object(automation, "admit_to_mergify"))
+        admit = self.enterContext(patch.object(automation, "admit_to_native_merge"))
         approve = self.enterContext(patch.object(automation, "approve_pr"))
         self.enterContext(
             patch.object(automation, "pr_files", return_value=["services/example.js"])
@@ -353,7 +353,7 @@ class ManagedBranchOwnershipTests(unittest.TestCase):
 
     def test_managed_branch_pr_touching_protected_controls_gets_human_hold(self):
         hold = self.enterContext(patch.object(automation, "place_human_hold"))
-        admit = self.enterContext(patch.object(automation, "admit_to_mergify"))
+        admit = self.enterContext(patch.object(automation, "admit_to_native_merge"))
         self.enterContext(
             patch.object(
                 automation,
@@ -846,7 +846,7 @@ class OwnerCodexAdmissionTests(unittest.TestCase):
             patch.object(automation, "pr_files", return_value=[".github/workflows/ci.yml"]),
             patch.object(automation, "has_current_approval", return_value=False),
             patch.object(automation, "place_human_hold") as hold,
-            patch.object(automation, "admit_to_mergify") as admit,
+            patch.object(automation, "admit_to_native_merge") as admit,
             patch.object(automation, "set_admission_check"),
             patch.object(automation, "remove_label"),
         ):
