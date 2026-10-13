@@ -502,10 +502,26 @@ def adopt_linked_cto_prs(open_prs: list[dict[str, Any]]) -> None:
         add_labels(int(pr["number"]), [CTO_IMPLEMENTATION_LABEL])
         log(f"Trusted cto.new implementation PR #{pr['number']} linked to task #{task}.")
 
+def is_owner_codex_pr(pr: dict[str, Any]) -> bool:
+    """Recognise owner-authored, same-repository Codex branches for trusted admission."""
+    branch = str(pr.get("head", {}).get("ref", ""))
+    return (
+        pr.get("user", {}).get("login") == REPO.split("/", 1)[0]
+        and pr.get("state") == "open"
+        and not pr.get("draft")
+        and is_same_repo(pr)
+        and pr.get("base", {}).get("ref") == DEFAULT_BRANCH
+        and branch.startswith("codex/")
+        and BRANCH_PR_RE.fullmatch(branch) is not None
+    )
+
+
 def automation_kind(pr: dict[str, Any]) -> str | None:
     labels = issue_labels(pr)
     if is_renovate(pr):
         return "renovate"
+    if is_owner_codex_pr(pr):
+        return "codex"
     if is_managed_branch_pr(pr):
         return "branch-pr"
     if is_carrier(pr):
@@ -829,7 +845,7 @@ def _reconcile_pr_candidate(pr: dict[str, Any]) -> None:
     # The evidence freeze applies to routine dependency/feature merges. A linked
     # Kilo implementation is an authorised repair exception: if it changes main,
     # the exact-SHA evidence is invalidated and CI/Council must be regenerated.
-    if kind in {"renovate", "branch-pr"}:
+    if kind in {"renovate", "branch-pr", "codex"}:
         frozen, freeze_reason = council_evidence_freeze()
         number = int(pr["number"])
         if frozen:
@@ -843,7 +859,7 @@ def _reconcile_pr_candidate(pr: dict[str, Any]) -> None:
             remove_label(number, COUNCIL_FREEZE_LABEL)
             log(f"PR #{number} ({kind}) released from Council evidence freeze: {freeze_reason}.")
 
-    if kind in {"kilo", "cto", "branch-pr", "renovate"}:
+    if kind in {"kilo", "cto", "branch-pr", "renovate", "codex"}:
         number = int(pr["number"])
         sensitive = [path for path in pr_files(number) if sensitive_file(path)]
         if sensitive:
