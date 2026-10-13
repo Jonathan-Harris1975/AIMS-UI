@@ -17,8 +17,6 @@ from typing import Any
 API = "https://api.github.com"
 TOKEN = os.environ.get("NATIVE_MERGE_TOKEN", "")
 REPO = os.environ.get("REPO", "")
-REPO_OWNER = REPO.partition("/")[0].casefold() if "/" in REPO else ""
-REPO_NAME = REPO.rsplit("/", 1)[-1].casefold()
 DEFAULT_BRANCH = os.environ.get("DEFAULT_BRANCH", "main")
 ADMISSION_CHECK = "Trusted autonomy admission"
 BLOCKING_LABELS = {
