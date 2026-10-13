@@ -37,6 +37,8 @@ jobs:
           fi
       - name: Reject committed literal secrets
         run: python3 scripts/secret_scan.py
+      - name: Test native auto-merge controller
+        run: python3 -m unittest discover -s .github/scripts -p 'test_native_auto_merge.py'
       - run: npm run validate
 
   release_gate:
