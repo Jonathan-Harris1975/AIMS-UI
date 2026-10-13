@@ -63,6 +63,7 @@ class NativeAutoMergeTests(unittest.TestCase):
             "base": {"ref": "main"},
             "head": {"sha": sha},
             "mergeable": True,
+            "labels": [{"name": "autonomy:admitted"}],
         }
         with (
             patch.object(native_auto_merge, "merge_request", return_value=None),
