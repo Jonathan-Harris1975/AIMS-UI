@@ -69,13 +69,12 @@ def page_url(path: str, page: int) -> str:
 
 def pages(path: str) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
-    page = 1
-    while True:
+    for page in range(1, 11):
         batch = request("GET", page_url(path, page)) or []
         items.extend(batch)
         if len(batch) < 100:
             return items
-        page += 1
+    raise RuntimeError("Open PR listing exceeded the 1,000-item safety limit")
 
 
 def admission_check(number: int, sha: str) -> tuple[bool, bool]:
@@ -85,19 +84,18 @@ def admission_check(number: int, sha: str) -> tuple[bool, bool]:
         "GET",
         f"/repos/{REPO}/commits/{sha}/check-runs?check_name={name}&filter=all&per_page=100",
     ).get("check_runs", [])
-    owned = [
+    exact_id = f"trusted-autonomy-admission:{number}:{sha}"
+    exact_runs = [
         run for run in runs
         if (run.get("app") or {}).get("slug") == "github-actions"
         and run.get("name") == ADMISSION_CHECK
-    ]
-    exact_id = f"trusted-autonomy-admission:{number}:{sha}"
-    success = any(
-        run.get("status") == "completed"
-        and run.get("conclusion") == "success"
         and run.get("external_id") == exact_id
-        for run in owned
+    ]
+    success = any(
+        run.get("status") == "completed" and run.get("conclusion") == "success"
+        for run in exact_runs
     )
-    return success, bool(owned)
+    return success, bool(exact_runs)
 
 
 def merge_request(pr_node_id: str) -> dict[str, Any] | None:
@@ -141,15 +139,19 @@ def reconcile(pr_summary: dict[str, Any]) -> None:
     sha = str((pr.get("head") or {}).get("sha") or "")
     exact_admission, has_admission_evidence = admission_check(number, sha) if sha else (False, False)
     blocked = bool(current_labels.intersection(BLOCKING_LABELS))
-    eligible = (
+    eligible_except_mergeability = (
         pr.get("state") == "open"
         and not pr.get("draft")
         and pr.get("base", {}).get("ref") == DEFAULT_BRANCH
-        and pr.get("mergeable") is True
         and "autonomy:admitted" in current_labels
         and not blocked
         and exact_admission
     )
+    if eligible_except_mergeability and pr.get("mergeable") is None:
+        # GitHub computes mergeability asynchronously. Preserve active requests
+        # until the result is known instead of flapping them during that window.
+        return
+    eligible = eligible_except_mergeability and bool(pr.get("mergeable"))
     if eligible:
         if active_request is None:
             enable(node_id)
