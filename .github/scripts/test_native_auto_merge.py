@@ -1,4 +1,3 @@
-import importlib
 import os
 import subprocess
 import sys
@@ -32,40 +31,47 @@ class NativeAutoMergeTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "REPO and NATIVE_MERGE_TOKEN are required"):
                 native_auto_merge.main()
 
-    def test_page_url_handles_existing_query_and_trailing_separator(self):
-        self.assertEqual(
-            native_auto_merge.page_url("/repos/acme/app/pulls?state=open", 2),
-            "/repos/acme/app/pulls?state=open&per_page=100&page=2",
-        )
-        self.assertEqual(
-            native_auto_merge.page_url("/repos/acme/app/pulls?state=open&", 2),
-            "/repos/acme/app/pulls?state=open&per_page=100&page=2",
-        )
-        self.assertEqual(
-            native_auto_merge.page_url("/repos/acme/app/pulls?", 2),
-            "/repos/acme/app/pulls?per_page=100&page=2",
-        )
+    def test_page_url_handles_existing_query_and_trailing_separators(self):
+        cases = [
+            (
+                "/repos/acme/app/pulls?state=open",
+                "/repos/acme/app/pulls?state=open&per_page=100&page=2",
+            ),
+            (
+                "/repos/acme/app/pulls?state=open&",
+                "/repos/acme/app/pulls?state=open&per_page=100&page=2",
+            ),
+            (
+                "/repos/acme/app/pulls?",
+                "/repos/acme/app/pulls?per_page=100&page=2",
+            ),
+        ]
+        for path, expected in cases:
+            with self.subTest(path=path):
+                self.assertEqual(native_auto_merge.page_url(path, 2), expected)
 
-    def test_owner_login_is_derived_from_repository(self):
-        with patch.dict(os.environ, {"REPO": "example-owner/MAST"}):
-            module = importlib.reload(native_auto_merge)
-            self.assertEqual(module.REPO_OWNER, "example-owner")
-            self.assertEqual(module.REPO_NAME, "mast")
-        importlib.reload(native_auto_merge)
-
-    def test_owner_approval_matches_derived_owner_and_exact_sha(self):
+    def test_exact_admission_enables_merge_without_owner_review(self):
         sha = "a" * 40
-        approved = {
-            "user": {"login": "example-owner"},
-            "state": "APPROVED",
-            "commit_id": sha,
-            "submitted_at": "2026-10-13T12:00:00Z",
+        summary = {
+            "number": 7,
+            "labels": [{"name": "autonomy:admitted"}],
+            "node_id": "PR_node_7",
         }
-        with patch.object(native_auto_merge, "REPO_OWNER", "example-owner"), patch.object(
-            native_auto_merge, "pages", return_value=[approved]
+        detail = {
+            "state": "open",
+            "draft": False,
+            "base": {"ref": "main"},
+            "head": {"sha": sha},
+            "mergeable": True,
+        }
+        with (
+            patch.object(native_auto_merge, "merge_request", return_value=None),
+            patch.object(native_auto_merge, "request", return_value=detail),
+            patch.object(native_auto_merge, "admission_check", return_value=(True, True)),
+            patch.object(native_auto_merge, "enable") as enable,
         ):
-            self.assertTrue(native_auto_merge.mast_owner_approval(7, sha))
-            self.assertFalse(native_auto_merge.mast_owner_approval(7, "b" * 40))
+            native_auto_merge.reconcile(summary)
+        enable.assert_called_once_with("PR_node_7")
 
 
 if __name__ == "__main__":
