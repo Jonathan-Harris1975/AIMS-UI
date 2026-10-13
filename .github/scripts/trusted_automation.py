@@ -873,6 +873,7 @@ def _reconcile_pr_candidate(pr: dict[str, Any]) -> None:
                     "kilo": "repair",
                     "branch-pr": "managed branch",
                     "renovate": "Renovate",
+                    "codex": "owner-authorized Codex",
                 }[kind]
                 place_human_hold(
                     pr,
