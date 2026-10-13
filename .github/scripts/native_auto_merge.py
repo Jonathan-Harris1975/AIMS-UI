@@ -15,8 +15,10 @@ import urllib.request
 from typing import Any
 
 API = "https://api.github.com"
-TOKEN = os.environ["NATIVE_MERGE_TOKEN"]
-REPO = os.environ["REPO"]
+TOKEN = os.environ.get("NATIVE_MERGE_TOKEN", "")
+REPO = os.environ.get("REPO", "")
+REPO_OWNER = REPO.partition("/")[0].casefold() if "/" in REPO else ""
+REPO_NAME = REPO.rsplit("/", 1)[-1].casefold()
 DEFAULT_BRANCH = os.environ.get("DEFAULT_BRANCH", "main")
 ADMISSION_CHECK = "Trusted autonomy admission"
 BLOCKING_LABELS = {
@@ -57,11 +59,21 @@ def graphql(query: str, variables: dict[str, Any]) -> Any:
     return result.get("data", {})
 
 
+def page_url(path: str, page: int) -> str:
+    if path.endswith(("?", "&")):
+        separator = ""
+    elif "?" in path:
+        separator = "&"
+    else:
+        separator = "?"
+    return f"{path}{separator}per_page=100&page={page}"
+
+
 def pages(path: str) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
     page = 1
     while True:
-        batch = request("GET", f"{path}{'&' if '?' in path else '?'}per_page=100&page={page}") or []
+        batch = request("GET", page_url(path, page)) or []
         items.extend(batch)
         if len(batch) < 100:
             return items
@@ -94,7 +106,7 @@ def mast_owner_approval(number: int, sha: str) -> bool:
     reviews = pages(f"/repos/{REPO}/pulls/{number}/reviews")
     owner_reviews = [
         review for review in reviews
-        if (review.get("user") or {}).get("login", "").casefold() == "jonathan-harris1975"
+        if (review.get("user") or {}).get("login", "").casefold() == REPO_OWNER
     ]
     owner_reviews.sort(key=lambda review: review.get("submitted_at") or "", reverse=True)
     latest = owner_reviews[0] if owner_reviews else None
@@ -154,7 +166,7 @@ def reconcile(pr_summary: dict[str, Any]) -> None:
         and not blocked
         and exact_admission
     )
-    if eligible and REPO.casefold() == "jonathan-harris1975/mast":
+    if eligible and REPO_NAME == "mast":
         eligible = mast_owner_approval(number, sha)
 
     if eligible:
