@@ -617,7 +617,11 @@ class ProductionGovernanceProtectionTests(unittest.TestCase):
         jq() {
           case " $* " in
             *' -n '*) printf '{}' ;;
-            *) printf '%s' "$MARKER_ROWS" ;;
+            *)
+              # Drain the producer pipe just like jq does before returning mocked rows.
+              command cat >/dev/null
+              printf '%s' "$MARKER_ROWS"
+              ;;
           esac
         }
         python3() { return 0; }
