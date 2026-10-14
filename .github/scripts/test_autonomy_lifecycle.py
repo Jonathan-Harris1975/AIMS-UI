@@ -224,7 +224,7 @@ class TrustedImplementationLifecycleTests(unittest.TestCase):
         self.assertTrue(automation.sensitive_file(".github/scripts/trusted_automation.py"))
         self.assertTrue(automation.sensitive_file(".github/scripts/test_autonomy_lifecycle.py"))
         self.assertTrue(automation.sensitive_file(".github/scripts/codeql_gate.py"))
-        self.assertFalse(automation.sensitive_file("services/worker.js"))
+        self.assertFalse(automation.sensitive_file("apps/portal/src/worker.ts"))
 
 
 class KiloPermissionPolicyTests(unittest.TestCase):
