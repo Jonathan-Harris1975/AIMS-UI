@@ -16,7 +16,7 @@ DEPENDENCY / LOCKFILE POLICY
 - Dependabot's GitHub Actions entry has open-pull-requests-limit: 0; add an npm entry only when the first npm dependency and lockfile are committed together.
 - Mend Renovate is the dependency-update owner.
 - Renovate runs in the Saturday 11:00-13:30 Europe/London pre-CI window.
-- Renovate lockFileMaintenance is enabled and receives `dependency:auto-eligible`; Renovate remains merge-disabled and trusted admission/Mergify decide whether it merges.
+- Renovate lockFileMaintenance is enabled and receives `dependency:auto-eligible`; Renovate remains merge-disabled and trusted admission and GitHub native auto-merge decide whether it merges.
 - npm patch/minor updates receive `dependency:auto-eligible` and may be admitted after required CI passes.
 - npm major updates remain manual.
 - GitHub Actions patch/minor/digest updates follow the committed Renovate eligibility-label policy and remain gated by repository checks; major updates remain manual.
@@ -63,7 +63,7 @@ AUTONOMOUS PROVING-GROUP SETUP
 - Scheduled CI window: Saturday 13:30-16:00 Europe/London, following the Saturday 11:00-13:30 Renovate window.
 - KiloConnect + Kilo Code Bot: authorise both GitHub integrations for this repository. Failed default-branch CI/deployment-watch runs create one deduplicated repair PR and trigger Kilo Cloud Agent; actionable PR review comments and failed PR checks trigger it directly.
 - Kilo may prepare dependency-manifest/lockfile/build fixes when evidence requires them, but all changes remain PR-only and must pass existing gates.
-- Mergify is the sole automation merge arbiter for admitted routine PRs; repository rulesets and required checks remain independent hard gates.
+- GitHub native auto-merge is the sole routine merge authority for eligible admitted PRs; active repository rulesets and required checks remain authoritative.
 - Native GitHub auto-merge is not requested by repository automation, and Renovate/Kilo do not receive merge authority.
 - DAST evidence is persisted to the private `hive-repositories` R2 bucket using repository secrets `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, and `R2_SECRET_ACCESS_KEY`; keys bind repository, exact SHA, workflow run ID and run attempt. Council currently persists dispatch evidence only because the Kilo Council webhook does not return the completed Council result. Final Council-result persistence remains HOLD until that result/callback is exposed.
 - Codecov and OWASP ZAP are intentionally NOT enabled.
@@ -81,11 +81,11 @@ AUTONOMOUS REPAIR + TRUSTED PR AUTOMATION
 - Actions read/write is used only by `.github/workflows/trusted-automation.yml` to admit workflow runs that GitHub has placed in `action_required` for a verified automation PR, with a safe rerun fallback for the same exact trusted PR/SHA. It is not a branch-protection bypass.
 - The trusted workflow runs from the default branch, never executes PR code, and admits only same-repository Renovate PRs, carrier PRs authored by the installed repair App, and Kilo PRs linked to a live carrier or to a source PR with an exact-head router receipt and preserved source ancestry.
 - Fork secrets and write tokens remain disabled. An unlinked Kilo PR or any unknown bot/user PR is not automatically admitted.
-- Renovate PRs may be admitted to run CI according to committed eligibility metadata. Renovate has no merge/queue-command authority; Mergify may merge only PRs carrying `autonomy:admitted` after the exact-head required checks pass. Major/manual Renovate PRs remain manual as defined by committed `renovate.json` policy.
+- Renovate PRs may be admitted to run CI according to committed eligibility metadata. GitHub native auto-merge may merge only PRs carrying `autonomy:admitted` after exact-head required checks pass. Major/manual Renovate PRs remain manual as defined by committed `renovate.json` policy.
 - A verified linked Kilo implementation PR may be approved only after the current head SHA has successful repository CI, CodeQL and repository-security workflows while GitHub enforces any other required branch/ruleset checks.
-- Kilo implementation changes to workflows, Renovate/Mergify configuration, CodeQL/security policy, secret-scanner controls, CODEOWNERS, SECURITY.md or autonomy governance files receive `autonomy:human-hold`. Carrier PRs are lifecycle evidence and never auto-merge.
-- `.mergify.yml` performs lifecycle housekeeping and is the sole automation merge arbiter for admitted routine PRs. It may close `autonomy:superseded` and `autonomy:obsolete` PRs and queue only `autonomy:admitted` PRs whose required exact-head checks are green.
-- Native GitHub auto-merge / bot self-merge is not used by repository automation. GitHub rulesets and required status checks remain authoritative gates around Mergify.
+- Kilo implementation changes to workflows, Renovate/native auto-merge configuration, CodeQL/security policy, secret-scanner controls, CODEOWNERS, SECURITY.md or autonomy governance files receive `autonomy:human-hold`. Carrier PRs are lifecycle evidence and never auto-merge.
+- `native_auto_merge.py` enables GitHub native auto-merge only for trusted exact-head admissions with green required checks. Trusted lifecycle automation closes explicitly `autonomy:superseded` and `autonomy:obsolete` PRs.
+- GitHub native auto-merge never bypasses rulesets or required status checks. Automation does not self-approve PRs.
 - Keep GitHub automatic deletion of merged head branches enabled where desired to remove completed automation branches.
 - Only current high/critical CodeQL security alerts block the extra CodeQL gate; GitHub’s configured code-scanning ruleset remains independent. Genuine failed checks feed the Kilo repair router. Alert dismissal, broad suppressions, allowlist changes and security-policy decisions remain human-controlled.
 
@@ -98,7 +98,7 @@ KILO GITHUB + COUNCIL SETUP
 - Keep `KILO_REPAIR_PR_LOGIN` set only if the implementation PR author differs from `kilo-code-bot[bot]`.
 - `KILO_REPAIR_TRIGGER_URL` is no longer used by ordinary PR/default-branch repair. It remains required only by the current manual Repository Council workflow, which is a separate exact-SHA certification path.
 - Keep GitHub code-scanning and required CI/security checks independent of Kilo. Kilo cannot dismiss alerts, weaken scanners, change broad allow-lists, merge or deploy.
-- Live proof remains mandatory: an authenticated bot finding must cause a Kilo implementation without a human approval prompt, and the resulting PR must still pass the repository's exact-head gates before Mergify may merge it.
+- Live proof remains mandatory: an authenticated bot finding must cause a Kilo implementation without a human approval prompt, and the resulting PR must still pass the repository's exact-head gates before GitHub native auto-merge may merge it.
 
 
 CTO.NEW TASK LANE
