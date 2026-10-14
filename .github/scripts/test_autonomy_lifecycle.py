@@ -314,12 +314,13 @@ class ManagedBranchOwnershipTests(unittest.TestCase):
             "body": "",
         }
         for name, value in {
-            "REPO": "owner/repo",
+            "REPO": "Jonathan-Harris1975/AIMS-UI",
             "REPAIR_APP_LOGIN": "repair[bot]",
             "DEFAULT_BRANCH": "main",
         }.items():
             self.enterContext(patch.object(automation, name, value))
         self.enterContext(patch.object(automation, "log"))
+        self.enterContext(patch.object(automation, "has_operator_risk_approval", return_value=False))
         self.enterContext(
             patch.object(automation, "council_evidence_freeze", return_value=(False, "test release"))
         )
@@ -334,7 +335,7 @@ class ManagedBranchOwnershipTests(unittest.TestCase):
         admit = self.enterContext(patch.object(automation, "admit_to_native_merge"))
         approve = self.enterContext(patch.object(automation, "approve_pr"))
         self.enterContext(
-            patch.object(automation, "pr_files", return_value=["services/example.js"])
+            patch.object(automation, "pr_files", return_value=["apps/portal/src/example.ts"])
         )
         self.enterContext(
             patch.object(
