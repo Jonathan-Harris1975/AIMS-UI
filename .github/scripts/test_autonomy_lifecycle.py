@@ -224,7 +224,8 @@ class TrustedImplementationLifecycleTests(unittest.TestCase):
         self.assertTrue(automation.sensitive_file(".github/scripts/trusted_automation.py"))
         self.assertTrue(automation.sensitive_file(".github/scripts/test_autonomy_lifecycle.py"))
         self.assertTrue(automation.sensitive_file(".github/scripts/codeql_gate.py"))
-        self.assertFalse(automation.sensitive_file("apps/portal/src/worker.ts"))
+        with patch.object(automation, "REPO", "Jonathan-Harris1975/AIMS-UI"):
+            self.assertFalse(automation.sensitive_file("apps/portal/src/example.ts"))
 
 
 class KiloPermissionPolicyTests(unittest.TestCase):
@@ -307,7 +308,7 @@ class ManagedBranchOwnershipTests(unittest.TestCase):
             "head": {
                 "ref": "codex/requested-change",
                 "sha": self.sha,
-                "repo": {"full_name": "owner/repo"},
+                "repo": {"full_name": "Jonathan-Harris1975/AIMS-UI"},
             },
             "base": {"ref": "main"},
             "labels": [{"name": "automation:branch-pr"}],
