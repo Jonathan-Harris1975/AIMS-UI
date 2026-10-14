@@ -64,7 +64,7 @@ AUTONOMOUS PROVING-GROUP SETUP
 - KiloConnect + Kilo Code Bot: authorise both GitHub integrations for this repository. Failed default-branch CI/deployment-watch runs create one deduplicated repair PR and trigger Kilo Cloud Agent; actionable PR review comments and failed PR checks trigger it directly.
 - Kilo may prepare dependency-manifest/lockfile/build fixes when evidence requires them, but all changes remain PR-only and must pass existing gates.
 - GitHub native auto-merge is the sole routine merge authority for eligible admitted PRs; active repository rulesets and required checks remain authoritative.
-- Native GitHub auto-merge is not requested by repository automation, and Renovate/Kilo do not receive merge authority.
+- Trusted repository automation may request GitHub native auto-merge for eligible, admitted exact-head PRs; GitHub waits for all required checks, review requirements and active rulesets before merging. Renovate and Kilo do not receive direct merge authority.
 - DAST evidence is persisted to the private `hive-repositories` R2 bucket using repository secrets `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, and `R2_SECRET_ACCESS_KEY`; keys bind repository, exact SHA, workflow run ID and run attempt. Council currently persists dispatch evidence only because the Kilo Council webhook does not return the completed Council result. Final Council-result persistence remains HOLD until that result/callback is exposed.
 - Codecov and OWASP ZAP are intentionally NOT enabled.
 
