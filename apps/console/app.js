@@ -56,11 +56,84 @@ const client = new AimsCommsClient({
   baseUrl: config.apiBaseUrl,
 });
 
+const COMMS_AUDIO_PREFS_KEY = "aims-comms-audio-preferences-v1";
+const COMMS_AUDIO_SOUNDS = {
+  new_message: "/console/audio/comms/comms_1_new_message.mp3",
+  review_required: "/console/audio/comms/comms_2_review_required.mp3",
+  urgent: "/console/audio/comms/comms_3_urgent.mp3",
+  resolved: "/console/audio/comms/comms_4_resolved.mp3",
+};
+const COMMS_AUDIO_DEFAULTS = { enabled: true, new_message: false, review_required: true, urgent: true, resolved: false, volume: 0.65 };
+function commsAudioPreferences() {
+  try { return { ...COMMS_AUDIO_DEFAULTS, ...JSON.parse(localStorage.getItem(COMMS_AUDIO_PREFS_KEY) || "{}") }; }
+  catch { return { ...COMMS_AUDIO_DEFAULTS }; }
+}
+function saveCommsAudioPreferences(patch) {
+  const next = { ...commsAudioPreferences(), ...patch };
+  try { localStorage.setItem(COMMS_AUDIO_PREFS_KEY, JSON.stringify(next)); } catch {}
+  return next;
+}
+function dispatchCommsNotification(notification) {
+  const meta = notification?.metadata || {};
+  const kind = String(notification?.type || meta.category || "").toLowerCase();
+  const severity = String(notification?.severity || "info").toLowerCase();
+  const event = kind.includes("urgent") || severity === "critical" ? "urgent"
+    : kind.includes("resolved") || kind.includes("confirmation") ? "resolved"
+    : kind.includes("review") ? "review_required"
+    : kind.includes("message") && meta.requires_action === true ? "new_message"
+    : meta.requires_action === true ? "review_required" : null;
+  if (!event || (event === "new_message" && meta.requires_action !== true)) return;
+  const id = String(notification.id || "");
+  if (!id) return;
+  const createdAt = notification.createdAt || notification.created_at || null;
+  const sharedEvent = {
+    notification_id: id,
+    source: "AIMS Comms Hub",
+    severity: event === "urgent" ? "critical" : event === "resolved" ? "resolved" : event === "new_message" || event === "review_required" ? "review_required" : "info",
+    category: kind || "communication",
+    title: String(notification.title || "Comms Hub needs your attention"),
+    summary: String(notification.bodyText || notification.summary || "Review the communication item."),
+    requires_action: meta.requires_action === true || event === "review_required" || event === "urgent",
+    action_url: typeof meta.action_url === "string" ? meta.action_url : null,
+    created_at: typeof createdAt === "string" ? createdAt : null,
+    acknowledged_at: null,
+    resolved_at: event === "resolved" && typeof createdAt === "string" ? createdAt : null,
+  };
+  let seen = [];
+  try { seen = JSON.parse(localStorage.getItem("aims-comms-notification-seen-v1") || "[]"); } catch {}
+  let acknowledged = [];
+  try { acknowledged = JSON.parse(localStorage.getItem("aims-comms-notification-ack-v1") || "[]"); } catch {}
+  if (seen.includes(id) || acknowledged.includes(id)) return;
+  try { localStorage.setItem("aims-comms-notification-seen-v1", JSON.stringify([...seen, id].slice(-200))); } catch {}
+  const prefs = commsAudioPreferences();
+  if (prefs.enabled && prefs[event]) {
+    try { const audio = new Audio(COMMS_AUDIO_SOUNDS[event]); audio.volume = prefs.volume; void audio.play().catch(() => undefined); } catch {}
+  }
+  if ("Notification" in window && Notification.permission === "granted") {
+    try {
+      const notice = new Notification(notification.title || "Comms Hub needs your attention", {
+        body: notification.bodyText || "Review the communication item."
+      });
+      notice.onclick = () => {
+        acknowledgeCommsNotification(id);
+        notice.close();
+      };
+    } catch {}
+  }
+}
+function acknowledgeCommsNotification(id) {
+  try {
+    const current = JSON.parse(localStorage.getItem("aims-comms-notification-ack-v1") || "[]");
+    localStorage.setItem("aims-comms-notification-ack-v1", JSON.stringify([...new Set([...current, id])].slice(-200)));
+  } catch {}
+}
+
 const state = {
   view: "dashboard",
   bootstrap: null,
   queue: [],
   notifications: [],
+  notificationsInitialized: false,
   workspace: null,
   selectedConversationId: "",
   selectedContactId: "",
@@ -959,6 +1032,24 @@ function settingsView() {
           <div><dt>API version</dt><dd>${escapeHtml(state.bootstrap?.apiVersion || "Unknown")}</dd></div>
         </dl>
       </section>
+      <section class="panel settings-card comms-audio-settings">
+        <h3>Audio notifications</h3>
+        <p>Only communications that need a human decision can sound. Routine processing stays silent.</p>
+        <label><input type="checkbox" data-comms-audio="enabled" ${commsAudioPreferences().enabled ? "checked" : ""}> Sound on</label>
+        <label><input type="checkbox" data-comms-audio="review_required" ${commsAudioPreferences().review_required ? "checked" : ""}> Review required sound</label>
+        <label><input type="checkbox" data-comms-audio="urgent" ${commsAudioPreferences().urgent ? "checked" : ""}> Urgent sound</label>
+        <label><input type="checkbox" data-comms-audio="resolved" ${commsAudioPreferences().resolved ? "checked" : ""}> Resolved confirmation sound</label>
+        <label><input type="checkbox" data-comms-audio="new_message" ${commsAudioPreferences().new_message ? "checked" : ""}> Actionable new message sound</label>
+        <label class="comms-audio-volume">
+          Volume <input type="range" min="0" max="1" step="0.05" value="${commsAudioPreferences().volume}" data-comms-audio="volume">
+          <span>${Math.round(commsAudioPreferences().volume * 100)}%</span>
+        </label>
+        <div class="comms-audio-actions">
+          <button class="button secondary" type="button" data-action="test-comms-sound">Test Sound</button>
+          <button class="button secondary" type="button" data-action="enable-comms-browser-notifications">Enable browser notifications</button>
+        </div>
+        <p class="comms-audio-status" role="status" aria-live="polite"></p>
+      </section>
       <section class="panel settings-card">
         <h3>Verified identity</h3>
         <dl>
@@ -1483,6 +1574,23 @@ function bindEvents() {
   root.querySelector('[data-action="open-sidebar"]')?.addEventListener("click", openSidebar);
   root.querySelectorAll('[data-action="close-sidebar"]').forEach((button) => button.addEventListener("click", closeSidebar));
   root.querySelectorAll('[data-action="toggle-notifications"]').forEach((button) => button.addEventListener("click", () => toggleNotifications(button)));
+  root.querySelectorAll("[data-comms-audio]").forEach((control) => control.addEventListener("change", () => {
+    const key = control.dataset.commsAudio;
+    const value = control.type === "checkbox" ? control.checked : Number(control.value);
+    saveCommsAudioPreferences({ [key]: value });
+    if (key === "volume") control.parentElement.querySelector("span").textContent = `${Math.round(value * 100)}%`;
+  }));
+  root.querySelector('[data-action="test-comms-sound"]')?.addEventListener("click", async () => {
+    const status = root.querySelector(".comms-audio-status");
+    try { const audio = new Audio(COMMS_AUDIO_SOUNDS.review_required); audio.volume = commsAudioPreferences().volume; await audio.play(); status.textContent = "Review sound played."; }
+    catch { status.textContent = "Audio could not play. Interact with the page and check browser audio settings, then test again."; }
+  });
+  root.querySelector('[data-action="enable-comms-browser-notifications"]')?.addEventListener("click", async () => {
+    const status = root.querySelector(".comms-audio-status");
+    if (!("Notification" in window)) { status.textContent = "Browser notifications are not supported here."; return; }
+    try { status.textContent = `Browser notification permission: ${await Notification.requestPermission()}.`; }
+    catch { status.textContent = "Browser notification permission is unavailable."; }
+  });
   root.querySelectorAll("[data-notification-id]").forEach((button) => button.addEventListener("click", () => openNotification(button)));
   root.querySelectorAll("[data-contact-id]").forEach((button) => button.addEventListener("click", () => openContact(button.dataset.contactId)));
   root.querySelector('[data-action="close-contact"]')?.addEventListener("click", closeContact);
@@ -1812,7 +1920,13 @@ async function loadBootstrap() {
     const payload = await client.bootstrap();
     state.bootstrap = payload;
     state.queue = payload.queue || payload.conversations || [];
-    state.notifications = payload.notifications || [];
+    const nextNotifications = payload.notifications || [];
+    if (state.notificationsInitialized) {
+      const prior = new Set(state.notifications.map((item) => String(item.id)));
+      nextNotifications.filter((item) => !prior.has(String(item.id))).forEach(dispatchCommsNotification);
+    }
+    state.notifications = nextNotifications;
+    state.notificationsInitialized = true;
     await fetchOperationalStatus();
     const requestedView = location.hash.slice(1);
     state.view = requestedView && routableViews.has(requestedView) ? requestedView : state.view;
@@ -2075,6 +2189,7 @@ async function replayQuarantine(id) {
 
 async function openNotification(button) {
   const id = button.dataset.notificationId;
+  acknowledgeCommsNotification(id);
   const conversationId = button.dataset.conversationId;
   try {
     await client.markNotification(id, "read");

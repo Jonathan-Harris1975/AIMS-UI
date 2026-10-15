@@ -52,3 +52,17 @@ test('console surfaces autonomous replies as read-only sent provenance rather th
   assert.match(app, /last_auto_sent_at/)
   assert.match(app, /Evidence-backed|Deterministic \/ conversational/)
 })
+
+test('Comms Hub uses mapped supplied attention sounds and keeps routine alerts silent', async () => {
+  const app = await readFile(new URL('../apps/console/app.js', import.meta.url), 'utf8')
+  const sounds = await readFile(new URL('../docs/NOTIFICATION_SOUNDS.md', import.meta.url), 'utf8')
+  const contract = JSON.parse(await readFile(new URL('../.github/schemas/notification-event.schema.json', import.meta.url), 'utf8'))
+  assert.match(app, /comms_2_review_required\.mp3/)
+  assert.match(app, /comms_3_urgent\.mp3/)
+  assert.match(app, /meta\.requires_action === true/)
+  assert.match(app, /aims-comms-audio-preferences-v1/)
+  assert.match(sounds, /apps\/console\/audio\/comms\//)
+  assert.ok(contract.required.includes('notification_id'))
+  assert.ok(contract.required.includes('acknowledged_at'))
+  assert.ok(contract.required.includes('resolved_at'))
+})

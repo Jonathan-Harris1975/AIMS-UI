@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "HIVE shared notification event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "notification_id",
+    "source",
+    "severity",
+    "category",
+    "title",
+    "summary",
+    "requires_action",
+    "action_url",
+    "created_at",
+    "acknowledged_at",
+    "resolved_at"
+  ],
+  "properties": {
+    "notification_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1
+    },
+    "severity": {
+      "enum": [
+        "info",
+        "review_required",
+        "critical",
+        "resolved"
+      ]
+    },
+    "category": {
+      "type": "string",
+      "minLength": 1
+    },
+    "title": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "requires_action": {
+      "type": "boolean"
+    },
+    "action_url": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uri"
+    },
+    "created_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "acknowledged_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "resolved_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    }
+  }
+}
