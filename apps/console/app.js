@@ -95,6 +95,7 @@ function dispatchCommsNotification(notification) {
   if (prefs.enabled && prefs[event]) {
     try { const audio = new Audio(COMMS_AUDIO_SOUNDS[event]); audio.volume = prefs.volume; void audio.play().catch(() => undefined); } catch {}
   }
+  notifyHiveParent({ type: "aims-comms-notification", id, category: event });
 }
 function acknowledgeCommsNotification(id) {
   try {
