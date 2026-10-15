@@ -136,6 +136,15 @@ const state = {
   manualMail: { accounts: [], accountKey: "admin", folders: [], folder: "INBOX", messages: [], selectedUid: null, loading: false },
 };
 
+async function refreshCommsNotifications() {
+  if (!state.bootstrap) return;
+  try {
+    const next = (await client.notifications()).notifications || [];
+    next.forEach(dispatchCommsNotification);
+    state.notifications = next;
+  } catch {}
+}
+
 const icons = {
   dashboard: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h6V4H4v9Zm0 7h6v-5H4v5Zm10 0h6V11h-6v9Zm0-16v5h6V4h-6Z"/></svg>`,
   inbox: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v12h-5l-2 3h-2l-2-3H4V4Zm2 2v8h4l2 3 2-3h4V6H6Z"/></svg>`,
@@ -2183,4 +2192,7 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
+if (config.embedded) {
+  setInterval(refreshCommsNotifications, 15_000);
+}
 loadBootstrap();
