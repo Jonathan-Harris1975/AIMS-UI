@@ -109,7 +109,6 @@ const state = {
   bootstrap: null,
   queue: [],
   notifications: [],
-  notificationsInitialized: false,
   workspace: null,
   selectedConversationId: "",
   selectedContactId: "",
@@ -136,13 +135,12 @@ const state = {
   manualMail: { accounts: [], accountKey: "admin", folders: [], folder: "INBOX", messages: [], selectedUid: null, loading: false },
 };
 
-async function refreshCommsNotifications() {
-  if (!state.bootstrap) return;
-  try {
-    const next = (await client.notifications()).notifications || [];
-    next.forEach(dispatchCommsNotification);
-    state.notifications = next;
-  } catch {}
+function updateCommsNotifications(next) {
+  if (state.bootstrap) {
+    const prior = new Set(state.notifications.map(({ id }) => id));
+    next.filter(({ id }) => !prior.has(id)).forEach(dispatchCommsNotification);
+  }
+  state.notifications = next;
 }
 
 const icons = {
@@ -1896,15 +1894,9 @@ async function loadBootstrap() {
   state.error = null;
   try {
     const payload = await client.bootstrap();
-    state.bootstrap = payload;
     state.queue = payload.queue || payload.conversations || [];
-    const nextNotifications = payload.notifications || [];
-    if (state.notificationsInitialized) {
-      const prior = new Set(state.notifications.map((item) => String(item.id)));
-      nextNotifications.filter((item) => !prior.has(String(item.id))).forEach(dispatchCommsNotification);
-    }
-    state.notifications = nextNotifications;
-    state.notificationsInitialized = true;
+    updateCommsNotifications(payload.notifications || []);
+    state.bootstrap = payload;
     await fetchOperationalStatus();
     const requestedView = location.hash.slice(1);
     state.view = requestedView && routableViews.has(requestedView) ? requestedView : state.view;
@@ -2192,7 +2184,5 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-if (config.embedded) {
-  setInterval(refreshCommsNotifications, 15_000);
-}
+if (config.embedded) setInterval(() => { if (state.bootstrap) client.notifications().then((r) => updateCommsNotifications(r.notifications), () => {}); }, 15_000);
 loadBootstrap();
