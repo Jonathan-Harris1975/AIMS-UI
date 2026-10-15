@@ -1046,10 +1046,10 @@ function settingsView() {
           <span class="pill ${providerHealth.overall === "healthy" ? "pill-open" : providerHealth.overall === "unavailable" ? "pill-quarantined" : "pill-pending"}">
             ${escapeHtml(titleCase(providerHealth.overall || "unknown"))}
           </span>
-          <span>${providers.length} provider adapters observed</span>
+          <span>${providers.length} provider routes observed</span>
         </div>
         <dl>${providers.length ? providers.map((provider) => `<div>
-          <dt>${escapeHtml(provider.provider || "Unknown")}</dt>
+          <dt>${escapeHtml(provider.provider || "Unknown")}${provider.adapter ? `<small>Route: ${escapeHtml(provider.adapter)}</small>` : ""}</dt>
           <dd>${escapeHtml(titleCase(provider.status || "unknown"))}</dd>
         </div>`).join("") : `<div><dt>Status</dt><dd>No health snapshot yet</dd></div>`}</dl>
       </section>
