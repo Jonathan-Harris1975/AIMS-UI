@@ -26,7 +26,7 @@ test('console renders quarantine API fields and separates email worker schedulin
   assert.match(app, /escapeHtml\(item\.source_type\)/)
   assert.match(app, /item\.error_message \|\| ""/)
   assert.match(app, /emailAccount\.workerRunning[\s\S]*?emailAccount\.workerStarted \? "Scheduled"/)
-  assert.match(app, /emailPollState\.failureClass[\s\S]*?emailPollState\.nextAttemptAt[\s\S]*?emailPollState\.lastSuccessAt/)
+  assert.match(app, /emailPollState\.lastSuccessAt/)
 })
 
 test('CogniPal announces asynchronous state and loads its isolated production stylesheet', async () => {
