@@ -21,6 +21,15 @@ test('console retains keyboard, touch and responsive queue affordances', async (
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/)
 })
 
+test('console renders quarantine API fields and separates email worker scheduling from poll health', async () => {
+  const app = await readFile(new URL('../apps/console/app.js', import.meta.url), 'utf8')
+  assert.match(app, /item\.source \|\| item\.source_type\?\.replaceAll\("_", " "\)/)
+  assert.match(app, /item\.error \|\| item\.error_message \|\| item\.errorMessage/)
+  assert.match(app, /emailAccount\.workerRunning[\s\S]*?emailAccount\.workerStarted \? "Scheduled"/)
+  assert.match(app, /emailPollState\.failureClass[\s\S]*?emailPollState\.lastSuccessAt/)
+  assert.match(app, /emailPollState\.failureClass && emailPollState\.nextAttemptAt/)
+})
+
 test('CogniPal announces asynchronous state and loads its isolated production stylesheet', async () => {
   const widget = await readFile(new URL('../apps/widget/cognipal-widget.js', import.meta.url), 'utf8')
   const styles = await readFile(new URL('../apps/widget/cognipal-widget.css', import.meta.url), 'utf8')
