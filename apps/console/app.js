@@ -999,7 +999,6 @@ function settingsView() {
   const email = state.emailStatus || {};
   const emailAccount = Object.values(email.accounts || {})[0] || {};
   const emailPollState = emailAccount.pollState || {};
-  const emailWorkerStatus = emailAccount.workerRunning ? "Polling" : emailAccount.workerStarted ? "Scheduled" : "Off";
   const chat = state.chatStatus || {};
   const canManageSocial = roleAllows(identity.role || "read_only", "social_setup");
   return shell(`
@@ -1060,10 +1059,8 @@ function settingsView() {
         <dl>
           <div><dt>Email</dt><dd>${email.enabled ? "Enabled" : "Disabled"}</dd></div>
           <div><dt>Mailbox</dt><dd>${escapeHtml(emailAccount.address || "Not configured")}</dd></div>
-          <div><dt>Email worker</dt><dd>${escapeHtml(emailWorkerStatus)}</dd></div>
-          <div><dt>Poll</dt><dd>${escapeHtml(emailPollState.failureClass
-            ? `${emailPollState.failureClass} ${formatDateTime(emailPollState.nextAttemptAt)}`
-            : emailPollState.lastSuccessAt ? formatDateTime(emailPollState.lastSuccessAt) : "None")}</dd></div>
+          <div><dt>Email worker</dt><dd>${emailAccount.workerRunning ? "Polling" : emailAccount.workerStarted ? "Scheduled" : "Off"}</dd></div>
+          <div><dt>Last success</dt><dd>${escapeHtml(emailPollState.lastSuccessAt ? formatDateTime(emailPollState.lastSuccessAt) : "None")}</dd></div>
           <div><dt>Web chat</dt><dd>${chat.enabled ? `Enabled · ${escapeHtml(chat.transport || "unknown")}` : "Disabled"}</dd></div>
           <div><dt>Chat AI</dt><dd>${chat.aiWorkflowEnabled ? "Enabled" : "Disabled"}</dd></div>
         </dl>
