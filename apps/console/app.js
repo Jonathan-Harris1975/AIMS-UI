@@ -852,8 +852,8 @@ function quarantineView() {
         ${state.quarantine.map((item) => `<article>
           <div>
             <span class="pill pill-quarantined">${escapeHtml(titleCase(item.failure_class || "unknown"))}</span>
-            <h3>${escapeHtml(item.source || "Comms Hub failure")}</h3>
-            <p>${escapeHtml(item.error || "No error detail supplied.")}</p>
+            <h3>${escapeHtml(titleCase(item.source || item.source_type?.replaceAll("_", " ") || "Comms Hub failure"))}</h3>
+            <p>${escapeHtml(item.error || item.error_message || item.errorMessage || item.error_code || "No error detail supplied.")}</p>
             <small>${escapeHtml(formatDateTime(item.created_at))} · ${Number(item.attempts || 0)} attempts</small>
           </div>
           <div>
@@ -998,6 +998,17 @@ function settingsView() {
   const providers = Array.isArray(providerHealth.providers) ? providerHealth.providers : [];
   const email = state.emailStatus || {};
   const emailAccount = Object.values(email.accounts || {})[0] || {};
+  const emailPollState = emailAccount.pollState || {};
+  const emailWorkerStatus = emailAccount.workerRunning
+    ? "Processing"
+    : emailAccount.workerStarted ? "Scheduled" : email.pollWorkerEnabled ? "Waiting to start" : "Disabled";
+  const emailPollStatus = emailAccount.workerRunning
+    ? "Poll in progress"
+    : emailPollState.failureClass ? `${titleCase(emailPollState.failureClass)} failure`
+      : emailPollState.lastSuccessAt ? "Last poll succeeded" : "No successful poll recorded";
+  const nextPollRetry = emailPollState.failureClass && emailPollState.nextAttemptAt
+    ? `<div><dt>Next poll retry</dt><dd>${escapeHtml(formatDateTime(emailPollState.nextAttemptAt))}</dd></div>`
+    : "";
   const chat = state.chatStatus || {};
   const canManageSocial = roleAllows(identity.role || "read_only", "social_setup");
   return shell(`
@@ -1058,8 +1069,10 @@ function settingsView() {
         <dl>
           <div><dt>Email</dt><dd>${email.enabled ? "Enabled" : "Disabled"}</dd></div>
           <div><dt>Mailbox</dt><dd>${escapeHtml(emailAccount.address || "Not configured")}</dd></div>
-          <div><dt>Email worker</dt><dd>${emailAccount.workerStarted ? "Running" : email.pollWorkerEnabled ? "Waiting to start" : "Disabled"}</dd></div>
-          <div><dt>Last email poll</dt><dd>${escapeHtml(emailAccount.pollState?.lastSuccessAt ? formatDateTime(emailAccount.pollState.lastSuccessAt) : "No successful poll recorded")}</dd></div>
+          <div><dt>Email worker</dt><dd>${escapeHtml(emailWorkerStatus)}</dd></div>
+          <div><dt>Email poll status</dt><dd>${escapeHtml(emailPollStatus)}</dd></div>
+          <div><dt>Last successful email poll</dt><dd>${escapeHtml(emailPollState.lastSuccessAt ? formatDateTime(emailPollState.lastSuccessAt) : "No successful poll recorded")}</dd></div>
+          ${nextPollRetry}
           <div><dt>Web chat</dt><dd>${chat.enabled ? `Enabled · ${escapeHtml(chat.transport || "unknown")}` : "Disabled"}</dd></div>
           <div><dt>Chat AI</dt><dd>${chat.aiWorkflowEnabled ? "Enabled" : "Disabled"}</dd></div>
         </dl>
