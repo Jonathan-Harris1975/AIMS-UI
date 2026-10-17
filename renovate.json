@@ -9,7 +9,7 @@
   ],
   "prConcurrentLimit": 5,
   "prHourlyLimit": 2,
-  "platformAutomerge": true,
+  "platformAutomerge": false,
   "minimumReleaseAge": "2 days",
   "vulnerabilityAlerts": {
     "automerge": false,
@@ -37,7 +37,7 @@
         "minor",
         "digest"
       ],
-      "automerge": true,
+      "automerge": false,
       "addLabels": [
         "dependency:auto-eligible"
       ]
