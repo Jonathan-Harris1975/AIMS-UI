@@ -26,7 +26,7 @@ jobs:
   council:
     runs-on: ubuntu-latest
     environment:
-      name: Koyeb
+      name: R2
       deployment: false
     steps:
       - name: Harden runner
