@@ -377,6 +377,48 @@ test("AIMS transcript maps provider ids and human replies onto the widget contra
   ]);
 });
 
+test("invalid or expired locally signed HIVE handoffs never fall through to the remote verifier", async () => {
+  const originalFetch = globalThis.fetch;
+  let verifierCalls = 0;
+  globalThis.fetch = async () => {
+    verifierCalls += 1;
+    return new Response(JSON.stringify({ actor: "unexpected", role: "admin" }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+  try {
+    const secret = "test-hive-handoff-secret";
+    const expired = createHiveHandoffToken({
+      actor: "hive-owner",
+      role: "operator",
+      ttlSeconds: 300,
+      now: Date.now() - 600_000,
+    }, secret);
+    for (const token of ["invalid-token", expired]) {
+      const response = await gateway.fetch(new Request("https://chat.jonathan-harris.online/console/api/auth/handoff", {
+        method: "POST",
+        headers: {
+          origin: "https://chat.jonathan-harris.online",
+          authorization: `Bearer ${token}`,
+        },
+      }), {
+        HIVE_COMMS_HANDOFF_SECRET: secret,
+        CONSOLE_ALLOWED_ORIGINS: "https://chat.jonathan-harris.online",
+      });
+      assert.equal(response.status, 401);
+      assert.deepEqual(await response.json(), {
+        error: "hive_handoff_invalid",
+        message: "HIVE handoff token is invalid or expired.",
+      });
+    }
+    assert.equal(verifierCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+
 test("HIVE handoff is exchanged for an HttpOnly host-only console cookie", async () => {
   const secret = "test-hive-handoff-secret";
   const token = await createHiveHandoffToken({ actor: "hive-owner", role: "operator", ttlSeconds: 300 }, secret);

@@ -891,16 +891,17 @@ async function verifyHiveIdentity(request, env) {
   }
 
   const token = bearerToken(request) || readCookie(request, CONSOLE_SESSION_COOKIE_NAME);
-  let localHandoffRejected = false;
   if (token && normalise(env.HIVE_COMMS_HANDOFF_SECRET)) {
     const identity = await verifyHiveHandoffToken(token, env.HIVE_COMMS_HANDOFF_SECRET);
     if (identity) return identity;
-    localHandoffRejected = true;
+    // A configured shared secret is authoritative. Never let an invalid or
+    // expired local token fall through to a second verifier.
+    throw Object.assign(new Error("HIVE handoff token is invalid or expired."), { status: 401, code: "hive_handoff_invalid" });
   }
 
-  // Backwards-compatible verifier path. When the handoff has already been
-  // exchanged for an HttpOnly AIMS cookie, convert that cookie-held token back
-  // into the Bearer form expected by the existing HIVE identity endpoint.
+  // Backwards-compatible verifier path is available only when the shared
+  // handoff secret is not configured. Convert the cookie-held token back into
+  // the Bearer form expected by the existing HIVE identity endpoint.
   const identityVerifyUrl = normalise(env.HIVE_IDENTITY_VERIFY_URL) || "https://hive.jonathan-harris.online/api/auth/comms-identity";
   if (identityVerifyUrl) {
     const method = normalise(env.HIVE_IDENTITY_VERIFY_METHOD || "GET").toUpperCase();
@@ -921,9 +922,6 @@ async function verifyHiveIdentity(request, env) {
     return { actor, role };
   }
 
-  if (localHandoffRejected) {
-    throw Object.assign(new Error("HIVE handoff token is invalid or expired."), { status: 401, code: "hive_handoff_invalid" });
-  }
   throw Object.assign(new Error("HIVE communications handoff is not configured."), { status: 503, code: "hive_identity_unconfigured" });
 }
 
