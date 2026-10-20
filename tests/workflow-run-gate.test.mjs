@@ -78,10 +78,14 @@ test('workflow configuration covers lifecycle producers and always evaluates dep
   const lifecycle = await readFile(new URL('../.github/workflows/lifecycle-evidence.yml', import.meta.url), 'utf8')
   const integration = await readFile(new URL('../.github/workflows/deployed-integration.yml', import.meta.url), 'utf8')
   const diagnostics = await readFile(new URL('../.github/workflows/failure-diagnostics.yml', import.meta.url), 'utf8')
-  assert.ok(lifecycle.includes('"Repository Council"'), 'scheduled Council must produce weekly lifecycle evidence')
-  for (const unrelated of [
+  for (const producer of [
+    '"Repository Council"',
     '"Validate AIMS UI"',
+    '"CodeQL"',
+    '"Security and repository quality"',
     '"AIMS-UI deployed integration"',
+  ]) assert.ok(lifecycle.includes(producer), `missing current-head lifecycle producer ${producer}`)
+  for (const unrelated of [
     '"Autonomous main-branch repair PR"',
     '"Autonomous PR issue repair"',
     '"Trusted automation and native auto-merge"',
