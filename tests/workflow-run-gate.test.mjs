@@ -78,13 +78,14 @@ test('workflow configuration covers lifecycle producers and always evaluates dep
   const lifecycle = await readFile(new URL('../.github/workflows/lifecycle-evidence.yml', import.meta.url), 'utf8')
   const integration = await readFile(new URL('../.github/workflows/deployed-integration.yml', import.meta.url), 'utf8')
   const diagnostics = await readFile(new URL('../.github/workflows/failure-diagnostics.yml', import.meta.url), 'utf8')
-  for (const producer of [
+  assert.ok(lifecycle.includes('"Repository Council"'), 'scheduled Council must produce weekly lifecycle evidence')
+  for (const unrelated of [
     '"Validate AIMS UI"',
     '"AIMS-UI deployed integration"',
     '"Autonomous main-branch repair PR"',
     '"Autonomous PR issue repair"',
     '"Trusted automation and native auto-merge"',
-  ]) assert.ok(lifecycle.includes(producer), `missing lifecycle producer ${producer}`)
+  ]) assert.ok(!lifecycle.includes(unrelated), `unrelated workflow must not produce lifecycle evidence: ${unrelated}`)
   assert.ok(!lifecycle.includes('"*"'), 'lifecycle monitor must use an explicit producer list')
   assert.match(integration, /integration_closure:[\s\S]*?if: \$\{\{ always\(\) \}\}/)
   assert.match(integration, /needs: \[integration\]/)
