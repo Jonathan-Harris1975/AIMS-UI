@@ -90,6 +90,7 @@ test('workflow configuration covers lifecycle producers and always evaluates dep
     '"Autonomous PR issue repair"',
     '"Trusted automation and native auto-merge"',
   ]) assert.ok(!lifecycle.includes(unrelated), `unrelated workflow must not produce lifecycle evidence: ${unrelated}`)
+  assert.match(lifecycle, /github\.ref == 'refs\/heads\/main'/, 'manual evidence dispatch must stay on main')
   assert.ok(!lifecycle.includes('"*"'), 'lifecycle monitor must use an explicit producer list')
   assert.match(integration, /integration_closure:[\s\S]*?if: \$\{\{ always\(\) \}\}/)
   assert.match(integration, /needs: \[integration\]/)
