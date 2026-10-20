@@ -7,6 +7,7 @@ on:
       - "Validate AIMS UI"
       - "CodeQL"
       - "Security and repository quality"
+      - "AIMS-UI deployed integration"
     types: [completed]
   workflow_dispatch:
 
@@ -29,7 +30,7 @@ jobs:
            ((github.event.workflow_run.event == 'workflow_dispatch' &&
              github.event.workflow_run.name == 'Repository Council') ||
             (github.event.workflow_run.event == 'push' &&
-             contains(fromJSON('["Validate AIMS UI","CodeQL","Security and repository quality"]'), github.event.workflow_run.name)))) }}
+             contains(fromJSON('["Validate AIMS UI","CodeQL","Security and repository quality","AIMS-UI deployed integration"]'), github.event.workflow_run.name)))) }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
