@@ -79,12 +79,20 @@ test('workflow configuration covers lifecycle producers and always evaluates dep
   const integration = await readFile(new URL('../.github/workflows/deployed-integration.yml', import.meta.url), 'utf8')
   const diagnostics = await readFile(new URL('../.github/workflows/failure-diagnostics.yml', import.meta.url), 'utf8')
   for (const producer of [
+    '"Repository Council"',
     '"Validate AIMS UI"',
+    '"CodeQL"',
+    '"Security and repository quality"',
     '"AIMS-UI deployed integration"',
+  ]) assert.ok(lifecycle.includes(producer), `missing current-head lifecycle producer ${producer}`)
+  for (const unrelated of [
     '"Autonomous main-branch repair PR"',
     '"Autonomous PR issue repair"',
     '"Trusted automation and native auto-merge"',
-  ]) assert.ok(lifecycle.includes(producer), `missing lifecycle producer ${producer}`)
+  ]) assert.ok(!lifecycle.includes(unrelated), `unrelated workflow must not produce lifecycle evidence: ${unrelated}`)
+  assert.match(lifecycle, /github\.ref == 'refs\/heads\/main'/, 'manual evidence dispatch must stay on main')
+  assert.ok(lifecycle.includes('group: hive-lifecycle-evidence-${{ github.repository }}'), 'evidence runs must share a per-repository concurrency group')
+  assert.match(lifecycle, /cancel-in-progress: false/)
   assert.ok(!lifecycle.includes('"*"'), 'lifecycle monitor must use an explicit producer list')
   assert.match(integration, /integration_closure:[\s\S]*?if: \$\{\{ always\(\) \}\}/)
   assert.match(integration, /needs: \[integration\]/)
