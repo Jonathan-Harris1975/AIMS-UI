@@ -14,9 +14,9 @@ on:
     types: [requested, completed]
   # Safety-net reconciliation around the weekend window, plus one daily sweep.
   schedule:
-    - cron: "17,47 22-23 * * 6"
-    - cron: "17,47 0-5 * * 0"
-    - cron: "17 6 * * *"
+    - cron: "16 22-23 * * 6"
+    - cron: "16 0-5 * * 0"
+    - cron: "16 6 * * *"
   workflow_dispatch:
 
 permissions:
