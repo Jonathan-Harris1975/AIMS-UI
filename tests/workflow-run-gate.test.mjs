@@ -37,7 +37,7 @@ test('missing, skipped, cancelled or failed required integration blocks closure'
   }
 })
 
-test('missing, stale or incomplete attestation blocks closure even when the job reports success', () => {
+test('missing, stale or incomplete attestation blocks closure even when the job reports success', async () => {
   for (const attestation of [
     null,
     { ...base.attestation, deployed_sha: 'f'.repeat(40) },
@@ -90,16 +90,16 @@ test('workflow configuration covers lifecycle producers and always evaluates dep
     '"Autonomous PR issue repair"',
     '"Trusted automation and native auto-merge"',
   ]) assert.ok(!lifecycle.includes(unrelated), `unrelated workflow must not produce lifecycle evidence: ${unrelated}`)
-  assert.match(lifecycle, /github\.ref == 'refs\/heads\/main'/, 'manual evidence dispatch must stay on main')
+  assert.match(lifecycle, /github\\.ref == 'refs\\/heads\\/main'/, 'manual evidence dispatch must stay on main')
   assert.ok(lifecycle.includes('group: hive-lifecycle-evidence-${{ github.repository }}'), 'evidence runs must share a per-repository concurrency group')
   assert.match(lifecycle, /cancel-in-progress: false/)
   assert.ok(!lifecycle.includes('"*"'), 'lifecycle monitor must use an explicit producer list')
-  assert.match(integration, /integration_closure:[\s\S]*?if: \$\{\{ always\(\) \}\}/)
-  assert.match(integration, /needs: \[integration\]/)
-  assert.match(integration, /INTEGRATION_RESULT: \$\{\{ needs\.integration\.result \}\}/)
-  assert.match(integration, /run: node scripts\/workflow-run-gate\.mjs/)
-  assert.match(integration, /actions\/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e/)
-  assert.match(integration, /ATTESTATION_PATH:.*deployed-integration-attestation\.json/)
-  assert.match(diagnostics, /deployment-failure-diagnostics-\$\{\{ github\.event\.workflow_run\.id/)
+  assert.match(integration, /integration_closure:[\\s\\S]*?if: \\$\\{\\{ always\\(\\) \\}\\}/)
+  assert.match(integration, /needs: \\[integration\\]/)
+  assert.match(integration, /INTEGRATION_RESULT: \\$\\{\\{ needs\\.integration\\.result \\}\\}/)
+  assert.match(integration, /run: node scripts\\/workflow-run-gate\\.mjs/)
+  assert.match(integration, /actions\\/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333/)
+  assert.match(integration, /ATTESTATION_PATH:.*deployed-integration-attestation\\.json/)
+  assert.match(diagnostics, /deployment-failure-diagnostics-\\$\\{\\{ github\\.event\\.workflow_run\\.id/)
   assert.match(diagnostics, /cancel-in-progress: false/)
 })
