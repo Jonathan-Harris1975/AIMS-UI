@@ -37,7 +37,7 @@ test('missing, skipped, cancelled or failed required integration blocks closure'
   }
 })
 
-test('missing, stale or incomplete attestation blocks closure even when the job reports success', async () => {
+test('missing, stale or incomplete attestation blocks closure even when the job reports success', () => {
   for (const attestation of [
     null,
     { ...base.attestation, deployed_sha: 'f'.repeat(40) },
@@ -94,8 +94,10 @@ test('workflow configuration covers lifecycle producers and always evaluates dep
   assert.ok(lifecycle.includes('group: hive-lifecycle-evidence-${{ github.repository }}'), 'evidence runs must share a per-repository concurrency group')
   assert.ok(lifecycle.includes('cancel-in-progress: false'))
   assert.ok(!lifecycle.includes('"*"'), 'lifecycle monitor must use an explicit producer list')
-  assert.ok(integration.includes('integration_closure:'))
-  assert.ok(integration.includes("if: ${{ always() }}"))
+  assert.match(
+    integration,
+    /  integration_closure:\n    name: Deployed integration closure \\(exact SHA\\)\n    needs: \\[integration\\]\n    if: \\$\\{\\{ always\\(\\) \\}\\}/,
+  )
   assert.ok(integration.includes('needs: [integration]'))
   assert.ok(integration.includes('INTEGRATION_RESULT: ${{ needs.integration.result }}'))
   assert.ok(integration.includes('run: node scripts/workflow-run-gate.mjs'))
