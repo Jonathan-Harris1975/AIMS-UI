@@ -12,6 +12,10 @@ source_path="${3:?file or directory required}"
 : "${R2_ACCESS_KEY_ID:?R2_ACCESS_KEY_ID secret required}"
 : "${R2_SECRET_ACCESS_KEY:?R2_SECRET_ACCESS_KEY secret required}"
 
+# Normalize line endings before placing credentials in curl's config.
+R2_ACCESS_KEY_ID="$(printf '%s' "$R2_ACCESS_KEY_ID" | tr -d '\r\n')"
+R2_SECRET_ACCESS_KEY="$(printf '%s' "$R2_SECRET_ACCESS_KEY" | tr -d '\r\n')"
+
 bucket="hive-repositories"
 if ! python3 - "$R2_ENDPOINT" <<'PY'
 import sys
