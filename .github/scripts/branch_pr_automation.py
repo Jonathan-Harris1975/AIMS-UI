@@ -3,8 +3,7 @@
 
 This script is executed only by the trusted default-branch controller. It
 never checks out or executes code from the pushed branch, never enables native
-auto-merge, and never merges a pull request. Mergify is the sole automated
-merge arbiter after trusted admission.
+auto-merge, and never merges a pull request. GitHub native auto-merge is the merge authority after trusted admission.
 """
 from __future__ import annotations
 
@@ -23,7 +22,7 @@ REPO = os.environ.get("REPO") or os.environ["GITHUB_REPOSITORY"]
 DEFAULT_BRANCH = os.environ.get("DEFAULT_BRANCH", "main")
 MANAGED_LABEL = "automation:branch-pr"
 ALLOWED_PREFIXES = ("fix/", "feat/", "chore/", "ci/", "work/", "codex/")
-EXCLUDED_PREFIXES = ("autonomy/", "renovate/", "dependabot/", "mergify/", "tmp/", "temp/", "internal/")
+EXCLUDED_PREFIXES = ("autonomy/", "renovate/", "dependabot/", "GitHub native auto-merge/", "tmp/", "temp/", "internal/")
 BRANCH_RE = re.compile(r"^(fix|feat|chore|ci|work|codex)/[A-Za-z0-9._/-]+$")
 
 
@@ -160,7 +159,7 @@ def pr_metadata(branch: str, sha: str) -> tuple[str, str]:
     body = (
         "Created automatically by the repository's trusted branch automation.\n\n"
         f"- Source branch: `{branch}`\n- Target branch: `{DEFAULT_BRANCH}`\n- Signalled head: `{sha}`\n\n"
-        "The repository's normal pull-request CI and security workflows must complete successfully. Trusted automation may then admit the PR to Mergify; Mergify is the sole automated merger. This branch controller never enables native auto-merge."
+        "The repository's normal pull-request CI and security workflows must complete successfully. Trusted automation may then admit the PR to GitHub native auto-merge; GitHub native auto-merge is the sole automated merger. This branch controller never enables native auto-merge."
         f"{details_block}"
     )
     return title, body
