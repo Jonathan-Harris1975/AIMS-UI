@@ -28,7 +28,6 @@ KILO_MACHINE_CONTRACT = Path(__file__).resolve().parents[1] / "kilo-machine-repa
 PROTECTED_CONTROL_PATHS = {
     ".github/production-governance.json",
     "kilo.jsonc",
-    ".mergify.yml",
     "renovate.json",
     ".github/dependabot.yml",
     ".github/CODEOWNERS",
