@@ -1,4 +1,4 @@
-name: Trusted automation admission for Mergify
+name: Trusted automation admission for GitHub native auto-merge
 
 on:
   issue_comment:

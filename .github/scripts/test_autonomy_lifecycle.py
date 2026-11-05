@@ -252,7 +252,6 @@ class KiloPermissionPolicyTests(unittest.TestCase):
             ".github/workflows/*",
             ".github/actions/*",
             ".github/scripts/*",
-            ".mergify.yml",
             "renovate.json",
             ".github/dependabot.yml",
             "scripts/secret_scan.py",
@@ -341,7 +340,7 @@ class ManagedBranchOwnershipTests(unittest.TestCase):
         self.assertNotIn("enable_native_auto_merge", source)
         self.assertNotIn("/merge", source)
 
-    def test_managed_branch_pr_is_admitted_to_mergify_after_green_checks(self):
+    def test_managed_branch_pr_is_admitted_to_github_native_auto_merge_after_green_checks(self):
         admit = self.enterContext(patch.object(automation, "admit_to_native_merge"))
         approve = self.enterContext(patch.object(automation, "approve_pr"))
         self.enterContext(
