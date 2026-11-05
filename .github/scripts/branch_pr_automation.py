@@ -22,7 +22,7 @@ REPO = os.environ.get("REPO") or os.environ["GITHUB_REPOSITORY"]
 DEFAULT_BRANCH = os.environ.get("DEFAULT_BRANCH", "main")
 MANAGED_LABEL = "automation:branch-pr"
 ALLOWED_PREFIXES = ("fix/", "feat/", "chore/", "ci/", "work/", "codex/")
-EXCLUDED_PREFIXES = ("autonomy/", "renovate/", "dependabot/", "GitHub native auto-merge/", "tmp/", "temp/", "internal/")
+EXCLUDED_PREFIXES = ("autonomy/", "renovate/", "dependabot/", "merge-queue/", "tmp/", "temp/", "internal/")
 BRANCH_RE = re.compile(r"^(fix|feat|chore|ci|work|codex)/[A-Za-z0-9._/-]+$")
 
 
