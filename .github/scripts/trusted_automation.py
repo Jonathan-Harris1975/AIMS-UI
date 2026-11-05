@@ -46,7 +46,6 @@ KILO_SENSITIVE_PREFIXES = (
     ".github/scripts/",
     ".github/CODEOWNERS",
     ".github/dependabot.yml",
-    ".mergify.yml",
     "renovate.json",
     ".gitleaks",
     "SECURITY.md",
