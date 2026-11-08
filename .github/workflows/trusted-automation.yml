@@ -10,7 +10,7 @@ on:
   pull_request_review_comment:
     types: [created, edited]
   workflow_run: # zizmor: ignore[dangerous-triggers] trusted default-branch reconciler independently verifies PR identity and exact-head checks
-    workflows: ["Validate AIMS UI", "CodeQL", "Security and repository quality", "Item 6 hardening", "Branch PR signal"]
+    workflows: ["Validate AIMS UI", "CodeQL", "Security and repository quality", "Item 6 hardening", "Branch PR signal", "Persist completed Council report to R2"]
     types: [requested, completed]
   # Safety-net reconciliation around the weekend window, plus one daily sweep.
   schedule:

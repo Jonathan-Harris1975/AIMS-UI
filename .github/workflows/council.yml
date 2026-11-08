@@ -137,6 +137,12 @@ jobs:
           If a safe repository change is required, make the smallest justified change on one branch and open one PR against the default branch. Do not merge or deploy it yourself.
           If no code change is required, do not create a cosmetic PR.
           Return the Council disposition and evidence in the Kilo task result.
+          Completion requires dispatching council-result-r2.yml on main in ${REPO} using the existing authenticated GitHub integration.
+          Supply target_sha=${TARGET_SHA}, source_council_run_id=${GITHUB_RUN_ID}, source_council_run_attempt=${GITHUB_RUN_ATTEMPT}.
+          Supply disposition as exactly READY_FOR_COUNCIL_ACCEPTANCE, HUMAN_HOLD or NOT_READY.
+          Supply report_md_b64 and report_json_b64 as base64 of the actual completed reports. JSON must contain repository=${REPO}, exact_evaluated_sha=${TARGET_SHA}, and disposition matching the input.
+          Never fabricate a report or substitute dispatch evidence. If Actions workflow-dispatch permission is unavailable, report that exact external blocker instead of claiming completion.
+          Stop if main has advanced: a stale result must not be rebound to a newer SHA.
 
           ${prompt}
           EOF
