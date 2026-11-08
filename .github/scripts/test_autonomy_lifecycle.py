@@ -384,6 +384,18 @@ class CouncilEvidenceFreezeTests(unittest.TestCase):
         for name, value in {"REPO": "owner/repo", "DEFAULT_BRANCH": "main"}.items():
             self.enterContext(patch.object(automation, name, value))
 
+    def test_dispatch_success_alone_does_not_release_council_freeze(self):
+        bounds = (datetime(2026, 10, 2, 20, 0, tzinfo=automation.LONDON),
+                  datetime(2026, 10, 5, 4, 0, tzinfo=automation.LONDON))
+        common = {"event": "workflow_dispatch", "status": "completed", "conclusion": "success", "head_sha": self.sha}
+        runs = [{**common, "id": 100, "name": "Validate AIMS UI", "created_at": "2026-10-02T19:05:00Z"},
+                {**common, "id": 101, "name": "Repository Council", "created_at": "2026-10-04T17:35:00Z"}]
+        with patch.object(automation, "current_weekend_bounds", return_value=bounds), \
+             patch.object(automation, "_resolve_branch_sha", return_value=self.sha), \
+             patch.object(automation, "_fetch_branch_runs", return_value=runs):
+            frozen, _ = automation.council_evidence_freeze()
+        self.assertTrue(frozen)
+
     def test_weekend_envelope_uses_europe_london(self):
         inside = datetime(2026, 10, 3, 12, 0, tzinfo=timezone.utc)
         outside = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
@@ -431,7 +443,7 @@ class CouncilEvidenceFreezeTests(unittest.TestCase):
         runs["workflow_runs"].append(
             {
                 "id": 101,
-                "name": "Repository Council",
+                "name": "Persist completed Council report to R2",
                 "event": "workflow_dispatch",
                 "status": "completed",
                 "conclusion": "success",
@@ -553,7 +565,7 @@ class CouncilEvidenceFreezeTests(unittest.TestCase):
         self.assertEqual(runs, [])
         paths = [call.args[0] for call in request.call_args_list]
         self.assertEqual(len(paths), 2)
-        for path, workflow_file in zip(paths, ("ci.yml", "council.yml")):
+        for path, workflow_file in zip(paths, ("ci.yml", "council-result-r2.yml")):
             self.assertIn(f"/actions/workflows/{workflow_file}/runs?", path)
             self.assertIn("branch=main", path)
             self.assertIn(f"head_sha={self.sha}", path)

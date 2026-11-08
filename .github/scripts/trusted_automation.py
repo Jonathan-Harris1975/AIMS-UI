@@ -231,7 +231,7 @@ def _fetch_branch_runs(sha: str | None = None) -> list[dict[str, Any]]:
     encoded_sha = f"&head_sha={urllib.parse.quote(sha, safe='')}" if sha else ""
     runs: list[dict[str, Any]] = []
 
-    for workflow_file in ("ci.yml", "council.yml"):
+    for workflow_file in ("ci.yml", "council-result-r2.yml"):
         encoded_workflow = urllib.parse.quote(workflow_file, safe="")
         workflow_runs: list[dict[str, Any]] = []
         total_count: int | None = None
@@ -264,7 +264,7 @@ def _fetch_branch_runs(sha: str | None = None) -> list[dict[str, Any]]:
     return runs
 
 def council_evidence_freeze() -> tuple[bool, str]:
-    """Freeze routine merges after exact-SHA weekend CI until Council succeeds."""
+    """Require a persisted, accepted Council result; dispatch is not completion."""
     bounds = current_weekend_bounds()
     if bounds is None:
         return False, "outside the weekend evidence envelope"
@@ -314,10 +314,11 @@ def council_evidence_freeze() -> tuple[bool, str]:
     ci_time = _github_time(str(ci_run["created_at"]))
     council_runs = [
         run for run in runs
-        if run.get("name") == "Repository Council"
+        if run.get("name") == "Persist completed Council report to R2"
         and run.get("status") == "completed"
         and run.get("conclusion") == "success"
         and run.get("head_sha") == current_sha
+        and run.get("event") == "workflow_dispatch"
         and in_window(run)
         and _github_time(str(run.get("created_at", ""))) >= ci_time
     ]
