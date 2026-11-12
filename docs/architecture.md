@@ -74,3 +74,17 @@ All production credentials are deployment configuration. Source defaults do not 
 Workspace status changes retain the complete returned operations record, including its incremented version, before another mutation. A conflicting update preserves the last confirmed local state. The queue route accepts the client's `ownerId` and `aiStatus` filters; the backend maps `ownerId` to the repository's `owner` field.
 
 The current bootstrap loads at most 50 conversations and browser filters operate on that loaded subset. Overview, approval and workflow summaries describe loaded records; an empty local subset is not proof that the entire service has no reviews outstanding. Use the protected queue API for additional filtered inspection; the existing `before` timestamp boundary is not a snapshot cursor for the priority ordering. This limitation needs separate pagination acceptance before claiming complete backlog coverage.
+
+## Quarantine review and tidy
+
+The console consumes AIMS `replayAllowed`, `replayBlockReason`, `canResolve` and linked action state.
+Replay fails closed when the eligibility contract is unavailable. Buttons are disabled during a mutation,
+and state refreshes after success or failure. Active and History filters include replay-pending and terminal
+records respectively. Raw provider diagnostics are redacted by AIMS and collapsed under Technical details.
+Resolve/dismiss requires an operator reason and cancels queued work atomically in AIMS; it is blocked
+while work is leased or delivery is uncertain. Review and tidy previews the backend's conservative
+cleanup before applying it. The Monday 08:00 Europe/London automation uses the same backend policy.
+
+The quarantine controls add approximately 1.1 KB of gzipped JavaScript. The reviewed total JavaScript
+budget is 47,500 bytes with a 45,125-byte warning threshold; total bundle (400 KB), CSS (13 KB) and
+single asset (160 KB) limits remain enforced. This includes gateway JavaScript as well as the console.

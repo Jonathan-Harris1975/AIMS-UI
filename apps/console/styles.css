@@ -527,3 +527,10 @@ input, textarea, select, button { max-width: 100%; }
 .comms-audio-volume input { flex: 1; accent-color: var(--aims-accent); }
 .comms-audio-actions { display: flex; flex-wrap: wrap; gap: var(--aims-space-2); margin-top: var(--aims-space-3); }
 .comms-audio-status { min-height: 1em; margin-top: var(--aims-space-2) !important; }
+
+.quarantine-filters { display: flex; flex-wrap: wrap; gap: var(--aims-space-2); align-items: center; padding: var(--aims-space-4); }
+.quarantine-list article { grid-template-columns: minmax(0, 1fr) auto; }
+.quarantine-list details { margin-top: var(--aims-space-2); }
+.quarantine-list pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; font-size: var(--aims-type-xs); }
+.quarantine-list article > div:last-child { flex-wrap: wrap; }
+@media (max-width: 640px) { .quarantine-list article { grid-template-columns: 1fr; } }

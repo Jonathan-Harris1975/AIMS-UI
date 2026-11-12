@@ -135,6 +135,10 @@ export class AimsCommsClient {
   quarantine(query = {}) { return this.request("/quarantine", { query }); }
   replayQuarantine(id) { return this.request(`/quarantine/${encodeURIComponent(id)}/replay`, { method: "POST", body: {}, idempotent: true }); }
 
+  resolveQuarantine(id, reason) { return this.request(`/quarantine/${encodeURIComponent(id)}/resolve`, { method: "POST", body: { reason }, idempotent: true }); }
+  dismissQuarantine(id, reason) { return this.request(`/quarantine/${encodeURIComponent(id)}/dismiss`, { method: "POST", body: { reason }, idempotent: true }); }
+  tidyQuarantine(dryRun = true) { return this.request("/maintenance/quarantine-tidy", { method: "POST", body: { dryRun }, idempotent: true }); }
+
   socialStatus() { return this.request("/social/status"); }
   providerHealth() { return this.request("/providers/health"); }
   chatStatus() { return this.request("/chat/status"); }

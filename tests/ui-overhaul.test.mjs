@@ -23,7 +23,7 @@ test('console retains keyboard, touch and responsive queue affordances', async (
 
 test('console renders quarantine API fields and separates email worker scheduling from poll health', async () => {
   const app = await readFile(new URL('../apps/console/app.js', import.meta.url), 'utf8')
-  assert.match(app, /escapeHtml\(item\.source_type\)/)
+  assert.match(app, /escapeHtml\(item\.action_type \|\| item\.source_type\)/)
   assert.match(app, /item\.error_message \|\| ""/)
   assert.match(app, /emailAccount\.workerRunning[\s\S]*?emailAccount\.workerStarted \? "Scheduled"/)
   assert.match(app, /emailPollState\.lastSuccessAt/)
