@@ -124,6 +124,7 @@ const state = {
   notificationOpen: false,
   quarantine: [],
   quarantineStatus: "active",
+  quarantineRequest: 0,
   quarantineBusy: new Set(),
   metrics: null,
   metricsLoading: false,
@@ -1936,12 +1937,18 @@ async function loadBootstrap() {
   }
 }
 
-async function loadQuarantine() {
+async function loadQuarantine({ navigate = true } = {}) {
+  const filter = state.quarantineStatus;
+  const request = ++state.quarantineRequest;
+  if (navigate) state.view = "quarantine";
   try {
-    state.quarantine = (await client.quarantine({ status: state.quarantineStatus, limit: 500 })).items || [];
-    state.view = "quarantine";
-    render();
-  } catch (error) { toast(error.message || "Quarantine could not be loaded.", "error"); }
+    const payload = await client.quarantine({ status: filter, limit: 500 });
+    if (request !== state.quarantineRequest || filter !== state.quarantineStatus) return;
+    state.quarantine = payload.items || [];
+    if (state.view === "quarantine") render();
+  } catch (error) {
+    if (request === state.quarantineRequest) toast(error.message || "Quarantine could not be loaded.", "error");
+  }
 }
 
 async function loadMetrics() {
@@ -2184,7 +2191,7 @@ async function replayQuarantine(id) {
     await client.replayQuarantine(id);
     toast("Action replay completed.");
   } catch (error) { toast(error.message || "Quarantine item could not be replayed.", "error"); }
-  finally { state.quarantineBusy.delete(id); await loadQuarantine(); }
+  finally { state.quarantineBusy.delete(id); await loadQuarantine({ navigate: false }); }
 }
 
 async function closeQuarantine(id, action) {
@@ -2200,7 +2207,7 @@ async function closeQuarantine(id, action) {
     else await client.resolveQuarantine(id, reason.trim());
     toast("Failure moved to history and queued retry cancelled where applicable.");
   } catch (error) { toast(error.message || "Failure could not be closed.", "error"); }
-  finally { state.quarantineBusy.delete(id); await loadQuarantine(); }
+  finally { state.quarantineBusy.delete(id); await loadQuarantine({ navigate: false }); }
 }
 
 async function tidyQuarantine() {
@@ -2214,7 +2221,7 @@ async function tidyQuarantine() {
     const result = (await client.tidyQuarantine(false)).result;
     toast(`Cleared ${result.cleared}; retained ${result.retained}; purged ${result.purged.items}.`);
   } catch (error) { toast(error.message || "Tidy-up could not be completed.", "error"); }
-  finally { state.quarantineBusy.delete("tidy"); await loadQuarantine(); }
+  finally { state.quarantineBusy.delete("tidy"); await loadQuarantine({ navigate: false }); }
 }
 
 async function openNotification(button) {

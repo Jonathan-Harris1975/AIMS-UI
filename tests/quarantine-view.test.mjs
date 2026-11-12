@@ -31,3 +31,26 @@ test('quarantine history and read-only roles cannot initiate mutations; busy row
   assert.match(renderItem(item, { busy: true }), /data-replay-id="q1" disabled/);
   assert.match(renderItem({ ...item, replayAllowed: undefined }), /data-replay-id="q1" disabled/);
 });
+
+const loader = app.slice(app.indexOf('async function loadQuarantine('), app.indexOf('\nasync function loadMetrics('));
+test('superseded filter responses cannot overwrite the latest records or navigate after a mutation', async () => {
+  const requests = [];
+  const state = { quarantineStatus: 'history', quarantineRequest: 0, view: 'quarantine', quarantine: [] };
+  const load = runInNewContext(`${loader}\nloadQuarantine`, {
+    state, client: { quarantine() { return new Promise((resolve) => requests.push(resolve)); } }, render() {}, toast() {},
+  });
+  const history = load();
+  state.quarantineStatus = 'active';
+  const active = load();
+  requests[1]({ items: [{ id: 'active' }] });
+  await active;
+  requests[0]({ items: [{ id: 'history' }] });
+  await history;
+  assert.equal(state.quarantine[0].id, 'active');
+  state.view = 'inbox';
+  const refresh = load({ navigate: false });
+  requests[2]({ items: [{ id: 'refreshed' }] });
+  await refresh;
+  assert.equal(state.view, 'inbox');
+  assert.equal(state.quarantine[0].id, 'refreshed');
+});
