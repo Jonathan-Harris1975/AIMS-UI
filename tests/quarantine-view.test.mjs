@@ -20,7 +20,7 @@ test('quarantine shows an unavailable retry as disabled and keeps raw errors col
   assert.match(html, /data-replay-id="q1" disabled/);
   assert.match(html, /Already scheduled/);
   assert.match(html, /<details><summary>Technical details<\/summary>/);
-  assert.doesNotMatch(html, /<script>/);
+  assert.equal(html.includes('<script>'), false);
   assert.match(html, /data-dismiss-quarantine-id="q1" >/);
 });
 
