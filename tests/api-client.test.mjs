@@ -158,3 +158,24 @@ test("client exposes contact management, conversation deletion and archive endpo
   assert.match(calls[4][0], /\/archives\/conversations\?channel=email$/);
   assert.match(calls[5][0], /\/archives\/conversations\/cnv_test$/);
 });
+
+test('quarantine cleanup sends explicit reasons and defaults to a non-mutating preview', async () => {
+  const calls = [];
+  const client = new AimsCommsClient({ baseUrl: '/console/api', fetchImpl: async (url, options) => {
+    calls.push({ url, ...options });
+    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+  } });
+  await client.resolveQuarantine('q/1', 'Handled manually');
+  await client.dismissQuarantine('q/2', 'Superseded');
+  await client.tidyQuarantine();
+  await client.tidyQuarantine(false);
+  await client.quarantine({ status: 'history', limit: 500 });
+  assert.equal(calls[0].url, '/console/api/quarantine/q%2F1/resolve');
+  assert.deepEqual(JSON.parse(calls[0].body), { reason: 'Handled manually' });
+  assert.equal(calls[1].url, '/console/api/quarantine/q%2F2/dismiss');
+  assert.deepEqual(JSON.parse(calls[1].body), { reason: 'Superseded' });
+  assert.deepEqual(JSON.parse(calls[2].body), { dryRun: true });
+  assert.deepEqual(JSON.parse(calls[3].body), { dryRun: false });
+  assert.equal(calls[4].url, '/console/api/quarantine?status=history&limit=500');
+  for (const call of calls.slice(0, 4)) assert.ok(call.headers.has('idempotency-key'));
+});

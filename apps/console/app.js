@@ -123,6 +123,8 @@ const state = {
   sidebarOpen: false,
   notificationOpen: false,
   quarantine: [],
+  quarantineStatus: "active",
+  quarantineBusy: new Set(),
   metrics: null,
   metricsLoading: false,
   metricsError: null,
@@ -840,31 +842,48 @@ function workflowsView() {
   `);
 }
 
+function quarantineSummary(item) {
+  if (item.error_code === "reply_evidence_reference_invalid") return "The reply cited a source outside the approved evidence. Review or regenerate the draft.";
+  if (/OpenRouter 402|more credits|openrouter_credits/i.test(item.error_message || "")) return "AI generation failed because available OpenRouter credit could not cover the request at the time.";
+  return String(item.error_message || "Processing failed. Open technical details for more information.").slice(0, 180);
+}
+
 function quarantineView() {
+  const authorised = roleAllows(state.bootstrap?.identity?.role, "quarantine");
   return shell(`
-    ${pageHeader(
-      "Quarantine",
-      "Review classified failures before replaying any provider action.",
-      `<button class="button secondary" data-action="load-quarantine">Refresh</button>`,
-    )}
+    ${pageHeader("Quarantine", "Review failures, retry eligible actions, or close obsolete items with a recorded reason.",
+      `<button class="button secondary" data-action="load-quarantine">Refresh</button>
+       ${authorised ? `<button class="button secondary" data-action="tidy-quarantine" ${state.quarantineBusy.has("tidy") ? "disabled" : ""}>Review and tidy</button>` : ""}`)}
     <section class="panel">
+      <div class="quarantine-filters">
+        <button class="button ${state.quarantineStatus === "active" ? "primary" : "secondary"}" data-quarantine-status="active">Active</button>
+        <button class="button ${state.quarantineStatus === "history" ? "primary" : "secondary"}" data-quarantine-status="history">History</button>
+        <small>Showing up to 500 records. Completed history follows the retention policy.</small>
+      </div>
       ${state.quarantine.length ? `<div class="quarantine-list">
-        ${state.quarantine.map((item) => `<article>
+        ${state.quarantine.map((item) => {
+          const busy = state.quarantineBusy.has(item.id);
+          const active = ["quarantined", "replay_pending"].includes(item.status);
+          return `<article>
           <div>
             <span class="pill pill-quarantined">${escapeHtml(titleCase(item.failure_class || "unknown"))}</span>
-            <h3>${escapeHtml(item.source_type)}</h3>
-            <p>${escapeHtml(item.error_message || "")}</p>
-            <small>${escapeHtml(formatDateTime(item.created_at))} · ${Number(item.attempts || 0)} attempts</small>
+            <h3>${escapeHtml(item.action_type || item.source_type)}</h3>
+            <p>${escapeHtml(quarantineSummary(item))}</p>
+            <small>${escapeHtml(formatDateTime(item.created_at))} · ${Number(item.attempts || 0)} attempts · ${escapeHtml(titleCase(item.action_status || item.status))}</small>
+            ${active && item.replayBlockReason ? `<p>${escapeHtml(item.replayBlockReason)}</p>` : ""}
+            <details><summary>Technical details</summary><pre>${escapeHtml(item.error_message || "")}</pre></details>
+            ${!active && item.metadata?.resolutionReason ? `<p>${escapeHtml(item.metadata.resolutionReason)}</p>` : ""}
           </div>
           <div>
-            <button class="button secondary"
-              data-conversation-id="${escapeHtml(item.conversation_id || "")}">Context</button>
-            ${roleAllows(state.bootstrap?.identity?.role, "quarantine")
-              ? `<button class="button primary" data-replay-id="${escapeHtml(item.id)}">Replay safely</button>`
-              : ""}
+            ${item.conversation_id ? `<button class="button secondary" data-conversation-id="${escapeHtml(item.conversation_id)}">Context</button>` : ""}
+            ${authorised && active ? `
+              <button class="button primary" data-replay-id="${escapeHtml(item.id)}" ${busy || item.replayAllowed !== true ? "disabled" : ""}>Retry action</button>
+              <button class="button secondary" data-resolve-quarantine-id="${escapeHtml(item.id)}" ${busy || item.canResolve !== true ? "disabled" : ""}>Resolve</button>
+              <button class="button secondary" data-dismiss-quarantine-id="${escapeHtml(item.id)}" ${busy || item.canResolve !== true ? "disabled" : ""}>Dismiss</button>` : ""}
           </div>
-        </article>`).join("")}
-      </div>` : emptyState("Quarantine is clear", "No classified failures are waiting for review.")}
+        </article>`;
+        }).join("")}
+      </div>` : emptyState(state.quarantineStatus === "history" ? "No history" : "Quarantine is clear", "No matching classified failures.")}
     </section>
   `);
 }
@@ -1584,6 +1603,13 @@ function bindEvents() {
   root.querySelectorAll("[data-approval-id]").forEach((button) => button.addEventListener("click", () => decideApproval(button.dataset.approvalId, button.dataset.decision)));
   root.querySelectorAll("[data-attachment-id]").forEach((button) => button.addEventListener("click", () => downloadAttachment(button.dataset.attachmentId, button)));
   root.querySelector('[data-action="load-quarantine"]')?.addEventListener("click", loadQuarantine);
+  root.querySelector('[data-action="tidy-quarantine"]')?.addEventListener("click", tidyQuarantine);
+  root.querySelectorAll("[data-quarantine-status]").forEach((button) => button.addEventListener("click", () => {
+    state.quarantineStatus = button.dataset.quarantineStatus;
+    void loadQuarantine();
+  }));
+  root.querySelectorAll("[data-resolve-quarantine-id]").forEach((button) => button.addEventListener("click", () => closeQuarantine(button.dataset.resolveQuarantineId, "resolve")));
+  root.querySelectorAll("[data-dismiss-quarantine-id]").forEach((button) => button.addEventListener("click", () => closeQuarantine(button.dataset.dismissQuarantineId, "dismiss")));
   root.querySelectorAll("[data-replay-id]").forEach((button) => button.addEventListener("click", () => replayQuarantine(button.dataset.replayId)));
   root.querySelector('[data-action="load-metrics"]')?.addEventListener("click", loadMetrics);
   root.querySelector('[data-action="load-social-status"]')?.addEventListener("click", loadSocialStatus);
@@ -1912,7 +1938,7 @@ async function loadBootstrap() {
 
 async function loadQuarantine() {
   try {
-    state.quarantine = (await client.quarantine({ status: "quarantined", limit: 100 })).items || [];
+    state.quarantine = (await client.quarantine({ status: state.quarantineStatus, limit: 500 })).items || [];
     state.view = "quarantine";
     render();
   } catch (error) { toast(error.message || "Quarantine could not be loaded.", "error"); }
@@ -2151,11 +2177,44 @@ async function decideApproval(approvalId, decision) {
 }
 
 async function replayQuarantine(id) {
+  if (state.quarantineBusy.has(id)) return;
+  state.quarantineBusy.add(id);
+  render();
   try {
     await client.replayQuarantine(id);
-    state.quarantine = state.quarantine.filter((item) => item.id !== id);
-    toast("Replay accepted with idempotency protection.");
+    toast("Action replay completed.");
   } catch (error) { toast(error.message || "Quarantine item could not be replayed.", "error"); }
+  finally { state.quarantineBusy.delete(id); await loadQuarantine(); }
+}
+
+async function closeQuarantine(id, action) {
+  if (state.quarantineBusy.has(id)) return;
+  const reason = globalThis.prompt?.(action === "dismiss"
+    ? "Why is this action no longer needed? Any queued retry will be cancelled."
+    : "How was this issue resolved? Any queued retry will be cancelled.");
+  if (!reason?.trim()) return;
+  state.quarantineBusy.add(id);
+  render();
+  try {
+    if (action === "dismiss") await client.dismissQuarantine(id, reason.trim());
+    else await client.resolveQuarantine(id, reason.trim());
+    toast("Failure moved to history and queued retry cancelled where applicable.");
+  } catch (error) { toast(error.message || "Failure could not be closed.", "error"); }
+  finally { state.quarantineBusy.delete(id); await loadQuarantine(); }
+}
+
+async function tidyQuarantine() {
+  if (state.quarantineBusy.has("tidy")) return;
+  state.quarantineBusy.add("tidy");
+  render();
+  try {
+    const preview = (await client.tidyQuarantine(true)).result;
+    const message = `Move ${preview.candidates} completed, cancelled or old orphaned failures to history and purge ${preview.purged.items} expired history records?`;
+    if (!globalThis.confirm?.(`${message} Unresolved communications will be retained.`)) return;
+    const result = (await client.tidyQuarantine(false)).result;
+    toast(`Cleared ${result.cleared}; retained ${result.retained}; purged ${result.purged.items}.`);
+  } catch (error) { toast(error.message || "Tidy-up could not be completed.", "error"); }
+  finally { state.quarantineBusy.delete("tidy"); await loadQuarantine(); }
 }
 
 async function openNotification(button) {
