@@ -32,6 +32,10 @@ jobs:
         fetch-depth: 0
     # This is part of the required security gate: autonomy controls must not
     # silently regress while scanners continue to report green.
+    - name: Enforce owner approval before repository forking
+      run: |
+        python3 .github/scripts/no_fork_guard.py --self-test
+        python3 .github/scripts/no_fork_guard.py
     - name: Verify automation ownership and Council-freeze lifecycle
       run: python3 .github/scripts/test_autonomy_lifecycle.py
       id: autonomy_tests
