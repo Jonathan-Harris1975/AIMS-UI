@@ -642,6 +642,9 @@ function dashboardView() {
   const maximum = Math.max(1, ...channelCounts.map(([, count]) => count));
   const providerOverall = state.providerHealth?.health?.overall || "unknown";
   const healthUnknown = state.monitoringUnavailable || providerOverall === "unknown";
+  const socialPoll = state.socialStatus?.monitoring;
+  const emailAccount = Object.values(state.emailStatus?.accounts || {})[0] || {};
+  const chat = state.chatStatus;
   return shell(`
     ${pageHeader(
       "Overview",
@@ -655,6 +658,11 @@ function dashboardView() {
         <small>${state.monitoringUnavailable ? "Some channel health checks are unavailable" : "Last reported provider health · details in Settings"}</small>
       </span>
       <button type="button" class="text-button" data-view="settings">View monitoring</button>
+    </div>
+    <div class="overview-services" aria-label="Communications service status">
+      <div><strong>Social polling</strong><span>${!socialPoll ? "Unknown" : socialPoll.pollWorkerEnabled ? "Enabled" : "Disabled"}</span></div>
+      <div><strong>Email worker</strong><span>${!state.emailStatus ? "Unknown" : emailAccount.workerRunning ? "Polling" : emailAccount.workerStarted ? "Scheduled" : "Off"}</span></div>
+      <div><strong>Web chat</strong><span>${!chat ? "Unknown" : chat.enabled ? "Enabled" : "Disabled"}</span></div>
     </div>
     ${summaryCards()}
     <div class="dashboard-grid">
@@ -1045,10 +1053,13 @@ function manualMailView() {
 function settingsView() {
   const identity = state.bootstrap?.identity || {};
   const social = state.socialStatus?.monitoring || {};
+  const socialLoaded = state.socialStatus?.monitoring != null;
   const channels = social.channels || {};
   const providerHealth = state.providerHealth?.health || {};
   const providers = Array.isArray(providerHealth.providers) ? providerHealth.providers : [];
   const email = state.emailStatus || {};
+  const emailLoaded = state.emailStatus !== null;
+  const chatLoaded = state.chatStatus !== null;
   const emailAccount = Object.values(email.accounts || {})[0] || {};
   const emailPollState = emailAccount.pollState || {};
   const chat = state.chatStatus || {};
@@ -1109,28 +1120,28 @@ function settingsView() {
       <section class="panel settings-card">
         <h3>Email and web chat</h3>
         <dl>
-          <div><dt>Email</dt><dd>${email.enabled ? "Enabled" : "Disabled"}</dd></div>
-          <div><dt>Mailbox</dt><dd>${escapeHtml(emailAccount.address || "Not configured")}</dd></div>
-          <div><dt>Email worker</dt><dd>${emailAccount.workerRunning ? "Polling" : emailAccount.workerStarted ? "Scheduled" : "Off"}</dd></div>
-          <div><dt>Last success</dt><dd>${escapeHtml(emailPollState.lastSuccessAt ? formatDateTime(emailPollState.lastSuccessAt) : "None")}</dd></div>
-          <div><dt>Web chat</dt><dd>${chat.enabled ? `Enabled · ${escapeHtml(chat.transport || "unknown")}` : "Disabled"}</dd></div>
-          <div><dt>Chat AI</dt><dd>${chat.aiWorkflowEnabled ? "Enabled" : "Disabled"}</dd></div>
+          <div><dt>Email</dt><dd>${!emailLoaded ? "Unknown" : email.enabled ? "Enabled" : "Disabled"}</dd></div>
+          <div><dt>Mailbox</dt><dd>${escapeHtml(!emailLoaded ? "Unknown" : emailAccount.address || "Not configured")}</dd></div>
+          <div><dt>Email worker</dt><dd>${!emailLoaded ? "Unknown" : emailAccount.workerRunning ? "Polling" : emailAccount.workerStarted ? "Scheduled" : "Off"}</dd></div>
+          <div><dt>Last success</dt><dd>${escapeHtml(!emailLoaded ? "Unknown" : emailPollState.lastSuccessAt ? formatDateTime(emailPollState.lastSuccessAt) : "None")}</dd></div>
+          <div><dt>Web chat</dt><dd>${!chatLoaded ? "Unknown" : chat.enabled ? `Enabled · ${escapeHtml(chat.transport || "unknown")}` : "Disabled"}</dd></div>
+          <div><dt>Chat AI</dt><dd>${!chatLoaded ? "Unknown" : chat.aiWorkflowEnabled ? "Enabled" : "Disabled"}</dd></div>
         </dl>
       </section>
       <section class="panel settings-card social-settings-card"><h3>Social channel setup</h3>
         <div class="social-status-strip">
           <span class="pill ${social.monitorOnly ? "pill-pending" : "pill-open"}">
-            ${social.monitorOnly ? "Monitoring only" : "Outbound enabled"}
+            ${!socialLoaded ? "Unknown" : social.monitorOnly ? "Monitoring only" : "Outbound enabled"}
           </span>
-          <span>${social.pollWorkerEnabled ? "Poll worker enabled" : "Poll worker disabled"}</span>
+          <span>${!socialLoaded ? "Poll worker unknown" : social.pollWorkerEnabled ? "Poll worker enabled" : "Poll worker disabled"}</span>
         </div>
         <div class="social-capability-grid">
           ${["facebook", "instagram", "youtube"].map((platform) => {
             const cap = channels[platform] || {};
             return `<article>
               <strong>${escapeHtml(channelLabel(platform))}</strong>
-              <span>${cap.enabled ? "Configured" : "Disabled"}</span>
-              <small>${cap.directMessages ? "DMs + comments" : "Comments only"}</small>
+              <span>${!socialLoaded ? "Unknown" : cap.enabled ? "Configured" : "Disabled"}</span>
+              <small>${!socialLoaded ? "Capabilities unavailable" : cap.directMessages ? "DMs + comments" : "Comments only"}</small>
             </article>`;
           }).join("")}
         </div>
@@ -2123,11 +2134,14 @@ async function fetchOperationalStatus() {
     client.emailStatus(),
   ]);
   if (results[0].status === "fulfilled") state.socialStatus = results[0].value;
+  else state.socialStatus = null;
   if (results[1].status === "fulfilled") state.providerHealth = results[1].value;
   else if (results[1].reason?.payload?.health) state.providerHealth = { health: results[1].reason.payload.health };
   else state.providerHealth = null;
   if (results[2].status === "fulfilled") state.chatStatus = results[2].value;
+  else state.chatStatus = null;
   if (results[3].status === "fulfilled") state.emailStatus = results[3].value;
+  else state.emailStatus = null;
   state.monitoringUnavailable = results.some((result, index) => result.status === "rejected"
     && !(index === 1 && result.reason?.payload?.health));
   return results.filter((result, index) => result.status === "rejected" && !(index === 1 && result.reason?.payload?.health));
