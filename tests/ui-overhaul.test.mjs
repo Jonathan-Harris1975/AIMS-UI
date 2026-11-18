@@ -107,3 +107,17 @@ test('mobile KPI layouts stay compact but give very narrow phones full-width car
   assert.match(styles, /@media \(max-width: 360px\) \{\s*\.summary-grid, \.metric-grid \{ grid-template-columns: 1fr; \}/)
   assert.match(styles, /\.summary-card:nth-last-child\(-n\+2\) \{ border-bottom: 0; \}/)
 })
+
+
+test('operator overview does not claim healthy or empty state on failed refresh', async () => {
+  const app = await readFile(new URL('../apps/console/app.js', import.meta.url), 'utf8')
+  const styles = await readFile(new URL('../apps/console/styles.css', import.meta.url), 'utf8')
+  assert.match(app, /Queue refresh failed/)
+  assert.match(app, /Last loaded snapshot; refresh failed/)
+  assert.match(app, /Attention status unavailable/)
+  assert.match(app, /Some channel health checks are unavailable/)
+  assert.match(app, /else state\.providerHealth = null/)
+  assert.match(styles, /\.snapshot-warning/)
+  assert.match(styles, /\.dashboard-health/)
+  assert.match(styles, /\.nav-subitem, \.quick-filter, \.button\.compact/)
+})
