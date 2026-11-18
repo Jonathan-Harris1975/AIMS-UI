@@ -116,7 +116,7 @@ test('operator overview does not claim healthy or empty state on failed refresh'
   assert.match(app, /Last loaded snapshot; refresh failed/)
   assert.match(app, /Attention status unavailable/)
   assert.match(app, /Some monitoring is unavailable/)
-  assert.match(app, /Social poll:/)
+  assert.match(app, /Social:/)
   assert.match(app, /!socialLoaded \? "Unknown"/)
   assert.match(app, /!emailLoaded \? "Unknown"/)
   assert.match(app, /!chatLoaded \? "Unknown"/)
