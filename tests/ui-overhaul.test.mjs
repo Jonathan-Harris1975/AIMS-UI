@@ -124,5 +124,5 @@ test('operator overview does not claim healthy or empty state on failed refresh'
   assert.match(app, /else state\.providerHealth = null/)
   assert.match(styles, /\.snapshot-warning/)
   assert.match(styles, /\.dashboard-health/)
-  assert.match(styles, /\.nav-subitem, \.quick-filter, \.button\.compact/)
+  assert.match(styles, /\.nav-subitem,\s*\.quick-filter,\s*\.button\.compact/)
 })
