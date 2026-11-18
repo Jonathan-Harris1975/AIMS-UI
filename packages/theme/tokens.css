@@ -16,6 +16,9 @@
   --aims-text: #eaf7ff;
   --aims-text-soft: #c7d9e6;
   --aims-text-faint: #a9c1d1;
+  /* Existing manual-mail surfaces use these semantic aliases. */
+  --aims-text-secondary: var(--aims-text-soft);
+  --aims-text-muted: var(--aims-text-faint);
   --aims-ink-inverse: #03131f;
 
   /* Accent */
