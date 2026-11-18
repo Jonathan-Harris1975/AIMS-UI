@@ -87,7 +87,7 @@ svg { width: 20px; height: 20px; fill: currentColor; }
 .summary-card > div:first-child { display: grid; gap: var(--aims-space-1); }
 .summary-card span, .summary-card small { color: var(--aims-text-faint); font-size: var(--aims-type-xs); }
 .summary-card strong { font-size: var(--aims-type-xl); line-height: 1; letter-spacing: -.03em; }
-.summary-spark { display: none; }
+
 .dashboard-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(260px, .8fr); gap: var(--aims-space-6); }
 .panel { background: var(--aims-surface-raised); border: 1px solid var(--aims-border); border-radius: var(--aims-radius); }
 .panel-header { min-height: 64px; padding: var(--aims-space-4) var(--aims-space-5); border-bottom: 1px solid var(--aims-border); display: flex; align-items: center; justify-content: space-between; gap: var(--aims-space-4); }
@@ -547,10 +547,9 @@ input, textarea, select, button { max-width: 100%; }
 .quarantine-list article > div:last-child { flex-wrap: wrap; }
 @media (max-width: 640px) { .quarantine-list article { grid-template-columns: 1fr; } }
 
-.snapshot-warning { margin-bottom:var(--aims-space-4); padding:var(--aims-space-4); border:1px solid var(--aims-warning); border-radius:var(--aims-radius); background:var(--aims-warning-soft); }
+.snapshot-warning { margin-bottom:1rem; padding:1rem; border-left:3px solid var(--aims-warning); background:var(--aims-warning-soft); }
 .snapshot-warning strong { display:block; color:var(--aims-warning); }
-.snapshot-warning span { color:var(--aims-text-soft); }
-.dashboard-health { display:flex; flex-wrap:wrap; align-items:center; gap:var(--aims-space-3); padding:var(--aims-space-3) 0; margin-bottom:var(--aims-space-4); border-bottom:1px solid var(--aims-border); }
-.dashboard-health small { display:block; color:var(--aims-text-faint); }
+.dashboard-health { display:flex; flex-wrap:wrap; align-items:center; gap:1rem; margin-bottom:1rem; border-bottom:1px solid var(--aims-border); }
+.dashboard-health small { display:block; }
 .dashboard-health .text-button { margin-left:auto; }
-@media (pointer: coarse) { .nav-subitem, .quick-filter, .button.compact, .text-button, .back-button { min-height:44px; } }
+@media (pointer: coarse) { .nav-subitem,.quick-filter,.button.compact,.text-button,.back-button { min-height:44px; } }
