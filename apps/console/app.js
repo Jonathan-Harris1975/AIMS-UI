@@ -333,8 +333,11 @@ function shell(content) {
         <div class="sidebar-footer">
           <a class="hive-home-link" href="${escapeHtml(config.hiveHomeUrl)}" aria-label="Return to HIVE">${icons.home}<span>Back to HIVE</span></a>
           <div class="service-card">
-            <span class="service-dot live"></span>
-            <div><strong>Connected</strong><small>Protected gateway</small></div>
+            <span class="service-dot ${state.error || !state.bootstrap ? "warning" : "live"}"></span>
+            <div>
+              <strong>${state.error ? "Refresh needs attention" : state.bootstrap ? "Session active" : "Checking session"}</strong>
+              <small>Protected gateway session only</small>
+            </div>
           </div>
           <div class="user-card">
             <div class="avatar">${escapeHtml(String(identity.actor || "U").charAt(0).toUpperCase())}</div>
@@ -620,7 +623,13 @@ function queueTable(rows = queueRows(), limit = 50, compact = false) {
 }
 
 function dashboardView() {
-  const urgent = [...state.queue].sort((a, b) => Number(b.response_overdue) - Number(a.response_overdue) || Number(b.priority_score || 0) - Number(a.priority_score || 0)).slice(0, 5);
+  const urgent = state.queue
+    .filter((row) => row.response_overdue
+      || ["critical", "high"].includes(String(row.priority_label || "").toLowerCase())
+      || ["blocked", "quarantined", "escalated"].includes(String(row.operational_status || "").toLowerCase()))
+    .sort((a, b) => Number(b.response_overdue) - Number(a.response_overdue)
+      || Number(b.priority_score || 0) - Number(a.priority_score || 0))
+    .slice(0, 5);
   const channelCounts = Object.entries(state.queue.reduce((acc, row) => ({ ...acc, [row.channel]: (acc[row.channel] || 0) + 1 }), {}));
   const maximum = Math.max(1, ...channelCounts.map(([, count]) => count));
   return shell(`
@@ -634,10 +643,13 @@ function dashboardView() {
     <div class="dashboard-grid">
       <section class="panel panel-wide">
         <header class="panel-header">
-          <div><strong>Needs attention</strong><span>Overdue and higher-priority conversations appear first</span></div>
-          <button class="text-button" data-view="inbox">View all</button>
+          <div><strong>Needs attention</strong><span>Overdue, high-priority or blocked conversations in the loaded queue</span></div>
+          <button class="text-button" data-view="inbox">View inbox</button>
         </header>
-        ${queueTable(urgent, 5, true)}
+        ${urgent.length ? queueTable(urgent, 5, true) : emptyState(
+          "No conversations need attention",
+          "No overdue, high-priority, blocked or escalated conversations in the loaded queue.",
+        )}
       </section>
       <section class="panel channel-panel">
         <header class="panel-header"><div><strong>Channel mix</strong><span>Loaded queue distribution</span></div></header>
@@ -649,10 +661,10 @@ function dashboardView() {
           </div>`).join("") || `<p class="muted">No queue records yet.</p>`}
         </div>
         <div class="health-strip">
-          <span class="service-dot ${state.error ? "warning" : "live"}"></span>
+          <span class="service-dot ${state.error || !state.bootstrap ? "warning" : "live"}"></span>
           <div>
-            <strong>${state.error ? "Gateway attention required" : "Console data loaded"}</strong>
-            <small>Protected AIMS API</small>
+            <strong>${state.error ? "Queue refresh needs attention" : state.bootstrap ? "Queue snapshot available" : "Queue not verified"}</strong>
+            <small>Queue snapshot only · Provider health in Settings</small>
           </div>
         </div>
       </section>

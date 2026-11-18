@@ -77,3 +77,25 @@ test('Comms Hub uses mapped supplied attention sounds and keeps routine alerts s
   assert.ok(contract.required.includes('acknowledged_at'))
   assert.ok(contract.required.includes('resolved_at'))
 })
+
+
+test('operator overview shows actual attention items, not ordinary conversations', async () => {
+  const app = await readFile(new URL('../apps/console/app.js', import.meta.url), 'utf8')
+  assert.match(app, /const urgent = state\.queue\s*\.filter\(\(row\) => row\.response_overdue/)
+  assert.match(app, /\["critical", "high"\]/)
+  assert.match(app, /\["blocked", "quarantined", "escalated"\]/)
+  assert.match(app, /No conversations need attention/)
+  assert.match(app, /in the loaded queue/)
+  assert.match(app, /Queue snapshot only · Provider health in Settings/)
+  assert.match(app, /Protected gateway session only/)
+  assert.doesNotMatch(app, /<strong>Connected<\/strong><small>Protected gateway<\/small>/)
+})
+
+test('manual mail inherits defined readable semantic text tokens', async () => {
+  const tokens = await readFile(new URL('../packages/theme/tokens.css', import.meta.url), 'utf8')
+  const styles = await readFile(new URL('../apps/console/styles.css', import.meta.url), 'utf8')
+  for (const name of ['aims-text-secondary', 'aims-text-muted']) {
+    assert.match(tokens, new RegExp(`--${name}: var\\(--aims-text-(soft|faint)\\)`))
+    assert.match(styles, new RegExp(`var\\(--${name}\\)`))
+  }
+})
