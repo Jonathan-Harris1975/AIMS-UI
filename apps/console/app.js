@@ -656,7 +656,7 @@ function dashboardView() {
       <span class="service-dot ${healthUnknown || state.error ? "warning" : providerOverall === "healthy" ? "live" : "warning"}" aria-hidden="true"></span>
       <span><strong>Provider routes: ${escapeHtml(titleCase(providerOverall))}</strong>
         <small>
-          ${state.monitoringUnavailable ? "Some monitoring unavailable · " : ""}
+          ${state.monitoringUnavailable ? "Some monitoring is unavailable · " : ""}
           Social: ${!socialPoll ? "Unknown" : socialPoll.pollWorkerEnabled ? "Enabled" : "Off"} ·
           Mail: ${!state.emailStatus ? "Unknown" : emailAccount.workerRunning ? "Polling" : emailAccount.workerStarted ? "Scheduled" : "Off"} ·
           Chat: ${!chat ? "Unknown" : chat.enabled ? "Enabled" : "Off"}
