@@ -688,13 +688,6 @@ function dashboardView() {
             <b>${count}</b>
           </div>`).join("") || `<p class="muted">${state.error ? "Distribution unavailable until the queue refresh recovers." : "No queue records yet."}</p>`}
         </div>
-        <div class="health-strip">
-          <span class="service-dot ${state.error || !state.bootstrap ? "warning" : "live"}"></span>
-          <div>
-            <strong>${state.error ? "Queue refresh needs attention" : state.bootstrap ? "Queue snapshot available" : "Queue not verified"}</strong>
-            <small>Queue snapshot only · Provider health in Settings</small>
-          </div>
-        </div>
       </section>
     </div>
   `);
