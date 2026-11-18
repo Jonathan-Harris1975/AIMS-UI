@@ -132,6 +132,7 @@ const state = {
   metricsLoadedAt: null,
   socialStatus: null,
   providerHealth: null,
+  monitoringUnavailable: false,
   chatStatus: null,
   emailStatus: null,
   socialBusy: false,
@@ -391,7 +392,13 @@ function shell(content) {
           </button>
         </header>
         `}
-        <div class="content">${content}</div>
+        <div class="content">
+          ${state.error && state.bootstrap ? `<div class="snapshot-warning" role="alert">
+            <strong>Queue refresh failed</strong>
+            <span>Showing the last loaded snapshot, not verified current status. ${escapeHtml(state.error.message || "Check the live gateway.")}</span>
+          </div>` : ""}
+          ${content}
+        </div>
       </main>
       ${notificationPanel()}
       ${state.toast ? `<div class="toast toast-${escapeHtml(state.toast.tone)}"
@@ -437,6 +444,7 @@ function pageHeader(title, copy, actions = "") {
 
 function summaryCards() {
   const rows = state.queue;
+  const queueScope = state.error ? "Last loaded snapshot; refresh failed" : "In the loaded queue";
   const open = rows.filter((row) => ["open", "pending", "escalated"].includes(row.operational_status)).length;
   const approvals = pendingApprovals().length;
   const overdue = rows.filter((row) => row.response_overdue).length;
@@ -444,7 +452,7 @@ function summaryCards() {
   const automationRate = rows.length ? Math.round((automated / rows.length) * 100) : 0;
   return `
     <div class="summary-grid">
-      ${summaryCard("Open conversations", open, "In the loaded queue", "blue")}
+      ${summaryCard("Open conversations", open, queueScope, "blue")}
       ${summaryCard("Needs review", approvals, "Loaded approval-gated actions", "purple")}
       ${summaryCard("Response overdue", overdue, overdue ? "Loaded conversations need attention" : "No loaded overdue targets", overdue ? "red" : "green")}
       ${summaryCard("Automation assigned", `${automationRate}%`, `${automated} of ${rows.length || 0} loaded conversations`, "cyan")}
@@ -632,6 +640,8 @@ function dashboardView() {
     .slice(0, 5);
   const channelCounts = Object.entries(state.queue.reduce((acc, row) => ({ ...acc, [row.channel]: (acc[row.channel] || 0) + 1 }), {}));
   const maximum = Math.max(1, ...channelCounts.map(([, count]) => count));
+  const providerOverall = state.providerHealth?.health?.overall || "unknown";
+  const healthUnknown = state.monitoringUnavailable || providerOverall === "unknown";
   return shell(`
     ${pageHeader(
       "Overview",
@@ -639,6 +649,13 @@ function dashboardView() {
       `<button class="button secondary" data-action="refresh">Refresh data</button>
        <button class="button primary" data-view="inbox">Open inbox</button>`,
     )}
+    <div class="dashboard-health" role="status">
+      <span class="service-dot ${healthUnknown || state.error ? "warning" : providerOverall === "healthy" ? "live" : "warning"}" aria-hidden="true"></span>
+      <span><strong>Provider routes: ${escapeHtml(titleCase(providerOverall))}</strong>
+        <small>${state.monitoringUnavailable ? "Some channel health checks are unavailable" : "Last reported provider health · details in Settings"}</small>
+      </span>
+      <button type="button" class="text-button" data-view="settings">View monitoring</button>
+    </div>
     ${summaryCards()}
     <div class="dashboard-grid">
       <section class="panel panel-wide">
@@ -646,19 +663,22 @@ function dashboardView() {
           <div><strong>Needs attention</strong><span>Overdue, high-priority or blocked conversations in the loaded queue</span></div>
           <button class="text-button" data-view="inbox">View inbox</button>
         </header>
-        ${urgent.length ? queueTable(urgent, 5, true) : emptyState(
+        ${urgent.length ? queueTable(urgent, 5, true) : state.error ? emptyState(
+          "Attention status unavailable",
+          "The queue refresh failed. A previously loaded queue cannot confirm that no action is needed.",
+        ) : emptyState(
           "No conversations need attention",
           "No overdue, high-priority, blocked or escalated conversations in the loaded queue.",
         )}
       </section>
       <section class="panel channel-panel">
-        <header class="panel-header"><div><strong>Channel mix</strong><span>Loaded queue distribution</span></div></header>
+        <header class="panel-header"><div><strong>Channel mix</strong><span>${state.error ? "Last loaded queue · refresh failed" : "Loaded queue distribution"}</span></div></header>
         <div class="channel-bars">
           ${channelCounts.map(([channel, count]) => `<div>
             <span>${escapeHtml(channelLabel(channel))}</span>
             <div><i style="width:${Math.round((count / maximum) * 100)}%"></i></div>
             <b>${count}</b>
-          </div>`).join("") || `<p class="muted">No queue records yet.</p>`}
+          </div>`).join("") || `<p class="muted">${state.error ? "Distribution unavailable until the queue refresh recovers." : "No queue records yet."}</p>`}
         </div>
         <div class="health-strip">
           <span class="service-dot ${state.error || !state.bootstrap ? "warning" : "live"}"></span>
@@ -2105,8 +2125,11 @@ async function fetchOperationalStatus() {
   if (results[0].status === "fulfilled") state.socialStatus = results[0].value;
   if (results[1].status === "fulfilled") state.providerHealth = results[1].value;
   else if (results[1].reason?.payload?.health) state.providerHealth = { health: results[1].reason.payload.health };
+  else state.providerHealth = null;
   if (results[2].status === "fulfilled") state.chatStatus = results[2].value;
   if (results[3].status === "fulfilled") state.emailStatus = results[3].value;
+  state.monitoringUnavailable = results.some((result, index) => result.status === "rejected"
+    && !(index === 1 && result.reason?.payload?.health));
   return results.filter((result, index) => result.status === "rejected" && !(index === 1 && result.reason?.payload?.health));
 }
 
