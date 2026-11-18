@@ -580,3 +580,23 @@ input, textarea, select, button { max-width: 100%; }
 @media (pointer: coarse) {
   .nav-subitem, .quick-filter, .button.compact, .text-button, .back-button { min-height: 44px; }
 }
+
+.overview-services {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--aims-space-2);
+  margin-bottom: var(--aims-space-5);
+}
+.overview-services > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--aims-space-3);
+  padding: var(--aims-space-3) var(--aims-space-4);
+  background: var(--aims-panel-subtle);
+  border-radius: var(--aims-radius-sm);
+  min-width: 0;
+}
+.overview-services strong { font-size: var(--aims-type-xs); color: var(--aims-text-soft); }
+.overview-services span { font-size: var(--aims-type-xs); color: var(--aims-text); text-align: right; overflow-wrap: anywhere; }
+@media (max-width: 760px) { .overview-services { grid-template-columns: 1fr; } }
