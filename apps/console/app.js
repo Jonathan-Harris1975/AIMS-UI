@@ -1511,6 +1511,9 @@ function errorView() {
 
 function render() {
   normaliseFiltersForView();
+  // The boot class centres a single loading card; it must not wrap the full shell,
+  // including when bootstrap fails before the first successful render.
+  root.className = "";
   if (state.error && !state.bootstrap) {
     root.innerHTML = errorView();
     bindEvents();
@@ -1530,7 +1533,6 @@ function render() {
     mail: manualMailView,
     settings: settingsView,
   };
-  root.className = "";
   root.innerHTML = (views[state.view] || dashboardView)();
   bindEvents();
 }
