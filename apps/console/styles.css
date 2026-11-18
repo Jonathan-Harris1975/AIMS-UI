@@ -454,9 +454,18 @@ input, textarea, select, button { max-width: 100%; }
   .page-header { gap: var(--aims-space-3); margin-bottom: var(--aims-space-4); }
   .page-actions, .workspace-actions, .button-row { display: grid; grid-template-columns: 1fr; }
   .page-actions > *, .workspace-actions > *, .button-row > * { width: 100%; }
-  .summary-grid, .metric-grid { grid-template-columns: 1fr; }
-  .summary-card { min-height: 84px; border-right: 0; border-bottom: 1px solid var(--aims-border); }
-  .summary-card:last-child { border-bottom: 0; }
+  /* Keep high-priority metrics scannable without four full-width cards on phones. */
+  .summary-grid, .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .summary-card {
+    min-width: 0;
+    min-height: 100px;
+    padding: var(--aims-space-3);
+    border-right: 1px solid var(--aims-border);
+    border-bottom: 1px solid var(--aims-border);
+  }
+  .summary-card:nth-child(even) { border-right: 0; }
+  .summary-card:nth-last-child(-n+2) { border-bottom: 0; }
+  .summary-card strong { font-size: clamp(1.25rem, 4.5vw, 1.75rem); }
   .queue-cards, .contacts-panel, .quarantine-list { padding-inline: var(--aims-space-2); }
   .queue-card-meta { grid-template-columns: 1fr; }
   .queue-card-meta > span:last-child { grid-column: auto; }
@@ -483,6 +492,9 @@ input, textarea, select, button { max-width: 100%; }
 }
 
 @media (max-width: 360px) {
+  .summary-grid, .metric-grid { grid-template-columns: 1fr; }
+  .summary-card { min-height: 84px; border-right: 0; border-bottom: 1px solid var(--aims-border); }
+  .summary-card:last-child { border-bottom: 0; }
   .topbar { gap: var(--aims-space-1); }
   .topbar .icon-button { width: 40px; min-width: 40px; }
   .global-search { padding-inline: var(--aims-space-2); }

@@ -99,3 +99,11 @@ test('manual mail inherits defined readable semantic text tokens', async () => {
     assert.match(styles, new RegExp(`var\\(--${name}\\)`))
   }
 })
+
+
+test('mobile KPI layouts stay compact but give very narrow phones full-width cards', async () => {
+  const styles = await readFile(new URL('../apps/console/styles.css', import.meta.url), 'utf8')
+  assert.match(styles, /@media \(max-width: 480px\)[\s\S]*?\.summary-grid, \.metric-grid \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/)
+  assert.match(styles, /@media \(max-width: 360px\) \{\s*\.summary-grid, \.metric-grid \{ grid-template-columns: 1fr; \}/)
+  assert.match(styles, /\.summary-card:nth-last-child\(-n\+2\) \{ border-bottom: 0; \}/)
+})
