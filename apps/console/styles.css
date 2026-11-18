@@ -99,9 +99,6 @@ svg { width: 20px; height: 20px; fill: currentColor; }
 .channel-bars > div, .analytics-bars > div { display: grid; grid-template-columns: 86px 1fr 28px; align-items: center; gap: var(--aims-space-3); font-size: var(--aims-type-xs); }
 .channel-bars > div > div, .analytics-bars > div > div { height: 6px; border-radius: var(--aims-radius-sm); background: var(--aims-panel-subtle); overflow: hidden; }
 .channel-bars i, .analytics-bars i { display: block; height: 100%; border-radius: inherit; background: var(--aims-accent); }
-.health-strip { margin: 0 var(--aims-space-5) var(--aims-space-5); padding-top: var(--aims-space-4); border-top: 1px solid var(--aims-border); display: flex; align-items: center; gap: var(--aims-space-3); }
-.health-strip > div { display: grid; gap: var(--aims-space-1); }
-.health-strip small { color: var(--aims-text-faint); font-size: var(--aims-type-xs); }
 
 .filter-bar { width: 100%; display: grid; grid-template-columns: repeat(4, minmax(130px, 1fr)); gap: var(--aims-space-2); }
 .filter-bar.compact { grid-template-columns: repeat(3, minmax(130px, 1fr)); }
