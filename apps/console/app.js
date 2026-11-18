@@ -463,7 +463,7 @@ function summaryCards() {
 function summaryCard(label, value, foot, tone) {
   return `<article class="summary-card tone-${tone}">
     <div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong><small>${escapeHtml(foot)}</small></div>
-    <div class="summary-spark"><i></i><i></i><i></i><i></i><i></i></div>
+
   </article>`;
 }
 
@@ -655,7 +655,12 @@ function dashboardView() {
     <div class="dashboard-health" role="status">
       <span class="service-dot ${healthUnknown || state.error ? "warning" : providerOverall === "healthy" ? "live" : "warning"}" aria-hidden="true"></span>
       <span><strong>Provider routes: ${escapeHtml(titleCase(providerOverall))}</strong>
-        <small>${state.monitoringUnavailable ? "Some monitoring is unavailable" : "Provider check from live API"} · Social poll: ${!socialPoll ? "Unknown" : socialPoll.pollWorkerEnabled ? "Enabled" : "Off"} · Email: ${!state.emailStatus ? "Unknown" : emailAccount.workerRunning ? "Polling" : emailAccount.workerStarted ? "Scheduled" : "Off"} · Chat: ${!chat ? "Unknown" : chat.enabled ? "Enabled" : "Off"}</small>
+        <small>
+          ${state.monitoringUnavailable ? "Some monitoring unavailable · " : ""}
+          Social: ${!socialPoll ? "Unknown" : socialPoll.pollWorkerEnabled ? "Enabled" : "Off"} ·
+          Mail: ${!state.emailStatus ? "Unknown" : emailAccount.workerRunning ? "Polling" : emailAccount.workerStarted ? "Scheduled" : "Off"} ·
+          Chat: ${!chat ? "Unknown" : chat.enabled ? "Enabled" : "Off"}
+        </small>
       </span>
       <button type="button" class="text-button" data-view="settings">View monitoring</button>
     </div>
