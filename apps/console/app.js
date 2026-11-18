@@ -655,14 +655,9 @@ function dashboardView() {
     <div class="dashboard-health" role="status">
       <span class="service-dot ${healthUnknown || state.error ? "warning" : providerOverall === "healthy" ? "live" : "warning"}" aria-hidden="true"></span>
       <span><strong>Provider routes: ${escapeHtml(titleCase(providerOverall))}</strong>
-        <small>${state.monitoringUnavailable ? "Some channel health checks are unavailable" : "Last reported provider health · details in Settings"}</small>
+        <small>${state.monitoringUnavailable ? "Some monitoring is unavailable" : "Provider check from live API"} · Social poll: ${!socialPoll ? "Unknown" : socialPoll.pollWorkerEnabled ? "Enabled" : "Off"} · Email: ${!state.emailStatus ? "Unknown" : emailAccount.workerRunning ? "Polling" : emailAccount.workerStarted ? "Scheduled" : "Off"} · Chat: ${!chat ? "Unknown" : chat.enabled ? "Enabled" : "Off"}</small>
       </span>
       <button type="button" class="text-button" data-view="settings">View monitoring</button>
-    </div>
-    <div class="overview-services" aria-label="Communications service status">
-      <div><strong>Social polling</strong><span>${!socialPoll ? "Unknown" : socialPoll.pollWorkerEnabled ? "Enabled" : "Disabled"}</span></div>
-      <div><strong>Email worker</strong><span>${!state.emailStatus ? "Unknown" : emailAccount.workerRunning ? "Polling" : emailAccount.workerStarted ? "Scheduled" : "Off"}</span></div>
-      <div><strong>Web chat</strong><span>${!chat ? "Unknown" : chat.enabled ? "Enabled" : "Disabled"}</span></div>
     </div>
     ${summaryCards()}
     <div class="dashboard-grid">
