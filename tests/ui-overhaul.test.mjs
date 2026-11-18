@@ -86,7 +86,7 @@ test('operator overview shows actual attention items, not ordinary conversations
   assert.match(app, /\["blocked", "quarantined", "escalated"\]/)
   assert.match(app, /No conversations need attention/)
   assert.match(app, /in the loaded queue/)
-  assert.match(app, /Queue snapshot only · Provider health in Settings/)
+  assert.doesNotMatch(app, /Queue snapshot only · Provider health in Settings/)
   assert.match(app, /Protected gateway session only/)
   assert.doesNotMatch(app, /<strong>Connected<\/strong><small>Protected gateway<\/small>/)
 })
