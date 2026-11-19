@@ -1053,8 +1053,8 @@ function settingsView() {
   const providerHealth = live?.source === "current_runtime_outcomes" ? live : {};
   const providers = Array.isArray(providerHealth.providers) ? providerHealth.providers : [];
   const healthSourceText = providerHealth.checkedAt
-    ? `Checked ${formatDateTime(providerHealth.checkedAt)}. Unobserved routes are not verified.`
-    : "Live check unavailable; no historical fallback.";
+    ? `Checked ${formatDateTime(providerHealth.checkedAt)}. Unobserved: not verified.`
+    : "No live data; no historical fallback.";
   const unverified = providers.filter((row) => row.status === "unknown").length;
   const needsAttention = providers.some((row) => ["unavailable", "rate_limited", "degraded"].includes(row.status));
   const email = state.emailStatus || {};
@@ -1067,8 +1067,8 @@ function settingsView() {
   return shell(`
     ${pageHeader(
       "Settings",
-      "Configuration, identity and channel health.",
-      `<button class="button secondary" data-action="load-social-status">Refresh channel status</button>`,
+      "Identity and channel health.",
+      `<button class="button secondary" data-action="load-social-status">Refresh status</button>`,
     )}
 <div class="settings-grid">
 <section class="panel settings-card">
@@ -1081,7 +1081,7 @@ function settingsView() {
 </section>
 <section class="panel settings-card comms-audio-settings">
 <h3>Audio notifications</h3>
-<p>Only communications that need a human decision can sound. Routine processing stays silent.</p>
+<p>Only actionable communications can sound. Routine events stay silent.</p>
 <label><input type="checkbox" data-comms-audio="enabled" ${commsAudioPreferences().enabled ? "checked" : ""}> Sound on</label>
 <label><input type="checkbox" data-comms-audio="review_required" ${commsAudioPreferences().review_required ? "checked" : ""}> Review required sound</label>
 <label><input type="checkbox" data-comms-audio="urgent" ${commsAudioPreferences().urgent ? "checked" : ""}> Urgent sound</label>
@@ -2322,11 +2322,11 @@ document.addEventListener("keydown", (event) => {
 });
 
 if (config.embedded) setInterval(() => { if (state.bootstrap) client.notifications().then((r) => updateCommsNotifications(r.notifications), () => {}); }, 15_000);
-// Only poll while Settings is visible; failed reads clear the old result.
-setInterval(async () => {
+setInterval(() => {
   if (state.view !== "settings" || document.hidden) return;
-  try { state.providerHealth = await client.providerHealth(); }
-  catch (e) { state.providerHealth = e?.payload?.health ? { health: e.payload.health } : null; }
-  if (state.view === "settings") render();
+  client.providerHealth().then(
+    health => { state.providerHealth = health; if (state.view === "settings") render(); },
+    e => { state.providerHealth = e?.payload?.health ? { health: e.payload.health } : null; if (state.view === "settings") render(); },
+  );
 }, 30_000);
 loadBootstrap();
