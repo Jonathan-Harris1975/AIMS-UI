@@ -641,21 +641,19 @@ function dashboardView() {
     .slice(0, 5);
   const channelCounts = Object.entries(state.queue.reduce((acc, row) => ({ ...acc, [row.channel]: (acc[row.channel] || 0) + 1 }), {}));
   const maximum = Math.max(1, ...channelCounts.map(([, count]) => count));
-  const providerOverall = state.providerHealth?.health?.overall || "unknown";
-  const healthUnknown = state.monitoringUnavailable || providerOverall === "unknown";
   const socialPoll = state.socialStatus?.monitoring;
   const emailAccount = Object.values(state.emailStatus?.accounts || {})[0] || {};
   const chat = state.chatStatus;
   return shell(`
     ${pageHeader(
       "Overview",
-      "Supervise exceptions first, then scan automated activity and provider health.",
+      "Supervise exceptions first, then scan automated activity and channel status.",
       `<button class="button secondary" data-action="refresh">Refresh data</button>
 <button class="button primary" data-view="inbox">Open inbox</button>`,
     )}
 <div class="dashboard-health" role="status">
-<span class="service-dot ${healthUnknown || state.error ? "warning" : providerOverall === "healthy" ? "live" : "warning"}" aria-hidden="true"></span>
-<span><strong>Provider routes: ${escapeHtml(titleCase(providerOverall))}</strong>
+<span class="service-dot ${state.monitoringUnavailable || state.error ? "warning" : "live"}" aria-hidden="true"></span>
+<span><strong>Channel monitoring</strong>
 <small>
           ${state.monitoringUnavailable ? "Some monitoring is unavailable · " : ""}
           Social: ${!socialPoll ? "Unknown" : socialPoll.pollWorkerEnabled ? "Enabled" : "Off"} ·
@@ -1049,14 +1047,6 @@ function settingsView() {
   const social = state.socialStatus?.monitoring || {};
   const socialLoaded = state.socialStatus?.monitoring != null;
   const channels = social.channels || {};
-  const live = state.providerHealth?.health;
-  const providerHealth = live?.source === "current_runtime_outcomes" ? live : {};
-  const providers = Array.isArray(providerHealth.providers) ? providerHealth.providers : [];
-  const healthSourceText = providerHealth.checkedAt
-    ? `Live check: ${formatDateTime(providerHealth.checkedAt)}.`
-    : "Live data unavailable.";
-  const unverified = providers.filter((row) => row.status === "unknown").length;
-  const needsAttention = providers.some((row) => ["unavailable", "rate_limited", "degraded"].includes(row.status));
   const email = state.emailStatus || {};
   const emailLoaded = state.emailStatus !== null;
   const chatLoaded = state.chatStatus !== null;
@@ -1103,23 +1093,6 @@ function settingsView() {
 <div><dt>Role</dt><dd>${escapeHtml(titleCase(identity.role || "read_only"))}</dd></div>
 <div><dt>Strategy</dt><dd>${escapeHtml(identity.strategy || "Unknown")}</dd></div>
 </dl>
-</section>
-<section class="panel settings-card">
-<h3>Provider health</h3>
-<div class="social-status-strip">
-<span class="pill ${providerHealth.overall === "healthy" ? "pill-open" : providerHealth.overall === "unavailable" ? "pill-quarantined" : "pill-pending"}">
-            ${providerHealth.overall === "unknown" ? "Not verified" : escapeHtml(titleCase(providerHealth.overall || "unknown"))}
-</span>
-<span>${providers.length} routes · ${unverified} unverified</span>
-</div>
-<p class="async-status">${escapeHtml(healthSourceText)}</p>
-<details class="provider-route-details" ${needsAttention ? "open" : ""}><summary>Provider route details</summary>
-<dl>${providers.length ? providers.map((provider) => `<div>
-<dt>${escapeHtml(provider.provider || "Unknown")}
-${provider.adapter ? `<small>Route: ${escapeHtml(provider.adapter)}</small>` : ""}
-<small>${provider.lastObservedAt ? `Last operation: ${escapeHtml(formatDateTime(provider.lastObservedAt))}` : "Unobserved"}</small></dt>
-<dd>${escapeHtml(provider.status === "unknown" ? "Not verified" : titleCase(provider.status || "unknown"))}</dd>
-</div>`).join("") : `<div><dt>Status</dt><dd>No live assessment</dd></div>`}</dl></details>
 </section>
 <section class="panel settings-card">
 <h3>Email and web chat</h3>
@@ -2322,11 +2295,4 @@ document.addEventListener("keydown", (event) => {
 });
 
 if (config.embedded) setInterval(() => { if (state.bootstrap) client.notifications().then((r) => updateCommsNotifications(r.notifications), () => {}); }, 15_000);
-setInterval(() => {
-  if (state.view !== "settings" || document.hidden) return;
-  client.providerHealth().then(
-    health => { state.providerHealth = health; if (state.view === "settings") render(); },
-    e => { state.providerHealth = e?.payload?.health ? { health: e.payload.health } : null; if (state.view === "settings") render(); },
-  );
-}, 30_000);
 loadBootstrap();
