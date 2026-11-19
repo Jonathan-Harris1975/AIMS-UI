@@ -651,6 +651,18 @@ function dashboardView() {
       `<button class="button secondary" data-action="refresh">Refresh data</button>
 <button class="button primary" data-view="inbox">Open inbox</button>`,
     )}
+<div class="dashboard-health" role="status">
+<span class="service-dot ${state.monitoringUnavailable || state.error ? "warning" : "live"}" aria-hidden="true"></span>
+<span><strong>Channel monitoring</strong>
+<small>
+          ${state.monitoringUnavailable ? "Some monitoring is unavailable · " : ""}
+          Social: ${!socialPoll ? "Unknown" : socialPoll.pollWorkerEnabled ? "Enabled" : "Off"} ·
+          Mail: ${!state.emailStatus ? "Unknown" : emailAccount.workerRunning ? "Polling" : emailAccount.workerStarted ? "Scheduled" : "Off"} ·
+          Chat: ${!chat ? "Unknown" : chat.enabled ? "Enabled" : "Off"}
+</small>
+</span>
+<button type="button" class="text-button" data-view="settings">View monitoring</button>
+</div>
     ${summaryCards()}
 <div class="dashboard-grid">
 <section class="panel panel-wide">
