@@ -145,3 +145,39 @@ test('mobile navigation isolates background and contains keyboard focus', async 
   assert.match(css, /\.sidebar \{ overflow-y: auto; overscroll-behavior: contain; \}/)
   assert.match(css, /\.manual-mail-row:focus-visible/)
 })
+
+
+test('status count badges and error toasts meet WCAG AA normal-text contrast against brand red', async () => {
+  const tokens = await readFile(new URL('../packages/theme/tokens.css', import.meta.url), 'utf8')
+  const css = await readFile(new URL('../apps/console/styles.css', import.meta.url), 'utf8')
+  const hex = (name) => {
+    const match = tokens.match(new RegExp('--' + name + ': (#[0-9a-f]{6});', 'i'))
+    assert.ok(match, 'Missing brand token ' + name)
+    return match[1]
+  }
+  const luminance = (value) => {
+    const rgb = [1, 3, 5].map((start) => parseInt(value.slice(start, start + 2), 16) / 255)
+      .map((n) => n <= 0.04045 ? n / 12.92 : ((n + 0.055) / 1.055) ** 2.4)
+    return rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722
+  }
+  const contrast = (a, b) => {
+    const values = [luminance(a), luminance(b)].sort((x, y) => y - x)
+    return (values[0] + 0.05) / (values[1] + 0.05)
+  }
+  for (const [foreground, background] of [
+    ['aims-text', 'aims-danger-strong'],
+    ['aims-accent-ink', 'aims-accent'],
+    ['aims-text-faint', 'aims-surface-overlay'],
+  ]) assert.ok(contrast(hex(foreground), hex(background)) >= 4.5, foreground + ' on ' + background + ' fails 4.5:1')
+  for (const selector of [
+    '.nav-item b, .embedded-nav-item b',
+    '.notification-button span, .embedded-notification-button span',
+    '.toast-error',
+  ]) {
+    const start = css.indexOf(selector + ' {')
+    assert.ok(start >= 0, 'Missing tested status selector ' + selector)
+    const rule = css.slice(start, css.indexOf('}', start))
+    assert.match(rule, /background: var\(--aims-danger-strong\)/)
+    assert.match(rule, /color: var\(--aims-text\)/)
+  }
+})
