@@ -299,142 +299,142 @@ function shell(content) {
   const identity = state.bootstrap?.identity || { actor: "Unknown", role: "read_only" };
   const unread = state.notifications.filter((item) => item.status !== "read").length;
   return `
-    <div class="layout ${state.sidebarOpen ? "sidebar-open" : ""} ${config.embedded ? "embedded" : ""}">
-      <a class="skip-link" href="#aims-main-content">Skip to main content</a>
-      <button class="scrim" data-action="close-sidebar" aria-label="Close navigation"></button>
-      <aside class="sidebar" id="aims-sidebar" aria-label="AIMS navigation">
-        <div class="brand">
-          <div class="brand-mark"><span>A</span></div>
-          <div><strong>AIMS</strong><small>Comms Hub</small></div>
-          <button class="icon-button mobile-only" data-action="close-sidebar" aria-label="Close navigation">${icons.close}</button>
-        </div>
-        <nav aria-label="Primary">
+<div class="layout ${state.sidebarOpen ? "sidebar-open" : ""} ${config.embedded ? "embedded" : ""}">
+<a class="skip-link" href="#aims-main-content">Skip to main content</a>
+<button class="scrim" data-action="close-sidebar" aria-label="Close navigation" tabindex="-1"></button>
+<aside class="sidebar" id="aims-sidebar" aria-label="AIMS navigation" ${state.sidebarOpen ? 'role="dialog" aria-modal="true"' : ""}>
+<div class="brand">
+<div class="brand-mark"><span>A</span></div>
+<div><strong>AIMS</strong><small>Comms Hub</small></div>
+<button class="icon-button mobile-only" data-action="close-sidebar" aria-label="Close navigation">${icons.close}</button>
+</div>
+<nav aria-label="Primary">
           ${navItems.map(([key, label, icon]) => key === "inbox" ? `
-            <div class="nav-group ${isInboxFamilyView() ? "open" : ""}">
-              <button class="nav-item ${isInboxFamilyView() ? "active" : ""}" data-view="inbox"
+<div class="nav-group ${isInboxFamilyView() ? "open" : ""}">
+<button class="nav-item ${isInboxFamilyView() ? "active" : ""}" data-view="inbox"
                 aria-expanded="${isInboxFamilyView() ? "true" : "false"}"
                 ${state.view === "inbox" ? 'aria-current="page"' : ""}>
                 ${icon}<span>${escapeHtml(label)}</span><span class="nav-group-chevron">${icons.chevronDown}</span>
-              </button>
-              <div class="nav-submenu" aria-label="Unified inbox sections">
+</button>
+<div class="nav-submenu" aria-label="Unified inbox sections">
                 ${inboxSubItems.slice(1).map(([subKey, subLabel, subIcon]) => `
-                  <button class="nav-subitem ${activeInboxSubView() === subKey ? "active" : ""}" data-view="${subKey}" ${activeInboxSubView() === subKey ? 'aria-current="page"' : ""}>
+<button class="nav-subitem ${activeInboxSubView() === subKey ? "active" : ""}" data-view="${subKey}" ${activeInboxSubView() === subKey ? 'aria-current="page"' : ""}>
                     ${subIcon}<span>${escapeHtml(subLabel)}</span>
-                  </button>
+</button>
                 `).join("")}
-              </div>
-            </div>
+</div>
+</div>
           ` : `
-            <button class="nav-item ${state.view === key ? "active" : ""}" data-view="${key}" ${state.view === key ? 'aria-current="page"' : ""}>
+<button class="nav-item ${state.view === key ? "active" : ""}" data-view="${key}" ${state.view === key ? 'aria-current="page"' : ""}>
               ${icon}<span>${escapeHtml(label)}</span>
               ${key === "approvals" && pendingApprovals().length ? `<b>${pendingApprovals().length}</b>` : ""}
-            </button>
+</button>
           `).join("")}
-        </nav>
-        <div class="sidebar-footer">
-          <a class="hive-home-link" href="${escapeHtml(config.hiveHomeUrl)}" aria-label="Return to HIVE">${icons.home}<span>Back to HIVE</span></a>
-          <div class="service-card">
-            <span class="service-dot ${state.error || !state.bootstrap ? "warning" : "live"}"></span>
-            <div>
-              <strong>${state.error ? "Refresh needs attention" : state.bootstrap ? "Session active" : "Checking session"}</strong>
-              <small>Protected gateway session only</small>
-            </div>
-          </div>
-          <div class="user-card">
-            <div class="avatar">${escapeHtml(String(identity.actor || "U").charAt(0).toUpperCase())}</div>
-            <div><strong>${escapeHtml(identity.actor || "Unknown")}</strong><small>${escapeHtml(titleCase(identity.role || "read_only"))}</small></div>
-          </div>
-        </div>
-      </aside>
-      <main class="main" id="aims-main-content" tabindex="-1">
+</nav>
+<div class="sidebar-footer">
+<a class="hive-home-link" href="${escapeHtml(config.hiveHomeUrl)}" aria-label="Return to HIVE">${icons.home}<span>Back to HIVE</span></a>
+<div class="service-card">
+<span class="service-dot ${state.error || !state.bootstrap ? "warning" : "live"}"></span>
+<div>
+<strong>${state.error ? "Refresh needs attention" : state.bootstrap ? "Session active" : "Checking session"}</strong>
+<small>Protected gateway session only</small>
+</div>
+</div>
+<div class="user-card">
+<div class="avatar">${escapeHtml(String(identity.actor || "U").charAt(0).toUpperCase())}</div>
+<div><strong>${escapeHtml(identity.actor || "Unknown")}</strong><small>${escapeHtml(titleCase(identity.role || "read_only"))}</small></div>
+</div>
+</div>
+</aside>
+<main class="main" id="aims-main-content" tabindex="-1" ${state.sidebarOpen ? "inert" : ""}>
         ${config.embedded ? `
-        <nav class="embedded-nav" aria-label="Communications sections">
-          <div class="embedded-nav-scroll">
+<nav class="embedded-nav" aria-label="Communications sections">
+<div class="embedded-nav-scroll">
             ${navItems.map(([key, label, icon]) => `
-              <button
+<button
                 class="embedded-nav-item ${key === "inbox" ? (isInboxFamilyView() ? "active" : "") : (state.view === key ? "active" : "")}"
-                data-view="${key}"
+                data-view="${key}" aria-label="${escapeHtml(label)}"
                 ${(key === "inbox" ? state.view === "inbox" : state.view === key) ? 'aria-current="page"' : ""}>
                 ${icon}<span>${escapeHtml(label)}</span>
                 ${key === "approvals" && pendingApprovals().length ? `<b>${pendingApprovals().length}</b>` : ""}
-              </button>
+</button>
             `).join("")}
-          </div>
-          <button class="embedded-notification-button" data-action="toggle-notifications" aria-label="Notifications" aria-expanded="${state.notificationOpen}" aria-controls="notification-panel">
+</div>
+<button class="embedded-notification-button" data-action="toggle-notifications" aria-label="Notifications" aria-expanded="${state.notificationOpen}" aria-controls="notification-panel">
             ${icons.bell}${unread ? `<span>${unread}</span>` : ""}
-          </button>
-        </nav>
+</button>
+</nav>
         ${isInboxFamilyView() ? `
-          <nav class="embedded-inbox-subnav" aria-label="Unified inbox sections">
-            <div class="embedded-inbox-subnav-scroll">
+<nav class="embedded-inbox-subnav" aria-label="Unified inbox sections">
+<div class="embedded-inbox-subnav-scroll">
               ${inboxSubItems.map(([subKey, subLabel, subIcon]) => `
-                <button class="embedded-inbox-subnav-item ${activeInboxSubView() === subKey ? "active" : ""}" data-view="${subKey}" ${activeInboxSubView() === subKey ? 'aria-current="page"' : ""}>
+<button class="embedded-inbox-subnav-item ${activeInboxSubView() === subKey ? "active" : ""}" data-view="${subKey}" aria-label="${escapeHtml(subLabel)}" ${activeInboxSubView() === subKey ? 'aria-current="page"' : ""}>
                   ${subIcon}<span>${escapeHtml(subLabel)}</span>
-                </button>
+</button>
               `).join("")}
-            </div>
-          </nav>
+</div>
+</nav>
         ` : ""}
         ` : `
-        <header class="topbar">
-          <button class="icon-button mobile-only aims-menu-trigger" data-action="open-sidebar"
+<header class="topbar">
+<button class="icon-button mobile-only aims-menu-trigger" data-action="open-sidebar"
             aria-label="Open AIMS navigation" aria-expanded="${state.sidebarOpen}" aria-controls="aims-sidebar">
             ${icons.menu}
-          </button>
-          <div class="mobile-title"><strong>${escapeHtml(config.productName)}</strong><span>${escapeHtml(titleCase(state.view))}</span></div>
-          <label class="global-search">
+</button>
+<div class="mobile-title"><strong>${escapeHtml(config.productName)}</strong><span>${escapeHtml(titleCase(state.view))}</span></div>
+<label class="global-search">
             ${icons.search}
-            <input id="global-search" type="search" value="${escapeHtml(state.search)}" placeholder="Search queue, contact or conversation" autocomplete="off" aria-label="Search conversations">
-            <kbd>⌘ K</kbd>
-          </label>
-          <button class="icon-button notification-button" data-action="toggle-notifications" aria-label="Notifications" aria-expanded="${state.notificationOpen}" aria-controls="notification-panel">
+<input id="global-search" type="search" value="${escapeHtml(state.search)}" placeholder="Search queue, contact or conversation" autocomplete="off" aria-label="Search conversations">
+<kbd>Ctrl / ⌘ K</kbd>
+</label>
+<button class="icon-button notification-button" data-action="toggle-notifications" aria-label="Notifications" aria-expanded="${state.notificationOpen}" aria-controls="notification-panel">
             ${icons.bell}${unread ? `<span>${unread}</span>` : ""}
-          </button>
-        </header>
+</button>
+</header>
         `}
-        <div class="content">
+<div class="content">
           ${state.error && state.bootstrap ? `<div class="snapshot-warning" role="alert">
-            <strong>Queue refresh failed</strong>
-            <span>Showing the last loaded snapshot, not verified current status. ${escapeHtml(state.error.message || "Check the live gateway.")}</span>
-          </div>` : ""}
+<strong>Queue refresh failed</strong>
+<span>Showing the last loaded snapshot, not verified current status. ${escapeHtml(state.error.message || "Check the live gateway.")}</span>
+</div>` : ""}
           ${content}
-        </div>
-      </main>
+</div>
+</main>
       ${notificationPanel()}
       ${state.toast ? `<div class="toast toast-${escapeHtml(state.toast.tone)}"
         role="${state.toast.tone === "error" ? "alert" : "status"}"
         aria-live="${state.toast.tone === "error" ? "assertive" : "polite"}" aria-atomic="true">
         ${escapeHtml(state.toast.message)}
-      </div>` : ""}
-    </div>
+</div>` : ""}
+</div>
   `;
 }
 
 function notificationPanel() {
   if (!state.notificationOpen) return "";
   return `
-    <aside class="notification-panel" id="notification-panel" role="dialog" aria-labelledby="notification-panel-title" tabindex="-1">
-      <header>
-        <div><strong id="notification-panel-title">Notifications</strong><span>${state.notifications.length} recent</span></div>
-        <button class="icon-button" data-action="toggle-notifications" aria-label="Close notifications">
+<aside class="notification-panel" id="notification-panel" role="dialog" aria-labelledby="notification-panel-title" tabindex="-1">
+<header>
+<div><strong id="notification-panel-title">Notifications</strong><span>${state.notifications.length} recent</span></div>
+<button class="icon-button" data-action="toggle-notifications" aria-label="Close notifications">
           ${icons.close}
-        </button>
-      </header>
-      <div class="notification-list">
+</button>
+</header>
+<div class="notification-list">
         ${state.notifications.length ? state.notifications.map((item) => `
-          <button type="button" class="notification-item severity-${escapeHtml(item.severity || "info")}"
+<button type="button" class="notification-item severity-${escapeHtml(item.severity || "info")}"
             data-notification-id="${escapeHtml(item.id)}"
             data-conversation-id="${escapeHtml(item.conversation_id || "")}">
-            <span class="notification-dot"></span>
-            <span>
-              <strong>${escapeHtml(item.title || titleCase(item.type))}</strong>
-              <small>${escapeHtml(item.body_text || "")}</small>
-              <time>${escapeHtml(formatRelativeTime(item.created_at))}</time>
-            </span>
-          </button>
+<span class="notification-dot"></span>
+<span>
+<strong>${escapeHtml(item.title || titleCase(item.type))}</strong>
+<small>${escapeHtml(item.body_text || "")}</small>
+<time>${escapeHtml(formatRelativeTime(item.created_at))}</time>
+</span>
+</button>
         `).join("") : emptyState("No notifications", "The signal shelf is clear.")}
-      </div>
-    </aside>
+</div>
+</aside>
   `;
 }
 
@@ -650,27 +650,27 @@ function dashboardView() {
       "Overview",
       "Supervise exceptions first, then scan automated activity and provider health.",
       `<button class="button secondary" data-action="refresh">Refresh data</button>
-       <button class="button primary" data-view="inbox">Open inbox</button>`,
+<button class="button primary" data-view="inbox">Open inbox</button>`,
     )}
-    <div class="dashboard-health" role="status">
-      <span class="service-dot ${healthUnknown || state.error ? "warning" : providerOverall === "healthy" ? "live" : "warning"}" aria-hidden="true"></span>
-      <span><strong>Provider routes: ${escapeHtml(titleCase(providerOverall))}</strong>
-        <small>
+<div class="dashboard-health" role="status">
+<span class="service-dot ${healthUnknown || state.error ? "warning" : providerOverall === "healthy" ? "live" : "warning"}" aria-hidden="true"></span>
+<span><strong>Provider routes: ${escapeHtml(titleCase(providerOverall))}</strong>
+<small>
           ${state.monitoringUnavailable ? "Some monitoring is unavailable · " : ""}
           Social: ${!socialPoll ? "Unknown" : socialPoll.pollWorkerEnabled ? "Enabled" : "Off"} ·
           Mail: ${!state.emailStatus ? "Unknown" : emailAccount.workerRunning ? "Polling" : emailAccount.workerStarted ? "Scheduled" : "Off"} ·
           Chat: ${!chat ? "Unknown" : chat.enabled ? "Enabled" : "Off"}
-        </small>
-      </span>
-      <button type="button" class="text-button" data-view="settings">View monitoring</button>
-    </div>
+</small>
+</span>
+<button type="button" class="text-button" data-view="settings">View monitoring</button>
+</div>
     ${summaryCards()}
-    <div class="dashboard-grid">
-      <section class="panel panel-wide">
-        <header class="panel-header">
-          <div><strong>Needs attention</strong><span>Overdue, high-priority or blocked conversations in the loaded queue</span></div>
-          <button class="text-button" data-view="inbox">View inbox</button>
-        </header>
+<div class="dashboard-grid">
+<section class="panel panel-wide">
+<header class="panel-header">
+<div><strong>Needs attention</strong><span>Overdue, high-priority or blocked conversations in the loaded queue</span></div>
+<button class="text-button" data-view="inbox">View inbox</button>
+</header>
         ${urgent.length ? queueTable(urgent, 5, true) : state.error ? emptyState(
           "Attention status unavailable",
           "The queue refresh failed. A previously loaded queue cannot confirm that no action is needed.",
@@ -678,18 +678,18 @@ function dashboardView() {
           "No conversations need attention",
           "No overdue, high-priority, blocked or escalated conversations in the loaded queue.",
         )}
-      </section>
-      <section class="panel channel-panel">
-        <header class="panel-header"><div><strong>Channel mix</strong><span>${state.error ? "Last loaded queue · refresh failed" : "Loaded queue distribution"}</span></div></header>
-        <div class="channel-bars">
+</section>
+<section class="panel channel-panel">
+<header class="panel-header"><div><strong>Channel mix</strong><span>${state.error ? "Last loaded queue · refresh failed" : "Loaded queue distribution"}</span></div></header>
+<div class="channel-bars">
           ${channelCounts.map(([channel, count]) => `<div>
-            <span>${escapeHtml(channelLabel(channel))}</span>
-            <div><i style="width:${Math.round((count / maximum) * 100)}%"></i></div>
-            <b>${count}</b>
-          </div>`).join("") || `<p class="muted">${state.error ? "Distribution unavailable until the queue refresh recovers." : "No queue records yet."}</p>`}
-        </div>
-      </section>
-    </div>
+<span>${escapeHtml(channelLabel(channel))}</span>
+<div><i style="width:${Math.round((count / maximum) * 100)}%"></i></div>
+<b>${count}</b>
+</div>`).join("") || `<p class="muted">${state.error ? "Distribution unavailable until the queue refresh recovers." : "No queue records yet."}</p>`}
+</div>
+</section>
+</div>
   `);
 }
 
@@ -1538,6 +1538,8 @@ function render() {
   // The boot class centres a single loading card; it must not wrap the full shell,
   // including when bootstrap fails before the first successful render.
   root.className = "";
+  document.body.classList.toggle("aims-nav-open", state.sidebarOpen);
+  document.title = `${state.view === "dms" ? "DMs" : titleCase(state.view)} · AIMS Comms Hub`;
   if (state.error && !state.bootstrap) {
     root.innerHTML = errorView();
     bindEvents();
@@ -1744,6 +1746,7 @@ function focusAfterRender(selector) {
 }
 
 function openSidebar() {
+  state.notificationOpen = false;
   state.sidebarOpen = true;
   render();
   focusAfterRender('[data-action="close-sidebar"]');
@@ -1775,6 +1778,7 @@ function navigate(view) {
   else if (view === "settings" && (!state.socialStatus || !state.providerHealth || !state.chatStatus || !state.emailStatus)) loadSocialStatus({ keepView: true });
   else render();
   history.replaceState(null, "", `${location.pathname}${location.search}#${view}`);
+  focusAfterRender("#aims-main-content");
 }
 
 async function openConversation(conversationId) {
@@ -2282,6 +2286,15 @@ async function openNotification(button) {
 }
 
 document.addEventListener("keydown", (event) => {
+  if (event.key === "Tab" && state.sidebarOpen) {
+    const drawer = root.querySelector("#aims-sidebar");
+    const items = [...(drawer?.querySelectorAll('button:not([disabled]), a[href]') || [])].filter((item) => item.getClientRects().length);
+    const first = items[0], last = items.at(-1);
+    if (items.length && (event.shiftKey ? document.activeElement === first : document.activeElement === last)) {
+      event.preventDefault();
+      (event.shiftKey ? last : first).focus();
+    }
+  }
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
     event.preventDefault();
     root.querySelector("#global-search")?.focus();
