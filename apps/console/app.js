@@ -1053,8 +1053,8 @@ function settingsView() {
   const providerHealth = live?.source === "current_runtime_outcomes" ? live : {};
   const providers = Array.isArray(providerHealth.providers) ? providerHealth.providers : [];
   const healthSourceText = providerHealth.checkedAt
-    ? `Checked ${formatDateTime(providerHealth.checkedAt)}. Unobserved: not verified.`
-    : "No live data; no historical fallback.";
+    ? `Live check: ${formatDateTime(providerHealth.checkedAt)}.`
+    : "Live data unavailable.";
   const unverified = providers.filter((row) => row.status === "unknown").length;
   const needsAttention = providers.some((row) => ["unavailable", "rate_limited", "degraded"].includes(row.status));
   const email = state.emailStatus || {};
@@ -1067,8 +1067,8 @@ function settingsView() {
   return shell(`
     ${pageHeader(
       "Settings",
-      "Identity and channel health.",
-      `<button class="button secondary" data-action="load-social-status">Refresh status</button>`,
+      "Identity and channels.",
+      `<button class="button secondary" data-action="load-social-status">Refresh</button>`,
     )}
 <div class="settings-grid">
 <section class="panel settings-card">
@@ -1081,7 +1081,7 @@ function settingsView() {
 </section>
 <section class="panel settings-card comms-audio-settings">
 <h3>Audio notifications</h3>
-<p>Only actionable communications can sound. Routine events stay silent.</p>
+<p>Only actionable alerts sound.</p>
 <label><input type="checkbox" data-comms-audio="enabled" ${commsAudioPreferences().enabled ? "checked" : ""}> Sound on</label>
 <label><input type="checkbox" data-comms-audio="review_required" ${commsAudioPreferences().review_required ? "checked" : ""}> Review required sound</label>
 <label><input type="checkbox" data-comms-audio="urgent" ${commsAudioPreferences().urgent ? "checked" : ""}> Urgent sound</label>
