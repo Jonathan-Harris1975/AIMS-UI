@@ -1050,12 +1050,11 @@ function settingsView() {
   const socialLoaded = state.socialStatus?.monitoring != null;
   const channels = social.channels || {};
   const live = state.providerHealth?.health;
-  const providerHealth = live?.source === "current_runtime_outcomes" && live.checkedAt
-    ? live : { overall: "unknown" };
+  const providerHealth = live?.source === "current_runtime_outcomes" ? live : {};
   const providers = Array.isArray(providerHealth.providers) ? providerHealth.providers : [];
   const healthSourceText = providerHealth.checkedAt
-    ? `Runtime checked: ${formatDateTime(providerHealth.checkedAt)}. Passive observation, no test calls.`
-    : "Live runtime unavailable; no historical fallback.";
+    ? `Checked ${formatDateTime(providerHealth.checkedAt)}. Unobserved routes are not verified.`
+    : "Live check unavailable; no historical fallback.";
   const unverified = providers.filter((row) => row.status === "unknown").length;
   const needsAttention = providers.some((row) => ["unavailable", "rate_limited", "degraded"].includes(row.status));
   const email = state.emailStatus || {};
@@ -1111,15 +1110,14 @@ function settingsView() {
 <span class="pill ${providerHealth.overall === "healthy" ? "pill-open" : providerHealth.overall === "unavailable" ? "pill-quarantined" : "pill-pending"}">
             ${providerHealth.overall === "unknown" ? "Not verified" : escapeHtml(titleCase(providerHealth.overall || "unknown"))}
 </span>
-<span>${providers.length} routes catalogued · ${unverified} unverified</span>
+<span>${providers.length} routes · ${unverified} unverified</span>
 </div>
 <p class="async-status">${escapeHtml(healthSourceText)}</p>
-        ${unverified ? `<p class="async-status">No recent runtime evidence for ${unverified} routes; configuration alone does not prove health.</p>` : ""}
 <details class="provider-route-details" ${needsAttention ? "open" : ""}><summary>Provider route details</summary>
 <dl>${providers.length ? providers.map((provider) => `<div>
 <dt>${escapeHtml(provider.provider || "Unknown")}
 ${provider.adapter ? `<small>Route: ${escapeHtml(provider.adapter)}</small>` : ""}
-<small>${provider.lastObservedAt ? `Last operation: ${escapeHtml(formatDateTime(provider.lastObservedAt))}` : "No observed operation"}</small></dt>
+<small>${provider.lastObservedAt ? `Last operation: ${escapeHtml(formatDateTime(provider.lastObservedAt))}` : "Unobserved"}</small></dt>
 <dd>${escapeHtml(provider.status === "unknown" ? "Not verified" : titleCase(provider.status || "unknown"))}</dd>
 </div>`).join("") : `<div><dt>Status</dt><dd>No live assessment</dd></div>`}</dl></details>
 </section>
@@ -2326,7 +2324,7 @@ document.addEventListener("keydown", (event) => {
 if (config.embedded) setInterval(() => { if (state.bootstrap) client.notifications().then((r) => updateCommsNotifications(r.notifications), () => {}); }, 15_000);
 // Only poll while Settings is visible; failed reads clear the old result.
 setInterval(async () => {
-  if (!state.bootstrap || state.view !== "settings" || document.hidden) return;
+  if (state.view !== "settings" || document.hidden) return;
   try { state.providerHealth = await client.providerHealth(); }
   catch (e) { state.providerHealth = e?.payload?.health ? { health: e.payload.health } : null; }
   if (state.view === "settings") render();
