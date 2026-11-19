@@ -1538,14 +1538,14 @@ function render() {
   normaliseFiltersForView();
   // The boot class centres a single loading card; it must not wrap the full shell,
   // including when bootstrap fails before the first successful render.
-  document.body.classList.toggle("aims-nav-open", state.sidebarOpen);
-  document.title = `${state.view === "dms" ? "DMs" : titleCase(state.view)} · AIMS Comms Hub`;
   root.className = "";
   if (state.error && !state.bootstrap) {
     root.innerHTML = errorView();
     bindEvents();
     return;
   }
+  document.body.classList.toggle("aims-nav-open", state.sidebarOpen);
+  document.title = `${state.view === "dms" ? "DMs" : titleCase(state.view)} · AIMS Comms Hub`;
   const views = {
     dashboard: dashboardView,
     inbox: inboxView,
