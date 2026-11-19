@@ -1049,13 +1049,13 @@ function settingsView() {
   const social = state.socialStatus?.monitoring || {};
   const socialLoaded = state.socialStatus?.monitoring != null;
   const channels = social.channels || {};
-  const rawProviderHealth = state.providerHealth?.health || {};
-  const providerHealth = rawProviderHealth.source === "current_runtime_outcomes" && rawProviderHealth.checkedAt
-    ? rawProviderHealth : { overall: "unknown", providers: [] };
+  const live = state.providerHealth?.health;
+  const providerHealth = live?.source === "current_runtime_outcomes" && live.checkedAt
+    ? live : { overall: "unknown" };
   const providers = Array.isArray(providerHealth.providers) ? providerHealth.providers : [];
   const healthSourceText = providerHealth.checkedAt
-    ? `Checked ${formatDateTime(providerHealth.checkedAt)} against current AIMS runtime activity. No external provider test calls.`
-    : "Current provider health is not available. Historical snapshots are not used.";
+    ? `Runtime checked: ${formatDateTime(providerHealth.checkedAt)}. Passive observation, no test calls.`
+    : "Live runtime unavailable; no historical fallback.";
   const unverified = providers.filter((row) => row.status === "unknown").length;
   const needsAttention = providers.some((row) => ["unavailable", "rate_limited", "degraded"].includes(row.status));
   const email = state.emailStatus || {};
@@ -1068,7 +1068,7 @@ function settingsView() {
   return shell(`
     ${pageHeader(
       "Settings",
-      "Review operator-visible configuration, identity and channel health.",
+      "Configuration, identity and channel health.",
       `<button class="button secondary" data-action="load-social-status">Refresh channel status</button>`,
     )}
 <div class="settings-grid">
@@ -1117,9 +1117,11 @@ function settingsView() {
         ${unverified ? `<p class="async-status">No recent runtime evidence for ${unverified} routes; configuration alone does not prove health.</p>` : ""}
 <details class="provider-route-details" ${needsAttention ? "open" : ""}><summary>Provider route details</summary>
 <dl>${providers.length ? providers.map((provider) => `<div>
-<dt>${escapeHtml(provider.provider || "Unknown")}${provider.adapter ? `<small>Route: ${escapeHtml(provider.adapter)}</small>` : ""}<small>${provider.lastObservedAt ? `Last operation: ${escapeHtml(formatDateTime(provider.lastObservedAt))}` : "No recent operation observed"}</small></dt>
+<dt>${escapeHtml(provider.provider || "Unknown")}
+${provider.adapter ? `<small>Route: ${escapeHtml(provider.adapter)}</small>` : ""}
+<small>${provider.lastObservedAt ? `Last operation: ${escapeHtml(formatDateTime(provider.lastObservedAt))}` : "No observed operation"}</small></dt>
 <dd>${escapeHtml(provider.status === "unknown" ? "Not verified" : titleCase(provider.status || "unknown"))}</dd>
-</div>`).join("") : `<div><dt>Status</dt><dd>No health snapshot yet</dd></div>`}</dl></details>
+</div>`).join("") : `<div><dt>Status</dt><dd>No live assessment</dd></div>`}</dl></details>
 </section>
 <section class="panel settings-card">
 <h3>Email and web chat</h3>
@@ -1786,11 +1788,7 @@ function navigate(view) {
   if (view === "mail") loadManualMail();
   else if (view === "quarantine" && !state.quarantine.length) loadQuarantine();
   else if (view === "analytics" && !state.metrics) loadMetrics();
-  else if (view === "settings") {
-    state.providerHealth = null;
-    render();
-    loadSocialStatus({ keepView: true });
-  }
+  else if (view === "settings") { state.providerHealth = null; loadSocialStatus({ keepView: true }); }
   else render();
   history.replaceState(null, "", `${location.pathname}${location.search}#${view}`);
   focusAfterRender("#aims-main-content");
@@ -2326,23 +2324,11 @@ document.addEventListener("keydown", (event) => {
 });
 
 if (config.embedded) setInterval(() => { if (state.bootstrap) client.notifications().then((r) => updateCommsNotifications(r.notifications), () => {}); }, 15_000);
-// Refresh provider health only while the operator is viewing Settings.
- // Each request reads current runtime outcomes, never old D1 snapshots.
-let providerRefreshInFlight = false;
-async function refreshVisibleProviderHealth() {
-  if (providerRefreshInFlight || !state.bootstrap || state.view !== "settings") return;
-  providerRefreshInFlight = true;
-  try {
-    state.providerHealth = await client.providerHealth();
-  } catch (error) {
-    state.providerHealth = error?.payload?.health ? { health: error.payload.health } : null;
-  } finally {
-    providerRefreshInFlight = false;
-    if (state.view === "settings") render();
-  }
-}
-setInterval(() => {
-  if (document.visibilityState !== "hidden") void refreshVisibleProviderHealth();
+// Only poll while Settings is visible; failed reads clear the old result.
+setInterval(async () => {
+  if (!state.bootstrap || state.view !== "settings" || document.hidden) return;
+  try { state.providerHealth = await client.providerHealth(); }
+  catch (e) { state.providerHealth = e?.payload?.health ? { health: e.payload.health } : null; }
+  if (state.view === "settings") render();
 }, 30_000);
-
 loadBootstrap();
