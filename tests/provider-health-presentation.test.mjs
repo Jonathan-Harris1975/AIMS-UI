@@ -2,30 +2,20 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 
-test('provider inventory distinguishes catalogued routes from verified runtime health', async () => {
+test('Communications hides unverified provider inventory without removing channel settings', async () => {
   const app = await readFile(new URL('../apps/console/app.js', import.meta.url), 'utf8')
-  const css = await readFile(new URL('../apps/console/styles.css', import.meta.url), 'utf8')
-  assert.match(app, /routes ·/)
-  assert.match(app, /unverified/)
-  assert.doesNotMatch(app, /provider routes observed/)
-  assert.match(app, /lastObservedAt/)
-  assert.match(app, /providerHealth\.overall === "unknown" \? "Not verified"/)
-  assert.match(app, /provider\.status === "unknown" \? "Not verified"/)
-  assert.match(app, /provider-route-details/)
-  assert.match(app, /\["unavailable", "rate_limited", "degraded"\]/)
-  assert.match(css, /\.provider-route-details summary/)
-  assert.match(css, /\.provider-route-details dt small/)
+  assert.doesNotMatch(app, /<h3>Provider health<\/h3>/)
+  assert.doesNotMatch(app, /Provider routes: \$\{/)
+  assert.doesNotMatch(app, /provider-route-details/)
+  assert.doesNotMatch(app, /routes · \$\{unverified\}/)
+  assert.match(app, /<h3>Email and web chat<\/h3>/)
+  assert.match(app, /<h3>Verified identity<\/h3>/)
+  assert.match(app, /<h3>Audio notifications<\/h3>/)
 })
 
-test('provider health uses live runtime evidence and bypasses stored browser results', async () => {
+test('No background provider-health polling remains in the visible Settings view', async () => {
   const app = await readFile(new URL('../apps/console/app.js', import.meta.url), 'utf8')
-  const client = await readFile(new URL('../packages/api-client/index.js', import.meta.url), 'utf8')
-  assert.match(client, /providerHealth\(\) \{ return this.request\("\/providers\/health", \{ cache: "no-store" \}\); \}/)
-  assert.match(app, /live\?\.source === "current_runtime_outcomes"/)
-  assert.match(app, /Last operation:/)
-  assert.match(app, /Live data unavailable/)
-  assert.match(app, /setInterval\(\(\) =>/)
-  assert.match(app, /document\.hidden/)
-  assert.match(app, /30_000/)
-  assert.match(app, /state\.providerHealth = null/)
+  assert.doesNotMatch(app, /client\.providerHealth\(\)\.then/)
+  assert.match(app, /client\.emailStatus\(\)/)
+  assert.match(app, /client\.chatStatus\(\)/)
 })
