@@ -31,6 +31,7 @@ test("console boot does not depend on an inline import map blocked by CSP", asyn
 
 test("failed bootstrap removes the loading layout before rendering the error shell", async () => {
   const app = await readFile(resolve(root, "apps/console/app.js"), "utf8");
-  const render = app.slice(app.indexOf("function render() {"), app.indexOf("function render() {") + 420);
-  assert.match(render, /root\.className = "";\s*if \(state\.error && !state\.bootstrap\) \{\s*root\.innerHTML = errorView\(\)/);
+  const renderStart = app.indexOf("function render() {");
+  const render = app.slice(renderStart, app.indexOf("\nfunction bindEvents()", renderStart));
+  assert.match(render, /root\.className = "";\s*[\s\S]*?if \(state\.error && !state\.bootstrap\) \{\s*root\.innerHTML = errorView\(\)/);
 });
