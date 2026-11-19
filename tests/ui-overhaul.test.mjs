@@ -126,3 +126,22 @@ test('operator overview does not claim healthy or empty state on failed refresh'
   assert.match(styles, /\.dashboard-health/)
   assert.match(styles, /\.nav-subitem,\s*\.quick-filter,\s*\.button\.compact/)
 })
+
+test('embedded icon navigation retains accessible names on mobile', async () => {
+  const app = await readFile(new URL('../apps/console/app.js', import.meta.url), 'utf8')
+  assert.match(app, /data-view="\$\{key\}" aria-label="\$\{escapeHtml\(label\)\}"/)
+  assert.match(app, /data-view="\$\{subKey\}" aria-label="\$\{escapeHtml\(subLabel\)\}"/)
+  assert.match(app, /Ctrl \/ ⌘ K/)
+})
+
+test('mobile navigation isolates background and contains keyboard focus', async () => {
+  const app = await readFile(new URL('../apps/console/app.js', import.meta.url), 'utf8')
+  const css = await readFile(new URL('../apps/console/styles.css', import.meta.url), 'utf8')
+  assert.match(app, /aria-modal="true"/)
+  assert.match(app, /state\.sidebarOpen \? "inert"/)
+  assert.match(app, /event\.key === "Tab" && state\.sidebarOpen/)
+  assert.match(app, /focusAfterRender\("#aims-main-content"\)/)
+  assert.match(css, /body\.aims-nav-open \{ overflow: hidden; \}/)
+  assert.match(css, /\.sidebar \{ overflow-y: auto; overscroll-behavior: contain; \}/)
+  assert.match(css, /\.manual-mail-row:focus-visible/)
+})
