@@ -181,3 +181,11 @@ test('status count badges and error toasts meet WCAG AA normal-text contrast aga
     assert.match(rule, /color: var\(--aims-text\)/)
   }
 })
+
+test('mobile navigation recaptures keyboard focus after asynchronous re-render and ignores hidden controls', async () => {
+  const app = await readFile(new URL('../apps/console/app.js', import.meta.url), 'utf8')
+  assert.match(app, /getComputedStyle\(item\)\.visibility !== "hidden"/)
+  assert.match(app, /item\.tabIndex >= 0/)
+  assert.match(app, /!drawer\?\.contains\(document\.activeElement\)/)
+  assert.match(app, /escaped \|\| \(event\.shiftKey/)
+})
