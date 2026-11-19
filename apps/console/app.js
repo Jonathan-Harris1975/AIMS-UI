@@ -1051,6 +1051,8 @@ function settingsView() {
   const channels = social.channels || {};
   const providerHealth = state.providerHealth?.health || {};
   const providers = Array.isArray(providerHealth.providers) ? providerHealth.providers : [];
+  const unverified = providers.filter((row) => row.status === "unknown").length;
+  const needsAttention = providers.some((row) => ["unavailable", "rate_limited", "degraded"].includes(row.status));
   const email = state.emailStatus || {};
   const emailLoaded = state.emailStatus !== null;
   const chatLoaded = state.chatStatus !== null;
@@ -1102,14 +1104,16 @@ function settingsView() {
         <h3>Provider health</h3>
         <div class="social-status-strip">
           <span class="pill ${providerHealth.overall === "healthy" ? "pill-open" : providerHealth.overall === "unavailable" ? "pill-quarantined" : "pill-pending"}">
-            ${escapeHtml(titleCase(providerHealth.overall || "unknown"))}
+            ${providerHealth.overall === "unknown" ? "Not verified" : escapeHtml(titleCase(providerHealth.overall || "unknown"))}
           </span>
-          <span>${providers.length} provider routes observed</span>
+          <span>${providers.length} routes catalogued · ${unverified} unverified</span>
         </div>
+        ${unverified ? `<p class="async-status">No recent runtime evidence for ${unverified} routes; configuration alone does not prove health.</p>` : ""}
+        <details class="provider-route-details" ${needsAttention ? "open" : ""}><summary>Provider route details</summary>
         <dl>${providers.length ? providers.map((provider) => `<div>
           <dt>${escapeHtml(provider.provider || "Unknown")}${provider.adapter ? `<small>Route: ${escapeHtml(provider.adapter)}</small>` : ""}</dt>
-          <dd>${escapeHtml(titleCase(provider.status || "unknown"))}</dd>
-        </div>`).join("") : `<div><dt>Status</dt><dd>No health snapshot yet</dd></div>`}</dl>
+          <dd>${escapeHtml(provider.status === "unknown" ? "Not verified" : titleCase(provider.status || "unknown"))}</dd>
+        </div>`).join("") : `<div><dt>Status</dt><dd>No health snapshot yet</dd></div>`}</dl></details>
       </section>
       <section class="panel settings-card">
         <h3>Email and web chat</h3>

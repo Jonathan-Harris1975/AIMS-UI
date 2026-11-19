@@ -176,6 +176,8 @@ svg { width: 20px; height: 20px; fill: currentColor; }
 dt { color: var(--aims-text-faint); }
 dd { margin: 0; color: var(--aims-text-soft); overflow-wrap: anywhere; }
 .social-status-strip { display: flex; align-items: center; gap: var(--aims-space-3); margin-bottom: var(--aims-space-4); color: var(--aims-text-faint); font-size: var(--aims-type-xs); }
+.provider-route-details summary { cursor:pointer; color:var(--aims-text-soft); padding:var(--aims-space-3) 0; }
+.provider-route-details dt small { display:block; color:var(--aims-text-faint); overflow-wrap:anywhere; }
 .social-capability-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--aims-space-2); margin-bottom: var(--aims-space-4); }
 .social-capability-grid article { padding: var(--aims-space-3); border: 1px solid var(--aims-border); border-radius: var(--aims-radius-sm); display: grid; gap: var(--aims-space-1); }
 .social-capability-grid span, .social-capability-grid small { color: var(--aims-text-faint); font-size: var(--aims-type-xs); }
