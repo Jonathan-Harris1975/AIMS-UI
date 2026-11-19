@@ -49,7 +49,7 @@ export class AimsCommsClient {
     this.tokenProvider = typeof tokenProvider === "function" ? tokenProvider : null;
   }
 
-  async request(path, { method = "GET", query, body, headers = {}, signal, idempotent = false, idempotencyKey = "" } = {}) {
+  async request(path, { method = "GET", query, body, headers = {}, signal, idempotent = false, idempotencyKey = "", cache } = {}) {
     const token = await this.tokenProvider?.();
     const requestHeaders = new Headers(headers);
     requestHeaders.set("accept", "application/json");
@@ -65,6 +65,7 @@ export class AimsCommsClient {
       headers: requestHeaders,
       body: body === undefined ? undefined : JSON.stringify(body),
       signal,
+      cache,
     });
     const payload = await response.json().catch(() => null);
     if (!response.ok || payload?.ok === false) {
@@ -140,7 +141,7 @@ export class AimsCommsClient {
   tidyQuarantine(dryRun = true) { return this.request("/maintenance/quarantine-tidy", { method: "POST", body: { dryRun }, idempotent: true }); }
 
   socialStatus() { return this.request("/social/status"); }
-  providerHealth() { return this.request("/providers/health"); }
+  providerHealth() { return this.request("/providers/health", { cache: "no-store" }); }
   chatStatus() { return this.request("/chat/status"); }
   emailStatus() { return this.request("/email/status"); }
   manualMailAccounts() { return this.request("/manual-mail/accounts"); }

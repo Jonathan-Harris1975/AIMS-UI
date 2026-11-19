@@ -1049,8 +1049,12 @@ function settingsView() {
   const social = state.socialStatus?.monitoring || {};
   const socialLoaded = state.socialStatus?.monitoring != null;
   const channels = social.channels || {};
-  const providerHealth = state.providerHealth?.health || {};
+  const live = state.providerHealth?.health;
+  const providerHealth = live?.source === "current_runtime_outcomes" ? live : {};
   const providers = Array.isArray(providerHealth.providers) ? providerHealth.providers : [];
+  const healthSourceText = providerHealth.checkedAt
+    ? `Live check: ${formatDateTime(providerHealth.checkedAt)}.`
+    : "Live data unavailable.";
   const unverified = providers.filter((row) => row.status === "unknown").length;
   const needsAttention = providers.some((row) => ["unavailable", "rate_limited", "degraded"].includes(row.status));
   const email = state.emailStatus || {};
@@ -1063,8 +1067,8 @@ function settingsView() {
   return shell(`
     ${pageHeader(
       "Settings",
-      "Review operator-visible configuration, identity and channel health.",
-      `<button class="button secondary" data-action="load-social-status">Refresh channel status</button>`,
+      "Identity and channels.",
+      `<button class="button secondary" data-action="load-social-status">Refresh</button>`,
     )}
 <div class="settings-grid">
 <section class="panel settings-card">
@@ -1077,7 +1081,7 @@ function settingsView() {
 </section>
 <section class="panel settings-card comms-audio-settings">
 <h3>Audio notifications</h3>
-<p>Only communications that need a human decision can sound. Routine processing stays silent.</p>
+<p>Only actionable alerts sound.</p>
 <label><input type="checkbox" data-comms-audio="enabled" ${commsAudioPreferences().enabled ? "checked" : ""}> Sound on</label>
 <label><input type="checkbox" data-comms-audio="review_required" ${commsAudioPreferences().review_required ? "checked" : ""}> Review required sound</label>
 <label><input type="checkbox" data-comms-audio="urgent" ${commsAudioPreferences().urgent ? "checked" : ""}> Urgent sound</label>
@@ -1106,14 +1110,16 @@ function settingsView() {
 <span class="pill ${providerHealth.overall === "healthy" ? "pill-open" : providerHealth.overall === "unavailable" ? "pill-quarantined" : "pill-pending"}">
             ${providerHealth.overall === "unknown" ? "Not verified" : escapeHtml(titleCase(providerHealth.overall || "unknown"))}
 </span>
-<span>${providers.length} routes catalogued · ${unverified} unverified</span>
+<span>${providers.length} routes · ${unverified} unverified</span>
 </div>
-        ${unverified ? `<p class="async-status">No recent runtime evidence for ${unverified} routes; configuration alone does not prove health.</p>` : ""}
+<p class="async-status">${escapeHtml(healthSourceText)}</p>
 <details class="provider-route-details" ${needsAttention ? "open" : ""}><summary>Provider route details</summary>
 <dl>${providers.length ? providers.map((provider) => `<div>
-<dt>${escapeHtml(provider.provider || "Unknown")}${provider.adapter ? `<small>Route: ${escapeHtml(provider.adapter)}</small>` : ""}</dt>
+<dt>${escapeHtml(provider.provider || "Unknown")}
+${provider.adapter ? `<small>Route: ${escapeHtml(provider.adapter)}</small>` : ""}
+<small>${provider.lastObservedAt ? `Last operation: ${escapeHtml(formatDateTime(provider.lastObservedAt))}` : "Unobserved"}</small></dt>
 <dd>${escapeHtml(provider.status === "unknown" ? "Not verified" : titleCase(provider.status || "unknown"))}</dd>
-</div>`).join("") : `<div><dt>Status</dt><dd>No health snapshot yet</dd></div>`}</dl></details>
+</div>`).join("") : `<div><dt>Status</dt><dd>No live assessment</dd></div>`}</dl></details>
 </section>
 <section class="panel settings-card">
 <h3>Email and web chat</h3>
@@ -1780,7 +1786,7 @@ function navigate(view) {
   if (view === "mail") loadManualMail();
   else if (view === "quarantine" && !state.quarantine.length) loadQuarantine();
   else if (view === "analytics" && !state.metrics) loadMetrics();
-  else if (view === "settings" && (!state.socialStatus || !state.providerHealth || !state.chatStatus || !state.emailStatus)) loadSocialStatus({ keepView: true });
+  else if (view === "settings") { state.providerHealth = null; loadSocialStatus({ keepView: true }); }
   else render();
   history.replaceState(null, "", `${location.pathname}${location.search}#${view}`);
   focusAfterRender("#aims-main-content");
@@ -2316,4 +2322,11 @@ document.addEventListener("keydown", (event) => {
 });
 
 if (config.embedded) setInterval(() => { if (state.bootstrap) client.notifications().then((r) => updateCommsNotifications(r.notifications), () => {}); }, 15_000);
+setInterval(() => {
+  if (state.view !== "settings" || document.hidden) return;
+  client.providerHealth().then(
+    health => { state.providerHealth = health; if (state.view === "settings") render(); },
+    e => { state.providerHealth = e?.payload?.health ? { health: e.payload.health } : null; if (state.view === "settings") render(); },
+  );
+}, 30_000);
 loadBootstrap();
