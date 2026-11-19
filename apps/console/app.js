@@ -368,7 +368,8 @@ function shell(content) {
 <nav class="embedded-inbox-subnav" aria-label="Unified inbox sections">
 <div class="embedded-inbox-subnav-scroll">
               ${inboxSubItems.map(([subKey, subLabel, subIcon]) => `
-<button class="embedded-inbox-subnav-item ${activeInboxSubView() === subKey ? "active" : ""}" data-view="${subKey}" aria-label="${escapeHtml(subLabel)}" ${activeInboxSubView() === subKey ? 'aria-current="page"' : ""}>
+<button class="embedded-inbox-subnav-item ${activeInboxSubView() === subKey ? "active" : ""}"
+                  data-view="${subKey}" aria-label="${escapeHtml(subLabel)}" ${activeInboxSubView() === subKey ? 'aria-current="page"' : ""}>
                   ${subIcon}<span>${escapeHtml(subLabel)}</span>
 </button>
               `).join("")}
