@@ -1066,116 +1066,116 @@ function settingsView() {
       "Review operator-visible configuration, identity and channel health.",
       `<button class="button secondary" data-action="load-social-status">Refresh channel status</button>`,
     )}
-    <div class="settings-grid">
-      <section class="panel settings-card">
-        <h3>Console connection</h3>
-        <dl>
-          <div><dt>API gateway</dt><dd>${escapeHtml(config.apiBaseUrl)}</dd></div>
-          <div><dt>Mode</dt><dd>Live</dd></div>
-          <div><dt>API version</dt><dd>${escapeHtml(state.bootstrap?.apiVersion || "Unknown")}</dd></div>
-        </dl>
-      </section>
-      <section class="panel settings-card comms-audio-settings">
-        <h3>Audio notifications</h3>
-        <p>Only communications that need a human decision can sound. Routine processing stays silent.</p>
-        <label><input type="checkbox" data-comms-audio="enabled" ${commsAudioPreferences().enabled ? "checked" : ""}> Sound on</label>
-        <label><input type="checkbox" data-comms-audio="review_required" ${commsAudioPreferences().review_required ? "checked" : ""}> Review required sound</label>
-        <label><input type="checkbox" data-comms-audio="urgent" ${commsAudioPreferences().urgent ? "checked" : ""}> Urgent sound</label>
-        <label><input type="checkbox" data-comms-audio="resolved" ${commsAudioPreferences().resolved ? "checked" : ""}> Resolved confirmation sound</label>
-        <label><input type="checkbox" data-comms-audio="new_message" ${commsAudioPreferences().new_message ? "checked" : ""}> Actionable new message sound</label>
-        <label class="comms-audio-volume">
+<div class="settings-grid">
+<section class="panel settings-card">
+<h3>Console connection</h3>
+<dl>
+<div><dt>API gateway</dt><dd>${escapeHtml(config.apiBaseUrl)}</dd></div>
+<div><dt>Mode</dt><dd>Live</dd></div>
+<div><dt>API version</dt><dd>${escapeHtml(state.bootstrap?.apiVersion || "Unknown")}</dd></div>
+</dl>
+</section>
+<section class="panel settings-card comms-audio-settings">
+<h3>Audio notifications</h3>
+<p>Only communications that need a human decision can sound. Routine processing stays silent.</p>
+<label><input type="checkbox" data-comms-audio="enabled" ${commsAudioPreferences().enabled ? "checked" : ""}> Sound on</label>
+<label><input type="checkbox" data-comms-audio="review_required" ${commsAudioPreferences().review_required ? "checked" : ""}> Review required sound</label>
+<label><input type="checkbox" data-comms-audio="urgent" ${commsAudioPreferences().urgent ? "checked" : ""}> Urgent sound</label>
+<label><input type="checkbox" data-comms-audio="resolved" ${commsAudioPreferences().resolved ? "checked" : ""}> Resolved confirmation sound</label>
+<label><input type="checkbox" data-comms-audio="new_message" ${commsAudioPreferences().new_message ? "checked" : ""}> Actionable new message sound</label>
+<label class="comms-audio-volume">
           Volume <input type="range" min="0" max="1" step="0.05" value="${commsAudioPreferences().volume}" data-comms-audio="volume">
-          <span>${Math.round(commsAudioPreferences().volume * 100)}%</span>
-        </label>
-        <div class="comms-audio-actions">
-          <button class="button secondary" type="button" data-action="test-comms-sound">Test Sound</button>
-        </div>
-        <p class="comms-audio-status" role="status" aria-live="polite"></p>
-      </section>
-      <section class="panel settings-card">
-        <h3>Verified identity</h3>
-        <dl>
-          <div><dt>Actor</dt><dd>${escapeHtml(identity.actor || "Unknown")}</dd></div>
-          <div><dt>Role</dt><dd>${escapeHtml(titleCase(identity.role || "read_only"))}</dd></div>
-          <div><dt>Strategy</dt><dd>${escapeHtml(identity.strategy || "Unknown")}</dd></div>
-        </dl>
-      </section>
-      <section class="panel settings-card">
-        <h3>Provider health</h3>
-        <div class="social-status-strip">
-          <span class="pill ${providerHealth.overall === "healthy" ? "pill-open" : providerHealth.overall === "unavailable" ? "pill-quarantined" : "pill-pending"}">
+<span>${Math.round(commsAudioPreferences().volume * 100)}%</span>
+</label>
+<div class="comms-audio-actions">
+<button class="button secondary" type="button" data-action="test-comms-sound">Test Sound</button>
+</div>
+<p class="comms-audio-status" role="status" aria-live="polite"></p>
+</section>
+<section class="panel settings-card">
+<h3>Verified identity</h3>
+<dl>
+<div><dt>Actor</dt><dd>${escapeHtml(identity.actor || "Unknown")}</dd></div>
+<div><dt>Role</dt><dd>${escapeHtml(titleCase(identity.role || "read_only"))}</dd></div>
+<div><dt>Strategy</dt><dd>${escapeHtml(identity.strategy || "Unknown")}</dd></div>
+</dl>
+</section>
+<section class="panel settings-card">
+<h3>Provider health</h3>
+<div class="social-status-strip">
+<span class="pill ${providerHealth.overall === "healthy" ? "pill-open" : providerHealth.overall === "unavailable" ? "pill-quarantined" : "pill-pending"}">
             ${providerHealth.overall === "unknown" ? "Not verified" : escapeHtml(titleCase(providerHealth.overall || "unknown"))}
-          </span>
-          <span>${providers.length} routes catalogued · ${unverified} unverified</span>
-        </div>
+</span>
+<span>${providers.length} routes catalogued · ${unverified} unverified</span>
+</div>
         ${unverified ? `<p class="async-status">No recent runtime evidence for ${unverified} routes; configuration alone does not prove health.</p>` : ""}
-        <details class="provider-route-details" ${needsAttention ? "open" : ""}><summary>Provider route details</summary>
-        <dl>${providers.length ? providers.map((provider) => `<div>
-          <dt>${escapeHtml(provider.provider || "Unknown")}${provider.adapter ? `<small>Route: ${escapeHtml(provider.adapter)}</small>` : ""}</dt>
-          <dd>${escapeHtml(provider.status === "unknown" ? "Not verified" : titleCase(provider.status || "unknown"))}</dd>
-        </div>`).join("") : `<div><dt>Status</dt><dd>No health snapshot yet</dd></div>`}</dl></details>
-      </section>
-      <section class="panel settings-card">
-        <h3>Email and web chat</h3>
-        <dl>
-          <div><dt>Email</dt><dd>${!emailLoaded ? "Unknown" : email.enabled ? "Enabled" : "Disabled"}</dd></div>
-          <div><dt>Mailbox</dt><dd>${escapeHtml(!emailLoaded ? "Unknown" : emailAccount.address || "Not configured")}</dd></div>
-          <div><dt>Email worker</dt><dd>${!emailLoaded ? "Unknown" : emailAccount.workerRunning ? "Polling" : emailAccount.workerStarted ? "Scheduled" : "Off"}</dd></div>
-          <div><dt>Last success</dt><dd>${escapeHtml(!emailLoaded ? "Unknown" : emailPollState.lastSuccessAt ? formatDateTime(emailPollState.lastSuccessAt) : "None")}</dd></div>
-          <div><dt>Web chat</dt><dd>${!chatLoaded ? "Unknown" : chat.enabled ? `Enabled · ${escapeHtml(chat.transport || "unknown")}` : "Disabled"}</dd></div>
-          <div><dt>Chat AI</dt><dd>${!chatLoaded ? "Unknown" : chat.aiWorkflowEnabled ? "Enabled" : "Disabled"}</dd></div>
-        </dl>
-      </section>
-      <section class="panel settings-card social-settings-card"><h3>Social channel setup</h3>
-        <div class="social-status-strip">
-          <span class="pill ${social.monitorOnly ? "pill-pending" : "pill-open"}">
+<details class="provider-route-details" ${needsAttention ? "open" : ""}><summary>Provider route details</summary>
+<dl>${providers.length ? providers.map((provider) => `<div>
+<dt>${escapeHtml(provider.provider || "Unknown")}${provider.adapter ? `<small>Route: ${escapeHtml(provider.adapter)}</small>` : ""}</dt>
+<dd>${escapeHtml(provider.status === "unknown" ? "Not verified" : titleCase(provider.status || "unknown"))}</dd>
+</div>`).join("") : `<div><dt>Status</dt><dd>No health snapshot yet</dd></div>`}</dl></details>
+</section>
+<section class="panel settings-card">
+<h3>Email and web chat</h3>
+<dl>
+<div><dt>Email</dt><dd>${!emailLoaded ? "Unknown" : email.enabled ? "Enabled" : "Disabled"}</dd></div>
+<div><dt>Mailbox</dt><dd>${escapeHtml(!emailLoaded ? "Unknown" : emailAccount.address || "Not configured")}</dd></div>
+<div><dt>Email worker</dt><dd>${!emailLoaded ? "Unknown" : emailAccount.workerRunning ? "Polling" : emailAccount.workerStarted ? "Scheduled" : "Off"}</dd></div>
+<div><dt>Last success</dt><dd>${escapeHtml(!emailLoaded ? "Unknown" : emailPollState.lastSuccessAt ? formatDateTime(emailPollState.lastSuccessAt) : "None")}</dd></div>
+<div><dt>Web chat</dt><dd>${!chatLoaded ? "Unknown" : chat.enabled ? `Enabled · ${escapeHtml(chat.transport || "unknown")}` : "Disabled"}</dd></div>
+<div><dt>Chat AI</dt><dd>${!chatLoaded ? "Unknown" : chat.aiWorkflowEnabled ? "Enabled" : "Disabled"}</dd></div>
+</dl>
+</section>
+<section class="panel settings-card social-settings-card"><h3>Social channel setup</h3>
+<div class="social-status-strip">
+<span class="pill ${social.monitorOnly ? "pill-pending" : "pill-open"}">
             ${!socialLoaded ? "Unknown" : social.monitorOnly ? "Monitoring only" : "Outbound enabled"}
-          </span>
-          <span>${!socialLoaded ? "Poll worker unknown" : social.pollWorkerEnabled ? "Poll worker enabled" : "Poll worker disabled"}</span>
-        </div>
-        <div class="social-capability-grid">
+</span>
+<span>${!socialLoaded ? "Poll worker unknown" : social.pollWorkerEnabled ? "Poll worker enabled" : "Poll worker disabled"}</span>
+</div>
+<div class="social-capability-grid">
           ${["facebook", "instagram", "youtube"].map((platform) => {
             const cap = channels[platform] || {};
             return `<article>
-              <strong>${escapeHtml(channelLabel(platform))}</strong>
-              <span>${!socialLoaded ? "Unknown" : cap.enabled ? "Configured" : "Disabled"}</span>
-              <small>${!socialLoaded ? "Capabilities unavailable" : cap.directMessages ? "DMs + comments" : "Comments only"}</small>
-            </article>`;
+<strong>${escapeHtml(channelLabel(platform))}</strong>
+<span>${!socialLoaded ? "Unknown" : cap.enabled ? "Configured" : "Disabled"}</span>
+<small>${!socialLoaded ? "Capabilities unavailable" : cap.directMessages ? "DMs + comments" : "Comments only"}</small>
+</article>`;
           }).join("")}
-        </div>
+</div>
         ${canManageSocial ? `<div class="button-row">
-          <button class="button secondary" data-action="reconcile-social"
+<button class="button secondary" data-action="reconcile-social"
             ${state.socialBusy ? "disabled aria-busy=\"true\"" : ""}>Reconcile webhooks</button>
-          <button class="button secondary" data-action="poll-social"
+<button class="button secondary" data-action="poll-social"
             ${state.socialBusy ? "disabled aria-busy=\"true\"" : ""}>Run poll now</button>
-        </div>
+</div>
         ${state.socialBusy
           ? `<p class="async-status" role="status" aria-live="polite">Updating social provider status…</p>`
           : ""}` : ""}
-      </section>
-      <section class="panel settings-card">
-        <h3>Responsive contract</h3>
-        <dl>
-          <div>
-            <dt>Minimum width</dt>
-            <dd>${escapeHtml(state.bootstrap?.responsiveContract?.minimumWidth || 320)}px</dd>
-          </div>
-          <div>
-            <dt>Pagination</dt>
-            <dd>${escapeHtml(state.bootstrap?.responsiveContract?.pagination || "cursor")}</dd>
-          </div>
-          <div>
-            <dt>Actions</dt>
-            <dd>${escapeHtml((state.bootstrap?.responsiveContract?.actions || []).join(", "))}</dd>
-          </div>
-        </dl>
-      </section>
-      <section class="panel settings-card">
-        <h3>Security boundary</h3>
-        <p>The browser holds no AIMS delegation secret. HIVE identity verification and HMAC signing happen in the
+</section>
+<section class="panel settings-card">
+<h3>Responsive contract</h3>
+<dl>
+<div>
+<dt>Minimum width</dt>
+<dd>${escapeHtml(state.bootstrap?.responsiveContract?.minimumWidth || 320)}px</dd>
+</div>
+<div>
+<dt>Pagination</dt>
+<dd>${escapeHtml(state.bootstrap?.responsiveContract?.pagination || "cursor")}</dd>
+</div>
+<div>
+<dt>Actions</dt>
+<dd>${escapeHtml((state.bootstrap?.responsiveContract?.actions || []).join(", "))}</dd>
+</div>
+</dl>
+</section>
+<section class="panel settings-card">
+<h3>Security boundary</h3>
+<p>The browser holds no AIMS delegation secret. HIVE identity verification and HMAC signing happen in the
           edge gateway before AIMS performs its own RBAC checks.</p>
-      </section>
-    </div>
+</section>
+</div>
   `);
 }
 
