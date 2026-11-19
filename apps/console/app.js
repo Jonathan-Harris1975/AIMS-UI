@@ -2293,9 +2293,11 @@ async function openNotification(button) {
 document.addEventListener("keydown", (event) => {
   if (event.key === "Tab" && state.sidebarOpen) {
     const drawer = root.querySelector("#aims-sidebar");
-    const items = [...(drawer?.querySelectorAll('button:not([disabled]), a[href]') || [])].filter((item) => item.getClientRects().length);
+    const items = [...(drawer?.querySelectorAll('button:not([disabled]), a[href]') || [])].filter((item) =>
+      item.getClientRects().length && getComputedStyle(item).visibility !== "hidden" && item.tabIndex >= 0);
     const first = items[0], last = items.at(-1);
-    if (items.length && (event.shiftKey ? document.activeElement === first : document.activeElement === last)) {
+    const escaped = !drawer?.contains(document.activeElement);
+    if (items.length && (escaped || (event.shiftKey ? document.activeElement === first : document.activeElement === last))) {
       event.preventDefault();
       (event.shiftKey ? last : first).focus();
     }
