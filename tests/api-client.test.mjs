@@ -120,6 +120,25 @@ test("client exposes channel health, social setup and action endpoints", async (
   assert.match(calls[7][0], /\/social\/conversations\/cnv-1\/approvals\/delete$/);
 });
 
+test("client exposes read-only outreach status endpoints", async () => {
+  const calls = [];
+  const client = new AimsCommsClient({
+    baseUrl: "/console/api",
+    fetchImpl: async (url, options) => {
+      calls.push([String(url), options.method, options.cache]);
+      return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } });
+    },
+  });
+  await client.outreachAutomationStatus();
+  await client.bookFeatureStatus();
+  await client.bookFeatureOverview();
+  assert.deepEqual(calls, [
+    ["/console/api/outreach/automation/status", "GET", "no-store"],
+    ["/console/api/outreach/book-feature/status", "GET", "no-store"],
+    ["/console/api/outreach/book-feature/overview", "GET", "no-store"],
+  ]);
+});
+
 
 test("social action can reuse the approval idempotency key for scoped execution", async () => {
   let captured;
