@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 31807)
-Total output lines: 2393
-
 import { AimsCommsClient, AimsApiError } from "../../packages/api-client/index.js";
 import { escapeHtml, formatDateTime, formatRelativeTime, secondsToAge, titleCase, readCommsMetrics } from "../../packages/shared/format.js";
 import { roleAllows } from "../../packages/shared/contracts.js";
@@ -1108,7 +1105,138 @@ function settingsView() {
 <div><dt>Mailbox</dt><dd>${escapeHtml(!emailLoaded ? "Unknown" : emailAccount.address || "Not configured")}</dd></div>
 <div><dt>Email worker</dt><dd>${!emailLoaded ? "Unknown" : emailAccount.workerRunning ? "Polling" : emailAccount.workerStarted ? "Scheduled" : "Off"}</dd></div>
 <div><dt>Last success</dt><dd>${escapeHtml(!emailLoaded ? "Unknown" : emailPollState.lastSuccessAt ? formatDateTime(emailPollState.lastSuccessAt) : "None")}</dd></div>
-<div><dt>Web chat</d…1807 tokens truncated…te">Archived</span>`
+<div><dt>Web chat</dt><dd>${!chatLoaded ? "Unknown" : chat.enabled ? `Enabled · ${escapeHtml(chat.transport || "unknown")}` : "Disabled"}</dd></div>
+<div><dt>Chat AI</dt><dd>${!chatLoaded ? "Unknown" : chat.aiWorkflowEnabled ? "Enabled" : "Disabled"}</dd></div>
+</dl>
+</section>
+<section class="panel settings-card social-settings-card"><h3>Social channel setup</h3>
+<div class="social-status-strip">
+<span class="pill ${social.monitorOnly ? "pill-pending" : "pill-open"}">
+            ${!socialLoaded ? "Unknown" : social.monitorOnly ? "Monitoring only" : "Outbound enabled"}
+</span>
+<span>${!socialLoaded ? "Poll worker unknown" : social.pollWorkerEnabled ? "Poll worker enabled" : "Poll worker disabled"}</span>
+</div>
+<div class="social-capability-grid">
+          ${["facebook", "instagram", "youtube"].map((platform) => {
+            const cap = channels[platform] || {};
+            return `<article>
+<strong>${escapeHtml(channelLabel(platform))}</strong>
+<span>${!socialLoaded ? "Unknown" : cap.enabled ? "Configured" : "Disabled"}</span>
+<small>${!socialLoaded ? "Capabilities unavailable" : cap.directMessages ? "DMs + comments" : "Comments only"}</small>
+</article>`;
+          }).join("")}
+</div>
+        ${canManageSocial ? `<div class="button-row">
+<button class="button secondary" data-action="reconcile-social"
+            ${state.socialBusy ? "disabled aria-busy=\"true\"" : ""}>Reconcile webhooks</button>
+<button class="button secondary" data-action="poll-social"
+            ${state.socialBusy ? "disabled aria-busy=\"true\"" : ""}>Run poll now</button>
+</div>
+        ${state.socialBusy
+          ? `<p class="async-status" role="status" aria-live="polite">Updating social provider status…</p>`
+          : ""}` : ""}
+</section>
+<section class="panel settings-card">
+<h3>Responsive contract</h3>
+<dl>
+<div>
+<dt>Minimum width</dt>
+<dd>${escapeHtml(state.bootstrap?.responsiveContract?.minimumWidth || 320)}px</dd>
+</div>
+<div>
+<dt>Pagination</dt>
+<dd>${escapeHtml(state.bootstrap?.responsiveContract?.pagination || "cursor")}</dd>
+</div>
+<div>
+<dt>Actions</dt>
+<dd>${escapeHtml((state.bootstrap?.responsiveContract?.actions || []).join(", "))}</dd>
+</div>
+</dl>
+</section>
+<section class="panel settings-card">
+<h3>Security boundary</h3>
+<p>The browser holds no AIMS delegation secret. HIVE identity verification and HMAC signing happen in the
+          edge gateway before AIMS performs its own RBAC checks.</p>
+</section>
+</div>
+  `);
+}
+
+function workspaceView() {
+  if (state.loading && !state.workspace) {
+    return shell(`${pageHeader("Conversation", "Loading the verified thread and operational context.")}
+      <div class="workspace-skeleton" role="status" aria-live="polite" aria-busy="true">
+        <span class="sr-only">Loading conversation</span><i></i><i></i><i></i>
+      </div>`);
+  }
+  if (!state.workspace) {
+    return shell(`${pageHeader("Conversation unavailable", "The requested workspace could not be loaded.")}
+      ${emptyState("No conversation selected", "Return to the unified inbox and choose a conversation.")}`);
+  }
+  const workspace = state.workspace.workspace || state.workspace;
+  const conversation = workspace.conversation || {};
+  const contact = conversation.contact || {};
+  const operations = workspace.operations || {};
+  const aiState = workspace.ai?.state || workspace.ai?.summary || {};
+  const drafts = workspace.ai?.drafts || [];
+  const approvals = workspace.ai?.approvals || [];
+  const pendingApproval = approvals.find((approval) => approval.status === "pending") || null;
+  const latestAutoSent = (workspace.audit || []).find((event) => event.action === "autonomous_reply_sent") || null;
+  const latestAutoSentDetails = auditDetails(latestAutoSent);
+  const executableModerationApprovals = approvals.filter((approval) => approval.target_type === "moderation_action" && approval.status === "approved");
+  const attachments = conversation.attachments || workspace.attachments || [];
+  const socialThread = conversation.socialThread || null;
+  const socialCapabilities = socialThread ? (state.socialStatus?.monitoring?.channels?.[socialThread.platform] || {}) : null;
+  const socialMonitorOnly = state.socialStatus?.monitoring?.monitorOnly === true;
+  const role = state.bootstrap?.identity?.role || "read_only";
+  const canReply = roleAllows(role, "reply");
+  const canApprove = roleAllows(role, "approve");
+  const currentStatus = operations.operational_status || conversation.status || "open";
+  const actor = state.bootstrap?.identity?.actor || "Jonathan";
+  const assignedToMe = operations.owner_type === "person";
+  const replyStatus = socialThread && socialMonitorOnly
+    ? "Monitoring-only mode is active; outbound social actions are locked."
+    : conversation.channel === "email"
+      && ["admin", "newsletter"].includes(String(workspace.emailThread?.account_key || "").toLowerCase())
+      ? `Manual reply from ${escapeHtml(String(workspace.emailThread?.account_key || ""))}@jonathan-harris.online. `
+        + "Initial-response timing policy still applies."
+      : `Sent through ${escapeHtml(channelLabel(conversation.channel))}; AIMS applies provider and approval rules.`;
+  const replyLabel = socialThread?.thread_type === "dm" ? "Send DM" : "Send reply";
+  const autoSentConfidence = latestAutoSentDetails.confidence !== undefined
+    ? `${Math.round(Number(latestAutoSentDetails.confidence || 0) * 100)}%`
+    : "Verified by policy";
+  const autoSentGrounding = Number(latestAutoSentDetails.evidenceCount || 0) > 0
+    ? "Evidence-backed"
+    : "Deterministic / conversational";
+  const autoSentReasons = (latestAutoSentDetails.responseReasons || [])
+    .slice(0, 3)
+    .map((reason) => titleCase(String(reason).replaceAll(":", " ").replaceAll("_", " ")))
+    .join(" · ") || "Safe grounded response";
+  return shell(`
+    <section class="workspace-header">
+      <button class="back-button" data-view="${workspaceInboxView()}">‹ <span>${workspaceInboxView() === "dms" ? "DMs" : workspaceInboxView() === "comments" ? "Comments" : "Inbox"}</span></button>
+      <div>
+        <nav class="workspace-breadcrumb" aria-label="Breadcrumb">
+          <button type="button" data-view="inbox">Unified inbox</button><span>/</span>
+          ${workspaceInboxView() !== "inbox"
+            ? `<button type="button" data-view="${workspaceInboxView()}">
+                ${workspaceInboxView() === "dms" ? "DMs" : "Comments"}
+              </button><span>/</span>`
+            : ""}
+          <strong>${escapeHtml(conversation.subject || "Conversation")}</strong>
+        </nav>
+        <div class="workspace-title">
+          <h1>${escapeHtml(conversation.subject || "Conversation")}</h1>
+          ${statusPill(operations.operational_status || conversation.status)}
+        </div>
+        <p>${escapeHtml(contact.display_name || contact.primary_email || "Unknown contact")}
+          · ${escapeHtml(channelLabel(conversation.channel))}
+          · Updated ${escapeHtml(formatRelativeTime(conversation.last_message_at))}</p>
+      </div>
+      <div class="workspace-actions">
+        ${canReply ? `<button class="button secondary" data-action="analyse">Run AI analysis</button>` : ""}
+        ${currentStatus === "archived"
+          ? `<span class="archive-state">Archived</span>`
           : themedSelect({
             id: "workspace-status",
             value: currentStatus,
