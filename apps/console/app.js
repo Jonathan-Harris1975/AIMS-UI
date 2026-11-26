@@ -130,6 +130,10 @@ const state = {
   metricsLoading: false,
   metricsError: null,
   metricsLoadedAt: null,
+  bookFeature: null,
+  bookFeatureLoading: false,
+  bookFeatureError: null,
+  bookFeatureLoadedAt: null,
   socialStatus: null,
   providerHealth: null,
   monitoringUnavailable: false,
@@ -183,6 +187,7 @@ const navItems = [
   ["workflows", "Workflows", icons.workflow],
   ["quarantine", "Quarantine", icons.quarantine],
   ["analytics", "Analytics", icons.analytics],
+  ["book-feature", "Book Feature", icons.workflow],
   ["settings", "Settings", icons.settings],
 ];
 
@@ -921,6 +926,46 @@ function quarantineView() {
   `);
 }
 
+function bookFeatureView() {
+  const { status, overview } = state.bookFeature || {};
+  const notice = state.bookFeatureError
+    ? `<p role="alert">${escapeHtml(state.bookFeatureError)}${state.bookFeature ? " Showing the previous snapshot." : ""}</p>`
+    : state.bookFeatureLoading ? '<p role="status">Loading Book Feature status…</p>' : "";
+  const unavailable = (value) => value === null || value === undefined ? "N/A" : String(value);
+  return shell(`
+    ${pageHeader("Book Feature Outreach", "Read-only assessment and campaign status. No live dispatch is enabled.",
+      `<button class="button secondary" data-action="load-book-feature" ${state.bookFeatureLoading ? "disabled" : ""}>Refresh status</button>`)}
+    ${notice}
+    ${!status || !overview ? '<section class="panel"><p>Verified backend status is unavailable. No sending state can be inferred.</p></section>' : `
+      <p>Loaded ${escapeHtml(formatDateTime(state.bookFeatureLoadedAt))}. Mode: ${escapeHtml(titleCase(status.mode || "unknown"))}.
+        Scheduler: ${escapeHtml(status.schedulerOwner || "unknown")}. Pilot authorised: ${status.pilotAuthorised === true ? "yes" : "no"}.</p>
+      <div class="metric-grid">
+        ${summaryCard("Campaigns", overview.campaigns?.length ?? "N/A", "Recent campaigns in D1", "blue")}
+        ${summaryCard("Qualified opportunities", overview.opportunities?.qualified ?? "N/A", "Validated records only", "cyan")}
+        ${summaryCard("Outbound dispatch", overview.dispatched ?? "N/A", "Service-reported count", "green")}
+        ${summaryCard("Actual cost (USD)", unavailable(overview.actualCostUsd), "Unknown remains N/A", "blue")}
+      </div>
+      <section class="panel analytics-panel"><header class="panel-header"><div><strong>Recent occurrences</strong>
+        <span>Lease, blocked and completed states from the service</span></div></header>
+        ${overview.occurrences?.length ? `<ul>${overview.occurrences.map((row) => `<li>${escapeHtml(row.local_date || "Unknown date")}
+          · ${escapeHtml(row.weekday || "?")} · ${escapeHtml(titleCase(row.status || "unknown"))}
+          · attempts ${escapeHtml(String(row.attempts ?? "unknown"))}${row.error_code ? ` · ${escapeHtml(row.error_code)}` : ""}</li>`).join("")}</ul>`
+          : '<p>No scheduled occurrences recorded yet.</p>'}
+      </section>
+      <section class="panel analytics-panel"><header class="panel-header"><div><strong>Weekly campaigns</strong>
+        <span>Featured selection and assessment state</span></div></header>
+        ${overview.campaigns?.length ? `<ul>${overview.campaigns.map((row) => `<li>${escapeHtml(row.iso_week || "Unknown week")}
+          · ${escapeHtml(row.title || "Unknown title")} · ${escapeHtml(titleCase(row.state || "unknown"))}</li>`).join("")}</ul>`
+          : '<p>No weekly campaign recorded yet.</p>'}
+      </section>
+      <section class="panel analytics-panel"><header class="panel-header"><div><strong>Production evidence</strong></div></header>
+        <p>Delivered: ${escapeHtml(unavailable(overview.delivered))}; responses: ${escapeHtml(unavailable(overview.responses))};
+          meaningful engagement: ${escapeHtml(unavailable(overview.meaningfulEngagement))}; attribution: ${escapeHtml(overview.attribution || "unavailable")}.
+          These metrics require verified provider and outcome evidence.</p>
+      </section>`}
+  `);
+}
+
 function analyticsView() {
   const metrics = state.metrics;
   const header = pageHeader(
@@ -1540,6 +1585,7 @@ function render() {
     workflows: workflowsView,
     quarantine: quarantineView,
     analytics: analyticsView,
+    "book-feature": bookFeatureView,
     mail: manualMailView,
     settings: settingsView,
   };
@@ -1637,6 +1683,7 @@ function bindEvents() {
   root.querySelectorAll("[data-dismiss-quarantine-id]").forEach((button) => button.addEventListener("click", () => closeQuarantine(button.dataset.dismissQuarantineId, "dismiss")));
   root.querySelectorAll("[data-replay-id]").forEach((button) => button.addEventListener("click", () => replayQuarantine(button.dataset.replayId)));
   root.querySelector('[data-action="load-metrics"]')?.addEventListener("click", loadMetrics);
+  root.querySelector('[data-action="load-book-feature"]')?.addEventListener("click", loadBookFeature);
   root.querySelector('[data-action="load-social-status"]')?.addEventListener("click", loadSocialStatus);
   root.querySelector('[data-action="reconcile-social"]')?.addEventListener("click", reconcileSocial);
   root.querySelector('[data-action="poll-social"]')?.addEventListener("click", pollSocial);
@@ -1759,6 +1806,7 @@ function navigate(view) {
   if (view === "mail") loadManualMail();
   else if (view === "quarantine" && !state.quarantine.length) loadQuarantine();
   else if (view === "analytics" && !state.metrics) loadMetrics();
+  else if (view === "book-feature" && !state.bookFeature) loadBookFeature();
   else if (view === "settings") { state.providerHealth = null; loadSocialStatus({ keepView: true }); }
   else render();
   history.replaceState(null, "", `${location.pathname}${location.search}#${view}`);
@@ -1955,6 +2003,7 @@ async function loadBootstrap() {
     const requestedView = location.hash.slice(1);
     state.view = requestedView && routableViews.has(requestedView) ? requestedView : state.view;
     if (state.view === "analytics") await loadMetrics();
+    if (state.view === "book-feature") await loadBookFeature();
   } catch (error) {
     state.error = error instanceof Error ? error : new Error(String(error));
   } finally {
@@ -1990,6 +2039,24 @@ async function loadMetrics() {
     state.metricsError = error.message || "Metrics could not be loaded.";
   } finally {
     state.metricsLoading = false;
+    render();
+  }
+}
+
+async function loadBookFeature() {
+  if (state.bookFeatureLoading) return;
+  state.bookFeatureLoading = true;
+  state.bookFeatureError = null;
+  state.view = "book-feature";
+  render();
+  try {
+    const [status, overview] = await Promise.all([client.bookFeatureStatus(), client.bookFeatureOverview()]);
+    state.bookFeature = { status, overview };
+    state.bookFeatureLoadedAt = new Date().toISOString();
+  } catch (error) {
+    state.bookFeatureError = error.message || "Book Feature status could not be loaded.";
+  } finally {
+    state.bookFeatureLoading = false;
     render();
   }
 }

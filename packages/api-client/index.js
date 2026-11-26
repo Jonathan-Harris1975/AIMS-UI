@@ -106,6 +106,8 @@ export class AimsCommsClient {
   }
 
   bootstrap() { return this.request("/ui/bootstrap"); }
+  bookFeatureStatus() { return this.request("/book-feature/status", { cache: "no-store" }); }
+  bookFeatureOverview() { return this.request("/book-feature/overview", { cache: "no-store" }); }
   queue(filters = {}) { return this.request("/queue", { query: filters }); }
   workspace(conversationId) { return this.request(`/workspace/${encodeURIComponent(conversationId)}`); }
   contact(contactId) { return this.request(`/contacts/${encodeURIComponent(contactId)}`); }

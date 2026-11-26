@@ -928,6 +928,7 @@ async function verifyHiveIdentity(request, env) {
 export function consoleTargetPath(pathname) {
   const rest = pathname.slice("/console/api".length) || "/";
   if (!rest.startsWith("/") || rest.startsWith("/intake/") || rest.includes("..")) return null;
+  if (rest === "/book-feature/status" || rest === "/book-feature/overview") return `/outreach${rest}`;
   return `/comms-hub${rest}`;
 }
 
@@ -935,6 +936,9 @@ async function proxyConsole(request, env, url) {
   const origin = await requireConsoleOrigin(request, env);
   const targetPath = consoleTargetPath(url.pathname);
   if (!targetPath) return withCors(json({ error: "console_path_denied", message: "This AIMS route is not available to the console." }, { status: 403 }), origin, { credentials: true });
+  if (targetPath.startsWith("/outreach/book-feature/") && request.method !== "GET") {
+    return withCors(json({ error: "console_path_denied", message: "Book Feature console access is read-only." }, { status: 403 }), origin, { credentials: true });
+  }
 
   const aimsBase = baseUrl(env.AIMS_API_BASE_URL);
   if (!aimsBase) throw configurationError("aims_api_base_url_unconfigured", "AIMS_API_BASE_URL is not configured.");

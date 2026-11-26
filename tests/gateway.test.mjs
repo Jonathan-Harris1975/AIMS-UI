@@ -179,6 +179,8 @@ test("console origin rejects lookalike Referer and does not use Referer fallback
 
 test("console proxy blocks intake and traversal paths", () => {
   assert.equal(consoleTargetPath("/console/api/queue"), "/comms-hub/queue");
+  assert.equal(consoleTargetPath("/console/api/book-feature/status"), "/outreach/book-feature/status");
+  assert.equal(consoleTargetPath("/console/api/book-feature/overview"), "/outreach/book-feature/overview");
   assert.equal(consoleTargetPath("/console/api/intake/chat"), null);
   assert.equal(consoleTargetPath("/console/api/../intake/chat"), null);
 });
