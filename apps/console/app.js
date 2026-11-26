@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 31807)
+Total output lines: 2393
+
 import { AimsCommsClient, AimsApiError } from "../../packages/api-client/index.js";
 import { escapeHtml, formatDateTime, formatRelativeTime, secondsToAge, titleCase, readCommsMetrics } from "../../packages/shared/format.js";
 import { roleAllows } from "../../packages/shared/contracts.js";
@@ -137,6 +140,9 @@ const state = {
   emailStatus: null,
   socialBusy: false,
   manualMail: { accounts: [], accountKey: "admin", folders: [], folder: "INBOX", messages: [], selectedUid: null, loading: false },
+  outreach: null,
+  outreachLoading: false,
+  outreachError: null,
 };
 
 function updateCommsNotifications(next) {
@@ -181,6 +187,7 @@ const navItems = [
   ["approvals", "Approvals", icons.approval],
   ["contacts", "Contacts", icons.contacts],
   ["workflows", "Workflows", icons.workflow],
+  ["outreach", "Outreach", icons.analytics],
   ["quarantine", "Quarantine", icons.quarantine],
   ["analytics", "Analytics", icons.analytics],
   ["settings", "Settings", icons.settings],
@@ -1101,138 +1108,7 @@ function settingsView() {
 <div><dt>Mailbox</dt><dd>${escapeHtml(!emailLoaded ? "Unknown" : emailAccount.address || "Not configured")}</dd></div>
 <div><dt>Email worker</dt><dd>${!emailLoaded ? "Unknown" : emailAccount.workerRunning ? "Polling" : emailAccount.workerStarted ? "Scheduled" : "Off"}</dd></div>
 <div><dt>Last success</dt><dd>${escapeHtml(!emailLoaded ? "Unknown" : emailPollState.lastSuccessAt ? formatDateTime(emailPollState.lastSuccessAt) : "None")}</dd></div>
-<div><dt>Web chat</dt><dd>${!chatLoaded ? "Unknown" : chat.enabled ? `Enabled · ${escapeHtml(chat.transport || "unknown")}` : "Disabled"}</dd></div>
-<div><dt>Chat AI</dt><dd>${!chatLoaded ? "Unknown" : chat.aiWorkflowEnabled ? "Enabled" : "Disabled"}</dd></div>
-</dl>
-</section>
-<section class="panel settings-card social-settings-card"><h3>Social channel setup</h3>
-<div class="social-status-strip">
-<span class="pill ${social.monitorOnly ? "pill-pending" : "pill-open"}">
-            ${!socialLoaded ? "Unknown" : social.monitorOnly ? "Monitoring only" : "Outbound enabled"}
-</span>
-<span>${!socialLoaded ? "Poll worker unknown" : social.pollWorkerEnabled ? "Poll worker enabled" : "Poll worker disabled"}</span>
-</div>
-<div class="social-capability-grid">
-          ${["facebook", "instagram", "youtube"].map((platform) => {
-            const cap = channels[platform] || {};
-            return `<article>
-<strong>${escapeHtml(channelLabel(platform))}</strong>
-<span>${!socialLoaded ? "Unknown" : cap.enabled ? "Configured" : "Disabled"}</span>
-<small>${!socialLoaded ? "Capabilities unavailable" : cap.directMessages ? "DMs + comments" : "Comments only"}</small>
-</article>`;
-          }).join("")}
-</div>
-        ${canManageSocial ? `<div class="button-row">
-<button class="button secondary" data-action="reconcile-social"
-            ${state.socialBusy ? "disabled aria-busy=\"true\"" : ""}>Reconcile webhooks</button>
-<button class="button secondary" data-action="poll-social"
-            ${state.socialBusy ? "disabled aria-busy=\"true\"" : ""}>Run poll now</button>
-</div>
-        ${state.socialBusy
-          ? `<p class="async-status" role="status" aria-live="polite">Updating social provider status…</p>`
-          : ""}` : ""}
-</section>
-<section class="panel settings-card">
-<h3>Responsive contract</h3>
-<dl>
-<div>
-<dt>Minimum width</dt>
-<dd>${escapeHtml(state.bootstrap?.responsiveContract?.minimumWidth || 320)}px</dd>
-</div>
-<div>
-<dt>Pagination</dt>
-<dd>${escapeHtml(state.bootstrap?.responsiveContract?.pagination || "cursor")}</dd>
-</div>
-<div>
-<dt>Actions</dt>
-<dd>${escapeHtml((state.bootstrap?.responsiveContract?.actions || []).join(", "))}</dd>
-</div>
-</dl>
-</section>
-<section class="panel settings-card">
-<h3>Security boundary</h3>
-<p>The browser holds no AIMS delegation secret. HIVE identity verification and HMAC signing happen in the
-          edge gateway before AIMS performs its own RBAC checks.</p>
-</section>
-</div>
-  `);
-}
-
-function workspaceView() {
-  if (state.loading && !state.workspace) {
-    return shell(`${pageHeader("Conversation", "Loading the verified thread and operational context.")}
-      <div class="workspace-skeleton" role="status" aria-live="polite" aria-busy="true">
-        <span class="sr-only">Loading conversation</span><i></i><i></i><i></i>
-      </div>`);
-  }
-  if (!state.workspace) {
-    return shell(`${pageHeader("Conversation unavailable", "The requested workspace could not be loaded.")}
-      ${emptyState("No conversation selected", "Return to the unified inbox and choose a conversation.")}`);
-  }
-  const workspace = state.workspace.workspace || state.workspace;
-  const conversation = workspace.conversation || {};
-  const contact = conversation.contact || {};
-  const operations = workspace.operations || {};
-  const aiState = workspace.ai?.state || workspace.ai?.summary || {};
-  const drafts = workspace.ai?.drafts || [];
-  const approvals = workspace.ai?.approvals || [];
-  const pendingApproval = approvals.find((approval) => approval.status === "pending") || null;
-  const latestAutoSent = (workspace.audit || []).find((event) => event.action === "autonomous_reply_sent") || null;
-  const latestAutoSentDetails = auditDetails(latestAutoSent);
-  const executableModerationApprovals = approvals.filter((approval) => approval.target_type === "moderation_action" && approval.status === "approved");
-  const attachments = conversation.attachments || workspace.attachments || [];
-  const socialThread = conversation.socialThread || null;
-  const socialCapabilities = socialThread ? (state.socialStatus?.monitoring?.channels?.[socialThread.platform] || {}) : null;
-  const socialMonitorOnly = state.socialStatus?.monitoring?.monitorOnly === true;
-  const role = state.bootstrap?.identity?.role || "read_only";
-  const canReply = roleAllows(role, "reply");
-  const canApprove = roleAllows(role, "approve");
-  const currentStatus = operations.operational_status || conversation.status || "open";
-  const actor = state.bootstrap?.identity?.actor || "Jonathan";
-  const assignedToMe = operations.owner_type === "person";
-  const replyStatus = socialThread && socialMonitorOnly
-    ? "Monitoring-only mode is active; outbound social actions are locked."
-    : conversation.channel === "email"
-      && ["admin", "newsletter"].includes(String(workspace.emailThread?.account_key || "").toLowerCase())
-      ? `Manual reply from ${escapeHtml(String(workspace.emailThread?.account_key || ""))}@jonathan-harris.online. `
-        + "Initial-response timing policy still applies."
-      : `Sent through ${escapeHtml(channelLabel(conversation.channel))}; AIMS applies provider and approval rules.`;
-  const replyLabel = socialThread?.thread_type === "dm" ? "Send DM" : "Send reply";
-  const autoSentConfidence = latestAutoSentDetails.confidence !== undefined
-    ? `${Math.round(Number(latestAutoSentDetails.confidence || 0) * 100)}%`
-    : "Verified by policy";
-  const autoSentGrounding = Number(latestAutoSentDetails.evidenceCount || 0) > 0
-    ? "Evidence-backed"
-    : "Deterministic / conversational";
-  const autoSentReasons = (latestAutoSentDetails.responseReasons || [])
-    .slice(0, 3)
-    .map((reason) => titleCase(String(reason).replaceAll(":", " ").replaceAll("_", " ")))
-    .join(" · ") || "Safe grounded response";
-  return shell(`
-    <section class="workspace-header">
-      <button class="back-button" data-view="${workspaceInboxView()}">‹ <span>${workspaceInboxView() === "dms" ? "DMs" : workspaceInboxView() === "comments" ? "Comments" : "Inbox"}</span></button>
-      <div>
-        <nav class="workspace-breadcrumb" aria-label="Breadcrumb">
-          <button type="button" data-view="inbox">Unified inbox</button><span>/</span>
-          ${workspaceInboxView() !== "inbox"
-            ? `<button type="button" data-view="${workspaceInboxView()}">
-                ${workspaceInboxView() === "dms" ? "DMs" : "Comments"}
-              </button><span>/</span>`
-            : ""}
-          <strong>${escapeHtml(conversation.subject || "Conversation")}</strong>
-        </nav>
-        <div class="workspace-title">
-          <h1>${escapeHtml(conversation.subject || "Conversation")}</h1>
-          ${statusPill(operations.operational_status || conversation.status)}
-        </div>
-        <p>${escapeHtml(contact.display_name || contact.primary_email || "Unknown contact")}
-          · ${escapeHtml(channelLabel(conversation.channel))}
-          · Updated ${escapeHtml(formatRelativeTime(conversation.last_message_at))}</p>
-      </div>
-      <div class="workspace-actions">
-        ${canReply ? `<button class="button secondary" data-action="analyse">Run AI analysis</button>` : ""}
-        ${currentStatus === "archived"
-          ? `<span class="archive-state">Archived</span>`
+<div><dt>Web chat</d…1807 tokens truncated…te">Archived</span>`
           : themedSelect({
             id: "workspace-status",
             value: currentStatus,
@@ -1517,6 +1393,71 @@ function errorView() {
   `);
 }
 
+function outreachView() {
+  const guest = state.outreach?.guest?.data?.automation || null;
+  const bookStatus = state.outreach?.bookStatus?.data || null;
+  const overview = state.outreach?.bookOverview?.data || null;
+  const show = (value) => value === null || value === undefined || value === "" ? "Unavailable" : String(value);
+  const campaigns = Array.isArray(overview?.campaigns) ? overview.campaigns : null;
+  const occurrences = Array.isArray(overview?.occurrences) ? overview.occurrences : null;
+  const card = (title, value, note) => `<article class="summary-card"><span>${escapeHtml(title)}</span>`
+    + `<strong>${escapeHtml(value)}</strong><small>${escapeHtml(note)}</small></article>`;
+  const field = (label, value) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`;
+  const campaignTable = campaigns?.length ? `<div class="table-wrap"><table>
+    <thead><tr><th>Week</th><th>Book</th><th>State</th><th>Updated</th></tr></thead><tbody>
+    ${campaigns.map((row) => `<tr><td>${escapeHtml(show(row.iso_week))}</td>`
+      + `<td>${escapeHtml(show(row.title))}</td><td>${escapeHtml(show(row.state))}</td>`
+      + `<td>${escapeHtml(row.updated_at ? formatDateTime(row.updated_at) : "Unavailable")}</td></tr>`).join("")}
+    </tbody></table></div>` : emptyState("No Book Feature campaigns recorded", "No campaign records have been returned by AIMS.");
+  const occurrenceList = occurrences?.length ? `<ul>${occurrences.map((row) => `<li>`
+    + `<strong>${escapeHtml(show(row.local_date))}</strong> · ${escapeHtml(show(row.status))}`
+    + `${row.error_code ? ` · ${escapeHtml(row.error_code)}` : ""}</li>`).join("")}</ul>`
+    : "<p>No occurrence records have been returned.</p>";
+  return shell(`
+    ${pageHeader("Outreach operations", "Read-only status for Guest Article and Book Feature campaigns. Sending controls remain outside this console.",
+      `<button class="button secondary" data-action="refresh-outreach" ${state.outreachLoading ? "disabled" : ""}>${state.outreachLoading ? "Refreshing…" : "Refresh"}</button>`)}
+    ${state.outreachError ? `<div class="snapshot-warning" role="alert">${escapeHtml(state.outreachError)}</div>` : ""}
+    <div class="summary-grid outreach-summary">
+      ${card("Guest Article", guest ? guest.sendEnabled ? "Sending configured on" : "Sending off" : "Unavailable",
+    guest ? `Automation ${guest.enabled ? "enabled" : "disabled"}` : "Status unavailable")}
+      ${card("Book Feature", show(bookStatus?.mode), bookStatus ? bookStatus.dispatchEnabled
+    ? "Dispatch enabled" : "Assessment only · no dispatch" : "Status unavailable")}
+      ${card("Candidate references", show(overview?.evidence?.candidateReferences), "Book Feature manuscript evidence")}
+      ${card("Qualified opportunities", show(overview?.opportunities?.qualified), "Durable AIMS records")}
+    </div>
+    <section class="panel outreach-panel">
+      <header><div><h2>Guest Article safeguards</h2><p>Current AIMS automation configuration</p></div></header>
+      ${guest ? `<dl class="outreach-status-grid">
+        ${field("Initial sending", guest.sendEnabled ? "Enabled in configuration" : "Disabled")}
+        ${field("Automatic follow-up", guest.followUpEnabled ? "Enabled in configuration" : "Disabled")}
+        ${field("Maximum follow-ups", show(guest.maxFollowUps))}
+        ${field("Daily send cap", show(guest.maxSendsPerDay))}
+        ${field("Schedule", `${(guest.schedule?.days || []).join(", ")} · ${show(guest.schedule?.time)} ${show(guest.schedule?.timezone)}`)}
+        ${field("Article auto-send", guest.articleAutoSendEnabled ? "Enabled in configuration" : "Disabled")}
+      </dl>` : `<p role="status">Guest Article status unavailable: ${escapeHtml(state.outreach?.guest?.error || "refresh to retry")}</p>`}
+    </section>
+    <section class="panel outreach-panel">
+      <header><div><h2>Book Feature campaign history</h2><p>Assessment remains non-sending until the complete workflow is accepted.</p></div></header>
+      ${bookStatus ? `<p>Scheduler owner: ${escapeHtml(show(bookStatus.schedulerOwner))} · Pilot authorised: `
+    + `${bookStatus.pilotAuthorised === true ? "Yes" : bookStatus.pilotAuthorised === false ? "No" : "Unavailable"}`
+    + ` · Configuration version: ${escapeHtml(show(bookStatus.configurationVersion))}</p>`
+    : `<p role="status">Book Feature status unavailable: ${escapeHtml(state.outreach?.bookStatus?.error || "refresh to retry")}</p>`}
+      ${campaigns ? campaignTable : `<p role="status">Campaign history unavailable: ${escapeHtml(state.outreach?.bookOverview?.error || "refresh to retry")}</p>`}
+      ${occurrences ? `<details class="outreach-occurrences">`
+    + `<summary>Recent scheduled occurrences (${occurrences.length})</summary>${occurrenceList}</details>` : ""}
+    </section>
+    <section class="panel outreach-panel"><header><div><h2>Measurements</h2><p>Unavailable values are not presented as zero.</p></div></header>
+      <dl class="outreach-status-grid">
+        ${field("Delivered", show(overview?.delivered))}
+        ${field("Responses", show(overview?.responses))}
+        ${field("Measured cost (USD)", show(overview?.actualCostUsd))}
+        ${field("Attribution", show(overview?.attribution))}
+      </dl>
+    </section>
+    ${state.outreach?.loadedAt ? `<p class="muted">Last checked ${escapeHtml(formatDateTime(state.outreach.loadedAt))}.</p>` : ""}
+  `);
+}
+
 function render() {
   normaliseFiltersForView();
   // The boot class centres a single loading card; it must not wrap the full shell,
@@ -1542,6 +1483,7 @@ function render() {
     analytics: analyticsView,
     mail: manualMailView,
     settings: settingsView,
+    outreach: outreachView,
   };
   root.innerHTML = (views[state.view] || dashboardView)();
   bindEvents();
@@ -1598,6 +1540,7 @@ function bindEvents() {
     render();
   }));
   root.querySelectorAll('[data-action="refresh"]').forEach((button) => button.addEventListener("click", loadBootstrap));
+  root.querySelector('[data-action="refresh-outreach"]')?.addEventListener("click", () => loadOutreach());
   root.querySelector('[data-action="open-sidebar"]')?.addEventListener("click", openSidebar);
   root.querySelectorAll('[data-action="close-sidebar"]').forEach((button) => button.addEventListener("click", closeSidebar));
   root.querySelectorAll('[data-action="toggle-notifications"]').forEach((button) => button.addEventListener("click", () => toggleNotifications(button)));
@@ -1757,6 +1700,7 @@ function navigate(view) {
   state.sidebarOpen = false;
   state.notificationOpen = false;
   if (view === "mail") loadManualMail();
+  else if (view === "outreach") loadOutreach();
   else if (view === "quarantine" && !state.quarantine.length) loadQuarantine();
   else if (view === "analytics" && !state.metrics) loadMetrics();
   else if (view === "settings") { state.providerHealth = null; loadSocialStatus({ keepView: true }); }
@@ -1955,12 +1899,35 @@ async function loadBootstrap() {
     const requestedView = location.hash.slice(1);
     state.view = requestedView && routableViews.has(requestedView) ? requestedView : state.view;
     if (state.view === "analytics") await loadMetrics();
+    if (state.view === "outreach") await loadOutreach();
   } catch (error) {
     state.error = error instanceof Error ? error : new Error(String(error));
   } finally {
     state.loading = false;
     render();
   }
+}
+
+async function loadOutreach() {
+  if (state.outreachLoading) return;
+  state.outreachLoading = true;
+  state.outreachError = null;
+  if (state.view === "outreach") render();
+  const requests = await Promise.allSettled([
+    client.outreachAutomationStatus(), client.bookFeatureStatus(), client.bookFeatureOverview(),
+  ]);
+  const result = (entry) => entry.status === "fulfilled"
+    ? { data: entry.value, error: "" }
+    : { data: null, error: entry.reason?.message || "Request failed." };
+  state.outreach = {
+    guest: result(requests[0]), bookStatus: result(requests[1]), bookOverview: result(requests[2]),
+    loadedAt: new Date().toISOString(),
+  };
+  if (requests.every((entry) => entry.status === "rejected")) {
+    state.outreachError = "All outreach status requests failed. Current campaign state could not be verified.";
+  }
+  state.outreachLoading = false;
+  if (state.view === "outreach") render();
 }
 
 async function loadQuarantine({ navigate = true } = {}) {
