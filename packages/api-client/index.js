@@ -141,6 +141,9 @@ export class AimsCommsClient {
   tidyQuarantine(dryRun = true) { return this.request("/maintenance/quarantine-tidy", { method: "POST", body: { dryRun }, idempotent: true }); }
 
   socialStatus() { return this.request("/social/status"); }
+  outreachAutomationStatus() { return this.request("/outreach/automation/status", { cache: "no-store" }); }
+  bookFeatureStatus() { return this.request("/outreach/book-feature/status", { cache: "no-store" }); }
+  bookFeatureOverview() { return this.request("/outreach/book-feature/overview", { cache: "no-store" }); }
   providerHealth() { return this.request("/providers/health", { cache: "no-store" }); }
   chatStatus() { return this.request("/chat/status"); }
   emailStatus() { return this.request("/email/status"); }
