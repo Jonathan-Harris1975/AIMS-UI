@@ -1542,16 +1542,22 @@ function outreachView() {
     + `${row.error_code ? ` · ${escapeHtml(row.error_code)}` : ""}</li>`).join("")}</ul>`
     : "<p>No occurrence records have been returned.</p>";
   const recentOutbox = overview?.outbox?.recent;
-  const outboxTable = recentOutbox?.length ? `<div class="table-wrap"><table><caption>Recent Book Feature delivery evidence</caption>
+  const guestOutbox = overview?.guestArticleControlled?.recent;
+  const outboxTable = (rows, campaign, caption, canFlag) => !Array.isArray(rows)
+    ? '<p role="status">Delivery evidence unavailable; refresh to retry.</p>'
+    : rows.length ? `<div class="table-wrap"><table><caption>${escapeHtml(caption)}</caption>
     <thead><tr><th>Outbox</th><th>Status</th><th>Attempts</th><th>Updated</th><th>Action</th></tr></thead><tbody>
-    ${recentOutbox.map((row) => {
-    const action = ["accepted", "unknown"].includes(row.status)
-      ? `<button class="button secondary" data-action="book-feature-reconcile" data-outbox-id="${escapeHtml(row.id)}">Reconcile</button>` : "—";
+    ${rows.map((row) => {
+    const action = canFlag && row.status === "accepted"
+      ? `<button class="button secondary" data-action="book-feature-reconcile" data-outbox-id="${escapeHtml(row.id)}">Flag unknown</button>`
+      : ["accepted", "unknown"].includes(row.status) ? "Await verified provider evidence" : "—";
     return `<tr><td><code>${escapeHtml(String(row.id || "").slice(0, 12))}</code></td>`
-      + `<td>${escapeHtml(show(row.status))}</td><td>${escapeHtml(show(row.attempt_count))} / ${escapeHtml(show(row.max_attempts))}</td>`
+      + `<td>${escapeHtml(show(row.status))}`
+      + `${row.last_error_code ? `<small> · ${escapeHtml(row.last_error_code)}</small>` : ""}</td>`
+      + `<td>${escapeHtml(show(row.attempt_count))} / ${escapeHtml(show(row.max_attempts))}</td>`
       + `<td>${escapeHtml(row.updated_at ? formatDateTime(row.updated_at) : "Unavailable")}</td><td>${action}</td></tr>`;
   }).join("")}
-    </tbody></table></div>` : emptyState("No delivery evidence recorded", "No Book Feature outbox records have been returned by AIMS.");
+    </tbody></table></div>` : emptyState("No delivery evidence recorded", `No ${campaign} outbox records have been returned by AIMS.`);
   return shell(`
     ${pageHeader("Outreach operations", "Authenticated controls and evidence for Guest Article and Book Feature campaigns.",
       `<button class="button secondary" data-action="refresh-outreach" ${state.outreachLoading ? "disabled" : ""}>${state.outreachLoading ? "Refreshing…" : "Refresh"}</button>`)}
@@ -1567,7 +1573,7 @@ function outreachView() {
       ${card("Qualified opportunities", show(overview?.opportunities?.qualified), "Durable AIMS records")}
     </div>
     <section class="panel outreach-panel">
-      <header><div><h2>Guest Article safeguards</h2><p>Current AIMS automation configuration</p></div></header>
+      <header><div><h2>Guest Article safeguards</h2><p>Configuration and controlled-test delivery evidence.</p></div></header>
       ${guest ? `<dl class="outreach-status-grid">
         ${field("Initial sending", guest.sendEnabled ? "Enabled in configuration" : "Disabled")}
         ${field("Automatic follow-up", guest.followUpEnabled ? "Enabled in configuration" : "Disabled")}
@@ -1576,19 +1582,20 @@ function outreachView() {
         ${field("Schedule", `${(guest.schedule?.days || []).join(", ")} · ${show(guest.schedule?.time)} ${show(guest.schedule?.timezone)}`)}
         ${field("Article auto-send", guest.articleAutoSendEnabled ? "Enabled in configuration" : "Disabled")}
       </dl>` : `<p role="status">Guest Article status unavailable: ${escapeHtml(state.outreach?.guest?.error || "refresh to retry")}</p>`}
+      ${outboxTable(guestOutbox, "Guest Article", "Recent Guest Article delivery evidence", false)}
     </section>
     <section class="panel outreach-panel">
-      <header><div><h2>Book Feature controls and history</h2><p>Every mode change is versioned and audited. The kill switch overrides queued work.</p></div></header>
+      <header><div><h2>Shared Outreach controls</h2><p>Mode, kill switch, allowlist and caps apply to both campaigns.</p></div></header>
       ${bookStatus ? `<p>Scheduler owner: ${escapeHtml(show(bookStatus.schedulerOwner))} · Pilot authorised: `
     + `${bookStatus.pilotAuthorised === true ? "Yes" : bookStatus.pilotAuthorised === false ? "No" : "Unavailable"}`
     + ` · Configuration version: ${escapeHtml(show(bookStatus.configurationVersion))}</p>
       <dl class="outreach-status-grid">
-        ${field("Kill switch", bookStatus.killSwitch ? "Engaged" : "Released")}
+        ${field("Kill switch", bookStatus.killSwitch === true ? "Engaged" : bookStatus.killSwitch === false ? "Released" : "Unavailable")}
         ${field("Test recipients", show(bookStatus.testRecipientsConfigured))}
         ${field("Per-run cap", show(bookStatus.perRunCap))}
         ${field("Daily cap", show(bookStatus.dailyCap))}
       </dl>
-      <div class="toolbar" role="group" aria-label="Book Feature mode controls">
+      <div class="toolbar" role="group" aria-label="Shared Outreach mode controls">
         <button class="button secondary" data-action="book-feature-assessment">Assessment mode</button>
         <button class="button danger" data-action="book-feature-suspend">Suspend now</button>
         <button class="button secondary" data-action="book-feature-controlled-test">Configure controlled test</button>
@@ -1598,7 +1605,8 @@ function outreachView() {
       ${campaigns ? campaignTable : `<p role="status">Campaign history unavailable: ${escapeHtml(state.outreach?.bookOverview?.error || "refresh to retry")}</p>`}
       ${occurrences ? `<details class="outreach-occurrences">`
     + `<summary>Recent scheduled occurrences (${occurrences.length})</summary>${occurrenceList}</details>` : ""}
-      ${recentOutbox ? outboxTable : `<p role="status">Outbox evidence unavailable: ${escapeHtml(state.outreach?.bookOverview?.error || "refresh to retry")}</p>`}
+      ${outboxTable(recentOutbox, "Book Feature", "Recent Book Feature delivery evidence", true)}
+      <p class="muted">Definitive delivery, bounce or failure requires authenticated provider evidence.</p>
     </section>
     <section class="panel outreach-panel"><header><div><h2>Measurements</h2><p>Unavailable values are not presented as zero.</p></div></header>
       <dl class="outreach-status-grid">
@@ -2095,13 +2103,13 @@ async function loadOutreach() {
 async function changeBookFeatureMode(mode) {
   const status = state.outreach?.bookStatus?.data;
   if (!status?.configurationVersion) return toast("Book Feature status is unavailable; refresh before changing mode.", "error");
-  const label = mode === "suspended" ? "suspend Book Feature outreach immediately" : "return Book Feature to assessment mode";
-  if (!window.confirm(`Confirm: ${label}? Queued or leased delivery will remain blocked by the effective mode.`)) return;
+  const label = mode === "suspended" ? "suspend both Outreach campaigns immediately" : "return both Outreach campaigns to assessment mode";
+  if (!window.confirm(`Confirm: ${label}? Both campaigns will obey the effective mode.`)) return;
   const reason = window.prompt("Record the operational reason for this audited change:", mode === "suspended" ? "Operator kill switch" : "Continue controlled assessment");
   if (!reason?.trim()) return;
   try {
     await client.setBookFeatureMode(mode, Number(status.configurationVersion), reason.trim());
-    toast(`Book Feature mode changed to ${mode}.`);
+    toast(`Shared Outreach mode changed to ${mode}.`);
     await loadOutreach();
   } catch (error) { toast(error?.message || "Book Feature mode change failed.", "error"); }
 }
@@ -2124,7 +2132,7 @@ async function configureBookFeatureTest() {
   const dailyCap = Number(dailyInput);
   if (!Number.isInteger(dailyCap) || dailyCap < 1 || dailyCap > 10 || dailyCap < perRunCap) return toast("Daily cap must be between the per-run cap and 10.", "error");
   const reason = window.prompt("Record the approval reason:", "Controlled delivery and inbound reconciliation test");
-  if (!reason?.trim() || !window.confirm(`Enable controlled test for ${recipients.length} inbox(es), capped at ${perRunCap} per run and ${dailyCap} per day?`)) return;
+  if (!reason?.trim() || !window.confirm(`Enable controlled test for both campaigns, ${recipients.length} inbox(es), ${perRunCap} per run and ${dailyCap} per day?`)) return;
   try {
     await client.configureBookFeatureControlledTest({ recipients, perRunCap, dailyCap,
       reason: reason.trim(), expectedVersion: Number(status.configurationVersion) });
@@ -2134,7 +2142,7 @@ async function configureBookFeatureTest() {
 }
 
 async function dispatchBookFeatureOnce() {
-  if (!window.confirm("Process one already queued, QA-approved, allowlisted controlled-test message now? Provider acceptance will not be shown as delivery.")) return;
+  if (!window.confirm("Process one QA-approved, allowlisted test message from either campaign? Provider acceptance is not delivery.")) return;
   try {
     const result = await client.runBookFeatureDispatchOnce();
     toast(result.processed ? `Outbox result: ${result.status || "processed"}.` : "No authorised outbox work was available.");
@@ -2143,12 +2151,11 @@ async function dispatchBookFeatureOnce() {
 }
 
 async function reconcileBookFeatureDelivery(outboxId) {
-  const outcome = window.prompt("Record the verified provider outcome: delivered, bounced, failed, or unknown", "delivered")?.trim().toLowerCase();
-  if (!outcome || !["delivered", "bounced", "failed", "unknown"].includes(outcome)) return;
+  const outcome = "unknown";
   const providerEventId = window.prompt("Enter the immutable provider event or reconciliation reference:", "")?.trim();
   if (!providerEventId) return toast("A provider event reference is required.", "error");
-  const note = window.prompt("Record the evidence source or operator note:", "Provider console verification")?.trim();
-  if (!note || !window.confirm(`Record ${outcome} for outbox ${String(outboxId).slice(0, 12)}? This is an audited evidence change.`)) return;
+  const note = window.prompt("Record why delivery is uncertain:", "")?.trim();
+  if (!note || !window.confirm(`Flag outbox ${String(outboxId).slice(0, 12)} as unknown? Do not resend without verified evidence.`)) return;
   try {
     await client.reconcileBookFeatureDelivery(outboxId, { outcome, providerEventId, evidence: { operatorNote: note } });
     toast(`Delivery evidence recorded as ${outcome}.`);
