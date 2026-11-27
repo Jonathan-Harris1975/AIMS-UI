@@ -2110,8 +2110,20 @@ async function configureBookFeatureTest() {
   const raw = window.prompt("Enter one to five verified test inboxes, separated by commas. Prospect addresses are not permitted here:", "");
   if (!raw) return;
   const recipients = raw.split(",").map((value) => value.trim().toLowerCase()).filter(Boolean);
+  if (recipients.length < 1 || recipients.length > 5) {
+    toast("Enter between 1 and 5 verified test inboxes.", "error");
+    return;
+  }
   const perRunCap = Number(window.prompt("Maximum test messages per run (1–5):", "1"));
+  if (!Number.isInteger(perRunCap) || perRunCap < 1 || perRunCap > 5) {
+    toast("Per-run cap must be an integer between 1 and 5.", "error");
+    return;
+  }
   const dailyCap = Number(window.prompt("Maximum test messages per day (1–10):", "1"));
+  if (!Number.isInteger(dailyCap) || dailyCap < 1 || dailyCap > 10) {
+    toast("Daily cap must be an integer between 1 and 10.", "error");
+    return;
+  }
   const reason = window.prompt("Record the approval reason:", "Controlled delivery and inbound reconciliation test");
   if (!reason?.trim() || !window.confirm(`Enable controlled test for ${recipients.length} inbox(es), capped at ${perRunCap} per run and ${dailyCap} per day?`)) return;
   try {
