@@ -19,3 +19,29 @@ test("controlled test rejects invalid caps and cancellation before dispatch conf
   assert.match(app, /!Number.isInteger\(perRunCap\)/);
   assert.match(app, /!Number.isInteger\(dailyCap\)/);
 });
+
+test("invalid caps and cancelled prompts never call the configuration API", async () => {
+  const { runInNewContext } = await import("node:vm");
+  const app = await readFile(new URL("../apps/console/app.js", import.meta.url), "utf8");
+  const start = app.indexOf("async function configureBookFeatureTest()");
+  const end = app.indexOf("\nasync function dispatchBookFeatureOnce()", start);
+  assert.ok(start >= 0 && end > start);
+  for (const inputs of [
+    ["test@example.com", "0"],
+    ["test@example.com", "1", "11"],
+    ["test@example.com", null],
+    ["test@example.com", "1", null],
+    ["test@example.com,test@example.com"],
+  ]) {
+    let calls = 0;
+    const context = {
+      state: { outreach: { bookStatus: { data: { configurationVersion: 1 } } } },
+      window: { prompt: () => inputs.shift(), confirm: () => true },
+      toast: () => {},
+      client: { configureBookFeatureControlledTest: async () => { calls++; } },
+      loadOutreach: async () => {},
+    };
+    await runInNewContext(app.slice(start, end) + "\nconfigureBookFeatureTest()", context);
+    assert.equal(calls, 0);
+  }
+});
