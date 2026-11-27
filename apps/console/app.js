@@ -1543,10 +1543,10 @@ function outreachView() {
     : "<p>No occurrence records have been returned.</p>";
   const recentOutbox = overview?.outbox?.recent;
   const guestOutbox = overview?.guestArticleControlled?.recent;
-  const outboxTable = (rows, campaign, canFlag) => !Array.isArray(rows)
+  const outboxTable = (rows, campaign, caption, canFlag) => !Array.isArray(rows)
     ? '<p role="status">Delivery evidence unavailable; refresh to retry.</p>'
-    : rows.length ? `<div class="table-wrap"><table><caption>Recent ${campaign} delivery evidence</caption>
-    <thead><tr><th>Outbox</th><th>Status</th><th>Updated</th><th>Action</th></tr></thead><tbody>
+    : rows.length ? `<div class="table-wrap"><table><caption>${escapeHtml(caption)}</caption>
+    <thead><tr><th>Outbox</th><th>Status</th><th>Attempts</th><th>Updated</th><th>Action</th></tr></thead><tbody>
     ${rows.map((row) => {
     const action = canFlag && row.status === "accepted"
       ? `<button class="button secondary" data-action="book-feature-reconcile" data-outbox-id="${escapeHtml(row.id)}">Flag unknown</button>`
@@ -1554,6 +1554,7 @@ function outreachView() {
     return `<tr><td><code>${escapeHtml(String(row.id || "").slice(0, 12))}</code></td>`
       + `<td>${escapeHtml(show(row.status))}`
       + `${row.last_error_code ? `<small> · ${escapeHtml(row.last_error_code)}</small>` : ""}</td>`
+      + `<td>${escapeHtml(show(row.attempt_count))} / ${escapeHtml(show(row.max_attempts))}</td>`
       + `<td>${escapeHtml(row.updated_at ? formatDateTime(row.updated_at) : "Unavailable")}</td><td>${action}</td></tr>`;
   }).join("")}
     </tbody></table></div>` : emptyState("No delivery evidence recorded", `No ${campaign} outbox records have been returned by AIMS.`);
@@ -1581,7 +1582,7 @@ function outreachView() {
         ${field("Schedule", `${(guest.schedule?.days || []).join(", ")} · ${show(guest.schedule?.time)} ${show(guest.schedule?.timezone)}`)}
         ${field("Article auto-send", guest.articleAutoSendEnabled ? "Enabled in configuration" : "Disabled")}
       </dl>` : `<p role="status">Guest Article status unavailable: ${escapeHtml(state.outreach?.guest?.error || "refresh to retry")}</p>`}
-      ${outboxTable(guestOutbox, "Guest Article", false)}
+      ${outboxTable(guestOutbox, "Guest Article", "Recent Guest Article delivery evidence", false)}
     </section>
     <section class="panel outreach-panel">
       <header><div><h2>Shared Outreach controls</h2><p>Mode, kill switch, allowlist and caps apply to both campaigns.</p></div></header>
@@ -1604,7 +1605,7 @@ function outreachView() {
       ${campaigns ? campaignTable : `<p role="status">Campaign history unavailable: ${escapeHtml(state.outreach?.bookOverview?.error || "refresh to retry")}</p>`}
       ${occurrences ? `<details class="outreach-occurrences">`
     + `<summary>Recent scheduled occurrences (${occurrences.length})</summary>${occurrenceList}</details>` : ""}
-      ${outboxTable(recentOutbox, "Book Feature", true)}
+      ${outboxTable(recentOutbox, "Book Feature", "Recent Book Feature delivery evidence", true)}
       <p class="muted">Definitive delivery, bounce or failure requires authenticated provider evidence.</p>
     </section>
     <section class="panel outreach-panel"><header><div><h2>Measurements</h2><p>Unavailable values are not presented as zero.</p></div></header>

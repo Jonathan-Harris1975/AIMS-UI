@@ -58,12 +58,14 @@ test("both campaign outboxes render truthful status, and missing evidence is not
     escapeHtml: (value) => String(value), formatDateTime: String, emptyState: (title) => title,
   });
   const html = render({ guestArticleControlled: { recent: [{ id: "guest-one", status: "unknown" }] },
-    outbox: { recent: [{ id: "book-one", status: "accepted" }] } });
+    outbox: { recent: [{ id: "book-one", status: "accepted", attempt_count: 1, max_attempts: 3 }] } });
   assert.match(html, /Recent Guest Article delivery evidence/);
   assert.match(html, /guest-one/);
   assert.match(html, /Await verified provider evidence/);
   assert.match(html, /book-one/);
   assert.match(html, /Flag unknown/);
+  assert.match(html, /1 \/ 3/);
+  assert.match(html, /Unavailable \/ Unavailable/);
   assert.match(html, /Shared Outreach controls/);
   assert.match(html, /Kill switch<\/dt><dd>Unavailable/);
   assert.match(render({}), /Delivery evidence unavailable/);
