@@ -1559,7 +1559,9 @@ function outreachView() {
     <div class="summary-grid outreach-summary">
       ${card("Guest Article", guest ? guest.sendEnabled ? "Sending configured on" : "Sending off" : "Unavailable",
     guest ? `Automation ${guest.enabled ? "enabled" : "disabled"}` : "Status unavailable")}
-      ${card("Book Feature", bookStatus?.mode ? String(bookStatus.mode).replaceAll("_", " ").replace(/^./, (letter) => letter.toUpperCase()) : "Unavailable", bookStatus ? bookStatus.dispatchEnabled === true
+      ${card("Book Feature", 
+        bookStatus?.mode ? String(bookStatus.mode).replaceAll("_", " ").replace(/^./, (letter) => letter.toUpperCase()) : "Unavailable",
+        bookStatus ? bookStatus.dispatchEnabled === true
     ? "Dispatch enabled" : bookStatus.dispatchEnabled === false ? "No dispatch authorised" : "Dispatch status unavailable" : "Status unavailable")}
       ${card("Candidate references", show(overview?.evidence?.candidateReferences), "Book Feature manuscript evidence")}
       ${card("Qualified opportunities", show(overview?.opportunities?.qualified), "Durable AIMS records")}
