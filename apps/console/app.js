@@ -1559,8 +1559,10 @@ function outreachView() {
     <div class="summary-grid outreach-summary">
       ${card("Guest Article", guest ? guest.sendEnabled ? "Sending configured on" : "Sending off" : "Unavailable",
     guest ? `Automation ${guest.enabled ? "enabled" : "disabled"}` : "Status unavailable")}
-      ${card("Book Feature", show(bookStatus?.mode), bookStatus ? bookStatus.dispatchEnabled
-    ? "Dispatch enabled" : "Assessment only · no dispatch" : "Status unavailable")}
+      ${card("Book Feature", 
+        bookStatus?.mode ? String(bookStatus.mode).replaceAll("_", " ").replace(/^./, (letter) => letter.toUpperCase()) : "Unavailable",
+        bookStatus ? bookStatus.dispatchEnabled === true
+    ? "Dispatch enabled" : bookStatus.dispatchEnabled === false ? "No dispatch authorised" : "Dispatch status unavailable" : "Status unavailable")}
       ${card("Candidate references", show(overview?.evidence?.candidateReferences), "Book Feature manuscript evidence")}
       ${card("Qualified opportunities", show(overview?.opportunities?.qualified), "Durable AIMS records")}
     </div>
@@ -2110,8 +2112,17 @@ async function configureBookFeatureTest() {
   const raw = window.prompt("Enter one to five verified test inboxes, separated by commas. Prospect addresses are not permitted here:", "");
   if (!raw) return;
   const recipients = raw.split(",").map((value) => value.trim().toLowerCase()).filter(Boolean);
-  const perRunCap = Number(window.prompt("Maximum test messages per run (1–5):", "1"));
-  const dailyCap = Number(window.prompt("Maximum test messages per day (1–10):", "1"));
+  if (recipients.length < 1 || recipients.length > 5 || new Set(recipients).size !== recipients.length || recipients.some((value) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))) {
+    return toast("Enter one to five distinct, valid test inbox addresses.", "error");
+  }
+  const perRunInput = window.prompt("Maximum test messages per run (1–5):", "1");
+  if (perRunInput === null) return;
+  const perRunCap = Number(perRunInput);
+  if (!Number.isInteger(perRunCap) || perRunCap < 1 || perRunCap > 5) return toast("Per-run cap must be an integer between 1 and 5.", "error");
+  const dailyInput = window.prompt("Maximum test messages per day (1–10):", "1");
+  if (dailyInput === null) return;
+  const dailyCap = Number(dailyInput);
+  if (!Number.isInteger(dailyCap) || dailyCap < 1 || dailyCap > 10 || dailyCap < perRunCap) return toast("Daily cap must be between the per-run cap and 10.", "error");
   const reason = window.prompt("Record the approval reason:", "Controlled delivery and inbound reconciliation test");
   if (!reason?.trim() || !window.confirm(`Enable controlled test for ${recipients.length} inbox(es), capped at ${perRunCap} per run and ${dailyCap} per day?`)) return;
   try {
