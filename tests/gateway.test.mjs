@@ -182,7 +182,11 @@ test("console proxy blocks intake and traversal paths", () => {
   assert.equal(consoleTargetPath("/console/api/outreach/automation/status"), "/outreach/automation/status");
   assert.equal(consoleTargetPath("/console/api/outreach/book-feature/status"), "/outreach/book-feature/status");
   assert.equal(consoleTargetPath("/console/api/outreach/book-feature/overview"), "/outreach/book-feature/overview");
-  assert.equal(consoleTargetPath("/console/api/outreach/book-feature/mode"), "/comms-hub/outreach/book-feature/mode");
+  assert.equal(consoleTargetPath("/console/api/outreach/book-feature/mode"), "/outreach/book-feature/mode");
+  assert.equal(consoleTargetPath("/console/api/outreach/book-feature/controlled-test"), "/outreach/book-feature/controlled-test");
+  assert.equal(consoleTargetPath("/console/api/outreach/book-feature/dispatch/once"), "/outreach/book-feature/dispatch/once");
+  assert.equal(consoleTargetPath("/console/api/outreach/book-feature/delivery/outbox-1/reconcile"),
+    "/outreach/book-feature/delivery/outbox-1/reconcile");
   assert.equal(consoleTargetPath("/console/api/intake/chat"), null);
   assert.equal(consoleTargetPath("/console/api/../intake/chat"), null);
 });

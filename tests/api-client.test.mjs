@@ -120,7 +120,7 @@ test("client exposes channel health, social setup and action endpoints", async (
   assert.match(calls[7][0], /\/social\/conversations\/cnv-1\/approvals\/delete$/);
 });
 
-test("client exposes read-only outreach status endpoints", async () => {
+test("client exposes outreach status and controlled-test mutation endpoints", async () => {
   const calls = [];
   const client = new AimsCommsClient({
     baseUrl: "/console/api",
@@ -132,10 +132,17 @@ test("client exposes read-only outreach status endpoints", async () => {
   await client.outreachAutomationStatus();
   await client.bookFeatureStatus();
   await client.bookFeatureOverview();
+  await client.setBookFeatureMode("suspended", 3, "operator stop");
+  await client.configureBookFeatureControlledTest({ recipients: ["test@example.com"], perRunCap: 1, dailyCap: 1,
+    reason: "controlled test", expectedVersion: 4 });
+  await client.runBookFeatureDispatchOnce();
   assert.deepEqual(calls, [
     ["/console/api/outreach/automation/status", "GET", "no-store"],
     ["/console/api/outreach/book-feature/status", "GET", "no-store"],
     ["/console/api/outreach/book-feature/overview", "GET", "no-store"],
+    ["/console/api/outreach/book-feature/mode", "PUT", undefined],
+    ["/console/api/outreach/book-feature/controlled-test", "PUT", undefined],
+    ["/console/api/outreach/book-feature/dispatch/once", "POST", undefined],
   ]);
 });
 

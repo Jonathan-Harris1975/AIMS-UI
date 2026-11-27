@@ -144,6 +144,18 @@ export class AimsCommsClient {
   outreachAutomationStatus() { return this.request("/outreach/automation/status", { cache: "no-store" }); }
   bookFeatureStatus() { return this.request("/outreach/book-feature/status", { cache: "no-store" }); }
   bookFeatureOverview() { return this.request("/outreach/book-feature/overview", { cache: "no-store" }); }
+  setBookFeatureMode(mode, expectedVersion, reason) { return this.request("/outreach/book-feature/mode", {
+    method: "PUT", body: { mode, expectedVersion, reason }, idempotent: true,
+  }); }
+  configureBookFeatureControlledTest(payload) { return this.request("/outreach/book-feature/controlled-test", {
+    method: "PUT", body: payload, idempotent: true,
+  }); }
+  runBookFeatureDispatchOnce() { return this.request("/outreach/book-feature/dispatch/once", {
+    method: "POST", body: {}, idempotent: true,
+  }); }
+  reconcileBookFeatureDelivery(outboxId, payload) { return this.request(`/outreach/book-feature/delivery/${encodeURIComponent(outboxId)}/reconcile`, {
+    method: "POST", body: payload, idempotent: true,
+  }); }
   providerHealth() { return this.request("/providers/health", { cache: "no-store" }); }
   chatStatus() { return this.request("/chat/status"); }
   emailStatus() { return this.request("/email/status"); }

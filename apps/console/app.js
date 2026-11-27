@@ -1541,8 +1541,19 @@ function outreachView() {
     + `<strong>${escapeHtml(show(row.local_date))}</strong> · ${escapeHtml(show(row.status))}`
     + `${row.error_code ? ` · ${escapeHtml(row.error_code)}` : ""}</li>`).join("")}</ul>`
     : "<p>No occurrence records have been returned.</p>";
+  const recentOutbox = overview?.outbox?.recent;
+  const outboxTable = recentOutbox?.length ? `<div class="table-wrap"><table><caption>Recent Book Feature delivery evidence</caption>
+    <thead><tr><th>Outbox</th><th>Status</th><th>Attempts</th><th>Updated</th><th>Action</th></tr></thead><tbody>
+    ${recentOutbox.map((row) => {
+    const action = ["accepted", "unknown"].includes(row.status)
+      ? `<button class="button secondary" data-action="book-feature-reconcile" data-outbox-id="${escapeHtml(row.id)}">Reconcile</button>` : "—";
+    return `<tr><td><code>${escapeHtml(String(row.id || "").slice(0, 12))}</code></td>`
+      + `<td>${escapeHtml(show(row.status))}</td><td>${escapeHtml(show(row.attempt_count))} / ${escapeHtml(show(row.max_attempts))}</td>`
+      + `<td>${escapeHtml(row.updated_at ? formatDateTime(row.updated_at) : "Unavailable")}</td><td>${action}</td></tr>`;
+  }).join("")}
+    </tbody></table></div>` : emptyState("No delivery evidence recorded", "No Book Feature outbox records have been returned by AIMS.");
   return shell(`
-    ${pageHeader("Outreach operations", "Read-only status for Guest Article and Book Feature campaigns. Sending controls remain outside this console.",
+    ${pageHeader("Outreach operations", "Authenticated controls and evidence for Guest Article and Book Feature campaigns.",
       `<button class="button secondary" data-action="refresh-outreach" ${state.outreachLoading ? "disabled" : ""}>${state.outreachLoading ? "Refreshing…" : "Refresh"}</button>`)}
     ${state.outreachError ? `<div class="snapshot-warning" role="alert">${escapeHtml(state.outreachError)}</div>` : ""}
     <div class="summary-grid outreach-summary">
@@ -1565,20 +1576,36 @@ function outreachView() {
       </dl>` : `<p role="status">Guest Article status unavailable: ${escapeHtml(state.outreach?.guest?.error || "refresh to retry")}</p>`}
     </section>
     <section class="panel outreach-panel">
-      <header><div><h2>Book Feature campaign history</h2><p>Assessment remains non-sending until the complete workflow is accepted.</p></div></header>
+      <header><div><h2>Book Feature controls and history</h2><p>Every mode change is versioned and audited. The kill switch overrides queued work.</p></div></header>
       ${bookStatus ? `<p>Scheduler owner: ${escapeHtml(show(bookStatus.schedulerOwner))} · Pilot authorised: `
     + `${bookStatus.pilotAuthorised === true ? "Yes" : bookStatus.pilotAuthorised === false ? "No" : "Unavailable"}`
-    + ` · Configuration version: ${escapeHtml(show(bookStatus.configurationVersion))}</p>`
+    + ` · Configuration version: ${escapeHtml(show(bookStatus.configurationVersion))}</p>
+      <dl class="outreach-status-grid">
+        ${field("Kill switch", bookStatus.killSwitch ? "Engaged" : "Released")}
+        ${field("Test recipients", show(bookStatus.testRecipientsConfigured))}
+        ${field("Per-run cap", show(bookStatus.perRunCap))}
+        ${field("Daily cap", show(bookStatus.dailyCap))}
+      </dl>
+      <div class="toolbar" role="group" aria-label="Book Feature mode controls">
+        <button class="button secondary" data-action="book-feature-assessment">Assessment mode</button>
+        <button class="button danger" data-action="book-feature-suspend">Suspend now</button>
+        <button class="button secondary" data-action="book-feature-controlled-test">Configure controlled test</button>
+        <button class="button primary" data-action="book-feature-dispatch-once" ${bookStatus.dispatchEnabled ? "" : "disabled"}>Process one authorised outbox item</button>
+      </div>`
     : `<p role="status">Book Feature status unavailable: ${escapeHtml(state.outreach?.bookStatus?.error || "refresh to retry")}</p>`}
       ${campaigns ? campaignTable : `<p role="status">Campaign history unavailable: ${escapeHtml(state.outreach?.bookOverview?.error || "refresh to retry")}</p>`}
       ${occurrences ? `<details class="outreach-occurrences">`
     + `<summary>Recent scheduled occurrences (${occurrences.length})</summary>${occurrenceList}</details>` : ""}
+      ${recentOutbox ? outboxTable : `<p role="status">Outbox evidence unavailable: ${escapeHtml(state.outreach?.bookOverview?.error || "refresh to retry")}</p>`}
     </section>
     <section class="panel outreach-panel"><header><div><h2>Measurements</h2><p>Unavailable values are not presented as zero.</p></div></header>
       <dl class="outreach-status-grid">
         ${field("Delivered", show(overview?.delivered))}
         ${field("Responses", show(overview?.responses))}
         ${field("Measured cost (USD)", show(overview?.actualCostUsd))}
+        ${field("Unreported cost items", show(overview?.cost?.unknownItems))}
+        ${field("Unknown delivery", show(overview?.outbox?.unknown))}
+        ${field("Queued", show(overview?.outbox?.queued))}
         ${field("Attribution", show(overview?.attribution))}
       </dl>
     </section>
@@ -1669,6 +1696,11 @@ function bindEvents() {
   }));
   root.querySelectorAll('[data-action="refresh"]').forEach((button) => button.addEventListener("click", loadBootstrap));
   root.querySelector('[data-action="refresh-outreach"]')?.addEventListener("click", () => loadOutreach());
+  root.querySelector('[data-action="book-feature-assessment"]')?.addEventListener("click", () => changeBookFeatureMode("assessment"));
+  root.querySelector('[data-action="book-feature-suspend"]')?.addEventListener("click", () => changeBookFeatureMode("suspended"));
+  root.querySelector('[data-action="book-feature-controlled-test"]')?.addEventListener("click", configureBookFeatureTest);
+  root.querySelector('[data-action="book-feature-dispatch-once"]')?.addEventListener("click", dispatchBookFeatureOnce);
+  root.querySelectorAll('[data-action="book-feature-reconcile"]').forEach((button) => button.addEventListener("click", () => reconcileBookFeatureDelivery(button.dataset.outboxId)));
   root.querySelector('[data-action="open-sidebar"]')?.addEventListener("click", openSidebar);
   root.querySelectorAll('[data-action="close-sidebar"]').forEach((button) => button.addEventListener("click", closeSidebar));
   root.querySelectorAll('[data-action="toggle-notifications"]').forEach((button) => button.addEventListener("click", () => toggleNotifications(button)));
@@ -2056,6 +2088,61 @@ async function loadOutreach() {
   }
   state.outreachLoading = false;
   if (state.view === "outreach") render();
+}
+
+async function changeBookFeatureMode(mode) {
+  const status = state.outreach?.bookStatus?.data;
+  if (!status?.configurationVersion) return toast("Book Feature status is unavailable; refresh before changing mode.", "error");
+  const label = mode === "suspended" ? "suspend Book Feature outreach immediately" : "return Book Feature to assessment mode";
+  if (!window.confirm(`Confirm: ${label}? Queued or leased delivery will remain blocked by the effective mode.`)) return;
+  const reason = window.prompt("Record the operational reason for this audited change:", mode === "suspended" ? "Operator kill switch" : "Continue controlled assessment");
+  if (!reason?.trim()) return;
+  try {
+    await client.setBookFeatureMode(mode, Number(status.configurationVersion), reason.trim());
+    toast(`Book Feature mode changed to ${mode}.`);
+    await loadOutreach();
+  } catch (error) { toast(error?.message || "Book Feature mode change failed.", "error"); }
+}
+
+async function configureBookFeatureTest() {
+  const status = state.outreach?.bookStatus?.data;
+  if (!status?.configurationVersion) return toast("Book Feature status is unavailable; refresh before configuring a test.", "error");
+  const raw = window.prompt("Enter one to five verified test inboxes, separated by commas. Prospect addresses are not permitted here:", "");
+  if (!raw) return;
+  const recipients = raw.split(",").map((value) => value.trim().toLowerCase()).filter(Boolean);
+  const perRunCap = Number(window.prompt("Maximum test messages per run (1–5):", "1"));
+  const dailyCap = Number(window.prompt("Maximum test messages per day (1–10):", "1"));
+  const reason = window.prompt("Record the approval reason:", "Controlled delivery and inbound reconciliation test");
+  if (!reason?.trim() || !window.confirm(`Enable controlled test for ${recipients.length} inbox(es), capped at ${perRunCap} per run and ${dailyCap} per day?`)) return;
+  try {
+    await client.configureBookFeatureControlledTest({ recipients, perRunCap, dailyCap,
+      reason: reason.trim(), expectedVersion: Number(status.configurationVersion) });
+    toast("Controlled test enabled. Backend allowlist and caps are active.");
+    await loadOutreach();
+  } catch (error) { toast(error?.message || "Controlled-test configuration failed.", "error"); }
+}
+
+async function dispatchBookFeatureOnce() {
+  if (!window.confirm("Process one already queued, QA-approved, allowlisted controlled-test message now? Provider acceptance will not be shown as delivery.")) return;
+  try {
+    const result = await client.runBookFeatureDispatchOnce();
+    toast(result.processed ? `Outbox result: ${result.status || "processed"}.` : "No authorised outbox work was available.");
+    await loadOutreach();
+  } catch (error) { toast(error?.message || "Controlled dispatch failed.", "error"); }
+}
+
+async function reconcileBookFeatureDelivery(outboxId) {
+  const outcome = window.prompt("Record the verified provider outcome: delivered, bounced, failed, or unknown", "delivered")?.trim().toLowerCase();
+  if (!outcome || !["delivered", "bounced", "failed", "unknown"].includes(outcome)) return;
+  const providerEventId = window.prompt("Enter the immutable provider event or reconciliation reference:", "")?.trim();
+  if (!providerEventId) return toast("A provider event reference is required.", "error");
+  const note = window.prompt("Record the evidence source or operator note:", "Provider console verification")?.trim();
+  if (!note || !window.confirm(`Record ${outcome} for outbox ${String(outboxId).slice(0, 12)}? This is an audited evidence change.`)) return;
+  try {
+    await client.reconcileBookFeatureDelivery(outboxId, { outcome, providerEventId, evidence: { operatorNote: note } });
+    toast(`Delivery evidence recorded as ${outcome}.`);
+    await loadOutreach();
+  } catch (error) { toast(error?.message || "Delivery reconciliation failed.", "error"); }
 }
 
 async function loadQuarantine({ navigate = true } = {}) {

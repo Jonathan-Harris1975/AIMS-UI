@@ -928,7 +928,9 @@ async function verifyHiveIdentity(request, env) {
 export function consoleTargetPath(pathname) {
   const rest = pathname.slice("/console/api".length) || "/";
   if (!rest.startsWith("/") || rest.startsWith("/intake/") || rest.includes("..")) return null;
-  if (["/outreach/automation/status", "/outreach/book-feature/status", "/outreach/book-feature/overview"].includes(rest)) return rest;
+  if (["/outreach/automation/status", "/outreach/book-feature/status", "/outreach/book-feature/overview",
+    "/outreach/book-feature/mode", "/outreach/book-feature/controlled-test", "/outreach/book-feature/dispatch/once"].includes(rest) ||
+    /^\/outreach\/book-feature\/delivery\/[^/]+\/reconcile$/.test(rest)) return rest;
   return `/comms-hub${rest}`;
 }
 
@@ -936,9 +938,7 @@ async function proxyConsole(request, env, url) {
   const origin = await requireConsoleOrigin(request, env);
   const targetPath = consoleTargetPath(url.pathname);
   if (!targetPath) return withCors(json({ error: "console_path_denied", message: "This AIMS route is not available to the console." }, { status: 403 }), origin, { credentials: true });
-  if (targetPath.startsWith("/outreach/") && request.method !== "GET") {
-    return withCors(json({ error: "console_method_denied", message: "The console exposes outreach status as read-only." }, { status: 405 }), origin, { credentials: true });
-  }
+  const outreachMutation = targetPath.startsWith("/outreach/") && !["GET","HEAD"].includes(request.method);
 
   const aimsBase = baseUrl(env.AIMS_API_BASE_URL);
   if (!aimsBase) throw configurationError("aims_api_base_url_unconfigured", "AIMS_API_BASE_URL is not configured.");
@@ -948,6 +948,10 @@ async function proxyConsole(request, env, url) {
   }
 
   const identity = await verifyHiveIdentity(request, env);
+  if (outreachMutation && identity.role !== "admin") {
+    return withCors(json({ error: "console_role_denied", message: "Outreach mode and delivery controls require an administrator." },
+      { status: 403 }), origin, { credentials: true });
+  }
   const timestamp = String(Date.now());
   const signature = await delegatedIdentitySignature({ method: request.method, path: targetPath, timestamp, actor: identity.actor, role: identity.role }, env.COMMS_HUB_RBAC_DELEGATION_SECRET);
   const headers = new Headers();
