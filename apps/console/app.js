@@ -2114,12 +2114,16 @@ async function configureBookFeatureTest() {
     toast("Enter between 1 and 5 verified test inboxes.", "error");
     return;
   }
-  const perRunCap = Number(window.prompt("Maximum test messages per run (1–5):", "1"));
+  const perRunInput = window.prompt("Maximum test messages per run (1–5):", "1");
+  if (perRunInput === null) return;
+  const perRunCap = Number(perRunInput);
   if (!Number.isInteger(perRunCap) || perRunCap < 1 || perRunCap > 5) {
     toast("Per-run cap must be an integer between 1 and 5.", "error");
     return;
   }
-  const dailyCap = Number(window.prompt("Maximum test messages per day (1–10):", "1"));
+  const dailyCapInput = window.prompt("Maximum test messages per day (1–10):", "1");
+  if (dailyCapInput === null) return;
+  const dailyCap = Number(dailyCapInput);
   if (!Number.isInteger(dailyCap) || dailyCap < 1 || dailyCap > 10) {
     toast("Daily cap must be an integer between 1 and 10.", "error");
     return;

@@ -125,7 +125,7 @@ test("client exposes outreach status and controlled-test mutation endpoints", as
   const client = new AimsCommsClient({
     baseUrl: "/console/api",
     fetchImpl: async (url, options) => {
-      calls.push([String(url), options.method, options.cache]);
+      calls.push([String(url), options.method, options.body]);
       return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } });
     },
   });
@@ -137,12 +137,12 @@ test("client exposes outreach status and controlled-test mutation endpoints", as
     reason: "controlled test", expectedVersion: 4 });
   await client.runBookFeatureDispatchOnce();
   assert.deepEqual(calls, [
-    ["/console/api/outreach/automation/status", "GET", "no-store"],
-    ["/console/api/outreach/book-feature/status", "GET", "no-store"],
-    ["/console/api/outreach/book-feature/overview", "GET", "no-store"],
-    ["/console/api/outreach/book-feature/mode", "PUT", undefined],
-    ["/console/api/outreach/book-feature/controlled-test", "PUT", undefined],
-    ["/console/api/outreach/book-feature/dispatch/once", "POST", undefined],
+    ["/console/api/outreach/automation/status", "GET", undefined],
+    ["/console/api/outreach/book-feature/status", "GET", undefined],
+    ["/console/api/outreach/book-feature/overview", "GET", undefined],
+    ["/console/api/outreach/book-feature/mode", "PUT", JSON.stringify({ mode: "suspended", expectedVersion: 3, reason: "operator stop" })],
+    ["/console/api/outreach/book-feature/controlled-test", "PUT", JSON.stringify({ recipients: ["test@example.com"], perRunCap: 1, dailyCap: 1, reason: "controlled test", expectedVersion: 4 })],
+    ["/console/api/outreach/book-feature/dispatch/once", "POST", JSON.stringify({})],
   ]);
 });
 
