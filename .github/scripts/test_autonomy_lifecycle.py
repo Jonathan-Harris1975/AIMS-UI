@@ -1347,6 +1347,41 @@ class RiskApprovalExpiryTests(unittest.TestCase):
 
 
 
+class RoutineActionAdmissionTests(unittest.TestCase):
+    def test_action_pin_only_update_boundary(self):
+        from routine_action_admission import action_pin_updates
+        old = "      - uses: actions/setup-node@" + "a" * 40 + " # v7.0.0\n"
+        new = "      - uses: actions/setup-node@" + "b" * 40 + " # v7.1.0\n"
+        self.assertEqual(action_pin_updates(old, new), {("actions/setup-node", "v7.1.0", "b" * 40)})
+        for changed in (
+            new.replace("v7.1.0", "v8.0.0"),
+            new.replace("v7.1.0", "v6.9.0"),
+            new.replace("actions/setup-node", "other/setup-node"),
+            new.replace("b" * 40, "main"),
+            new + "      permissions: write-all\n",
+            new.replace("      - ", "        - "),
+        ):
+            self.assertIsNone(action_pin_updates(old, changed))
+
+    def test_wrong_or_unverified_upstream_tag_is_rejected(self):
+        from routine_action_admission import tag_matches
+        self.assertFalse(tag_matches(lambda _: {"object": {"type": "commit", "sha": "a" * 40}}, "actions/setup-node", "v7.1.0", "b" * 40))
+        self.assertTrue(tag_matches(lambda _: {"object": {"type": "commit", "sha": "b" * 40}}, "actions/setup-node", "v7.1.0", "b" * 40))
+
+    def test_non_renovate_or_non_workflow_never_fetches_evidence(self):
+        from routine_action_admission import verified_routine_action_update
+        repo = "owner/repo"
+        pr = {"number": 1, "state": "open", "user": {"login": "renovate[bot]"},
+              "labels": [{"name": "dependency:auto-eligible"}],
+              "head": {"sha": "b" * 40, "ref": "renovate/action", "repo": {"full_name": repo}},
+              "base": {"sha": "a" * 40, "ref": "main"}}
+        def no_api(_):
+            self.fail("Untrusted changes must not enter the routine lane")
+        self.assertFalse(verified_routine_action_update(pr, ["package.json"], no_api, repo, "main"))
+        pr["user"]["login"] = "untrusted-bot"
+        self.assertFalse(verified_routine_action_update(pr, [".github/workflows/ci.yml"], no_api, repo, "main"))
+
+
 if __name__ == "__main__":
     unittest.main()
 
