@@ -640,14 +640,6 @@ input, textarea, select, button { max-width: 100%; }
   .layout.embedded .embedded-inbox-subnav-item { font-size: var(--aims-type-xs); }
 }
 
-/* Match HIVE's mobile workspace selector. */
-.embedded-workspace-select { display: none; min-width: 0; flex: 1; min-height: 44px; padding: 0 var(--aims-space-3); border: 1px solid var(--aims-border); border-radius: var(--aims-radius); background: var(--aims-surface-raised); color: inherit; }
-.embedded-workspace-select:focus-visible { outline: 2px solid var(--aims-accent-strong); outline-offset: 2px; }
-@media (max-width: 639px) {
-  .embedded-workspace-select { display: block; }
-  .layout.embedded .embedded-nav-scroll, .layout.embedded .embedded-inbox-subnav-scroll { display: none; }
-}
-
 /* Signal lamps: restrained hi-fi / studio-console hardware, not flashing alerts. */
 .signal-lamp {
   display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto;
