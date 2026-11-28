@@ -23,7 +23,7 @@ jobs:
           package-manager-cache: false
       - name: Install pinned npm
         run: npm install --global npm@10.9.9
-      - name: Verify pinned Node/npm toolchain
+      - name: Test pinned Node/npm toolchain
         run: |
           test "$(node --version)" = "v$(cat .node-version)"
           test "$(node -p 'require("./package.json").engines.node')" = "$(cat .node-version)"
