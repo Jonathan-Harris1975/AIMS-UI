@@ -1274,10 +1274,8 @@ function workspaceView() {
           </article>`).join("") || emptyState("No messages", "The conversation record contains no message bodies.")}
         </div>
         ${canReply ? `
-          <form id="reply-form" class="reply-composer">
-            <textarea name="message" rows="3" maxlength="20000" placeholder="Write an operator reply…"
-              aria-label="Operator reply" required ${socialThread && socialMonitorOnly ? "disabled" : ""}></textarea>
-            ${socialThread?.thread_type === "comment" && socialCapabilities?.privateCommentReplies
+          ${staticMarkup("reply-composer", socialThread && socialMonitorOnly ? "disabled" : "",
+            socialThread?.thread_type === "comment" && socialCapabilities?.privateCommentReplies
               ? `<label class="reply-mode"><span>Reply mode</span>${themedSelect({
                 name: "replyMode",
                 value: "public",
@@ -1288,13 +1286,7 @@ function workspaceView() {
                   { value: "private", label: "Private reply" },
                 ],
               })}</label>`
-              : ""}
-            <div>
-              <span>${replyStatus}</span>
-              <button class="button primary" type="submit"
-                ${socialThread && socialMonitorOnly ? "disabled" : ""}>${replyLabel}</button>
-            </div>
-          </form>
+              : "", replyStatus, replyLabel)}
         ` : `<div class="read-only-banner">Read-only role. Reply and mutation controls are disabled.</div>`}
       </section>
       <nav class="workspace-context-tabs" aria-label="Conversation context">

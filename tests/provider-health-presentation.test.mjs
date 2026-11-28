@@ -10,7 +10,10 @@ test('Communications hides unverified provider inventory without removing channe
   assert.doesNotMatch(app, /routes · \$\{unverified\}/)
   assert.match(app, /<h3>Email and web chat<\/h3>/)
   assert.match(app, /<h3>Verified identity<\/h3>/)
-  assert.match(app, /<h3>Audio notifications<\/h3>/)
+  const html = await readFile(new URL('../apps/console/index.html', import.meta.url), 'utf8')
+  assert.match(html, /<template id="audio-settings">[\s\S]*?<h3>Audio notifications<\/h3>/)
+  assert.match(app, /getElementById\("audio-settings"\)\.innerHTML/)
+  assert.doesNotMatch(html, /<h3>Provider health<\/h3>/)
 })
 
 test('No background provider-health polling remains in the visible Settings view', async () => {

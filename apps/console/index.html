@@ -49,6 +49,18 @@
     <svg data-icon="chevronDown" viewBox="0 0 24 24" aria-hidden="true"><path d="m6.7 8.3 5.3 5.3 5.3-5.3 1.4 1.4-6.7 6.7-6.7-6.7 1.4-1.4Z"/></svg>
     <svg data-icon="more" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm7 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm7 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4Z"/></svg>
   </template>
+  <template id="reply-composer">
+          <form id="reply-form" class="reply-composer">
+            <textarea name="message" rows="3" maxlength="20000" placeholder="Write an operator reply…"
+              aria-label="Operator reply" required data-slot-0=""></textarea>
+            {{1}}
+            <div>
+              <span>{{2}}</span>
+              <button class="button primary" type="submit"
+                data-slot-0="">{{3}}</button>
+            </div>
+          </form>
+  </template>
   <template id="mail-compose">
     <dialog class="manual-mail-dialog" id="manual-mail-dialog" aria-labelledby="manual-mail-dialog-title">
       <form method="dialog" class="manual-mail-compose" id="manual-mail-form">
