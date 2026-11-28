@@ -343,11 +343,7 @@ function shell(content) {
 <a class="skip-link" href="#aims-main-content">Skip to main content</a>
 <button class="scrim" data-action="close-sidebar" aria-label="Close navigation" tabindex="-1"></button>
 <aside class="sidebar" id="aims-sidebar" aria-label="AIMS navigation" ${state.sidebarOpen ? 'role="dialog" aria-modal="true"' : ""}>
-<div class="brand">
-<div class="brand-mark"><span>A</span></div>
-<div><strong>AIMS</strong><small>Comms Hub</small></div>
-<button class="icon-button mobile-only" data-action="close-sidebar" aria-label="Close navigation">${icons.close}</button>
-</div>
+${staticMarkup("shell-brand", icons.close)}
 <nav aria-label="Primary">
           ${navItems.map(([key, label, icon]) => key === "inbox" ? `
 <div class="nav-group ${isInboxFamilyView() ? "open" : ""}">
@@ -420,30 +416,20 @@ ${embeddedViewSelect(inboxSubItems, activeInboxSubView(), "Current unified inbox
             ${icons.menu}
 </button>
 <div class="mobile-title"><strong>${escapeHtml(config.productName)}</strong><span>${escapeHtml(titleCase(state.view))}</span></div>
-<label class="global-search">
-            ${icons.search}
-<input id="global-search" type="search" value="${escapeHtml(state.search)}" placeholder="Search queue, contact or conversation" autocomplete="off" aria-label="Search conversations">
-<kbd>Ctrl / ⌘ K</kbd>
-</label>
+${staticMarkup("shell-search", icons.search, escapeHtml(state.search))}
 <button class="icon-button notification-button" data-action="toggle-notifications" aria-label="Notifications" aria-expanded="${state.notificationOpen}" aria-controls="notification-panel">
             ${icons.bell}<span ${unread ? "" : "hidden"}>${unread || ""}</span>
 </button>
 </header>
         `}
 <div class="content">
-          ${state.error && state.bootstrap ? `<div class="snapshot-warning" role="alert">
-<strong>Queue refresh failed</strong>
-<span>Showing the last loaded snapshot, not verified current status. ${escapeHtml(state.error.message || "Check the live gateway.")}</span>
-</div>` : ""}
+          ${state.error && state.bootstrap ? staticMarkup("shell-snapshot-warning", escapeHtml(state.error.message || "Check the live gateway.")) : ""}
           ${content}
 </div>
 </main>
       ${notificationPanel()}
-      ${state.toast ? `<div class="toast toast-${escapeHtml(state.toast.tone)}"
-        role="${state.toast.tone === "error" ? "alert" : "status"}"
-        aria-live="${state.toast.tone === "error" ? "assertive" : "polite"}" aria-atomic="true">
-        ${escapeHtml(state.toast.message)}
-</div>` : ""}
+      ${state.toast ? staticMarkup("shell-toast", escapeHtml(state.toast.tone), state.toast.tone === "error" ? "alert" : "status",
+        state.toast.tone === "error" ? "assertive" : "polite", escapeHtml(state.toast.message)) : ""}
 </div>
   `;
 }
