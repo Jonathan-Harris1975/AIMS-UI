@@ -44,7 +44,6 @@ async function acceptHiveHandoff() {
 
 try {
   await acceptHiveHandoff();
-  notifyHiveParent({ type: "aims-comms-ready" });
 } catch (error) {
   const code = String(error?.code || "hive_handoff_failed");
   const message = String(error?.message || "AIMS Comms Hub could not establish the secure HIVE handoff.");
@@ -2058,6 +2057,7 @@ async function submitManualMail(event) {
 }
 
 async function loadBootstrap() {
+  const initialBootstrap = !state.bootstrap;
   state.loading = true;
   state.error = null;
   try {
@@ -2065,6 +2065,7 @@ async function loadBootstrap() {
     state.queue = payload.queue || payload.conversations || [];
     updateCommsNotifications(payload.notifications || []);
     state.bootstrap = payload;
+    notificationPollDenied = false;
     await fetchOperationalStatus();
     const requestedView = location.hash.slice(1);
     state.view = requestedView && routableViews.has(requestedView) ? requestedView : state.view;
@@ -2075,6 +2076,10 @@ async function loadBootstrap() {
   } finally {
     state.loading = false;
     render();
+    if (initialBootstrap) {
+      if (state.bootstrap && !state.error) notifyHiveParent({ type: "aims-comms-ready" });
+      else notifyHiveParent({ type: "aims-comms-error", code: "bootstrap_failed", detail: "The communications workspace could not finish loading. Reconnect through HIVE." });
+    }
   }
 }
 
@@ -2494,5 +2499,24 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-if (config.embedded) setInterval(() => { if (state.bootstrap) client.notifications().then((r) => updateCommsNotifications(r.notifications), () => {}); }, 15_000);
+// Poll only an established operator session, in either standalone or embedded mode.
+let notificationPollInFlight = false;
+let notificationPollDenied = false;
+async function pollCommsNotifications() {
+  if (!state.bootstrap || state.loading || notificationPollInFlight || notificationPollDenied) return;
+  notificationPollInFlight = true;
+  try {
+    const r = await client.notifications();
+    if (Array.isArray(r.notifications)) updateCommsNotifications(r.notifications);
+  } catch (error) {
+    // Never continue polling after access is revoked or the session expires.
+    if (error instanceof AimsApiError && (error.status === 401 || error.status === 403)) notificationPollDenied = true;
+  } finally {
+    notificationPollInFlight = false;
+  }
+}
+setInterval(() => void pollCommsNotifications(), 15_000);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") void pollCommsNotifications();
+});
 loadBootstrap();

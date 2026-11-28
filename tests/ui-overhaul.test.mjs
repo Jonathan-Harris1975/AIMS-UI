@@ -212,3 +212,17 @@ test('embedded navigation keeps visible labels, scrolling and focus affordances 
   assert.match(styles, /\.embedded-nav-scroll, \.embedded-inbox-subnav-scroll \{ scrollbar-width: thin/)
   assert.match(styles, /\.embedded-notification-button:focus-visible \{ outline: 2px solid/)
 })
+
+
+test('workspace readiness follows bootstrap and notifications poll without overlap in both modes', async () => {
+  const app = await readFile(new URL('../apps/console/app.js', import.meta.url), 'utf8')
+  const handoff = app.slice(app.indexOf('try {\n  await acceptHiveHandoff()'), app.indexOf('const client ='))
+  assert.doesNotMatch(handoff, /aims-comms-ready/)
+  const bootstrap = app.slice(app.indexOf('async function loadBootstrap()'), app.indexOf('async function loadOutreach()'))
+  assert.match(bootstrap, /render\(\);\s*if \(initialBootstrap\)/)
+  assert.match(bootstrap, /state\.bootstrap && !state\.error/)
+  assert.match(app, /notificationPollInFlight \|\| notificationPollDenied/)
+  assert.match(app, /error\.status === 401 \|\| error\.status === 403/)
+  assert.match(app, /setInterval\(\(\) => void pollCommsNotifications\(\), 15_000\)/)
+  assert.doesNotMatch(app, /if \(config\.embedded\) setInterval/)
+})
