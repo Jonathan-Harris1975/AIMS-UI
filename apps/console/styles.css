@@ -387,8 +387,10 @@ button, .button, .nav-item, .nav-subitem, .queue-card, .contact-card, .notificat
   .notification-list { max-height: calc(100dvh - 138px); }
   .social-capability-grid { grid-template-columns: 1fr; }
   .embedded-nav { padding: 0 var(--aims-space-2); }
-  .embedded-nav-item span { display: none; }
-  .embedded-nav-item { padding: 0 var(--aims-space-2); }
+  .embedded-nav-item { min-height: 44px; padding: 0 var(--aims-space-2); white-space: nowrap; }
+  .embedded-nav-item span { display: inline; }
+  .embedded-nav-scroll, .embedded-inbox-subnav-scroll { scrollbar-width: thin; }
+  .embedded-nav-scroll::-webkit-scrollbar, .embedded-inbox-subnav-scroll::-webkit-scrollbar { display: block; height: 5px; }
 }
 
 @media (pointer: coarse) {
@@ -592,3 +594,9 @@ input, textarea, select, button { max-width: 100%; }
 }
 /* Keep the compose form usable with a short viewport or an onscreen keyboard. */
 .manual-mail-dialog { overflow-y: auto; overscroll-behavior: contain; }
+
+/* Embedded workspace uses the same restrained, named navigation as the HIVE shell. */
+.embedded-nav-scroll, .embedded-inbox-subnav-scroll { min-width: 0; padding-block: 4px; scroll-padding-inline: 4px; }
+.embedded-nav-item.active, .embedded-inbox-subnav-item.active { font-weight: 650; }
+.embedded-notification-button { width: 44px; height: 44px; }
+.embedded-notification-button:focus-visible { outline: 2px solid var(--aims-accent-strong); outline-offset: 2px; }
