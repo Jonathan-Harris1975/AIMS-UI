@@ -6,7 +6,7 @@ globalThis.customElements = { get() {}, define() {} };
 globalThis.document = { currentScript: null, scripts: [], hidden: false };
 globalThis.location = { pathname: "/", origin: "https://example.test" };
 globalThis.localStorage = { getItem() { return null; }, setItem() {}, removeItem() {} };
-const { CogniPalWidget } = await import("../apps/widget/cognipal-widget.js");
+const { CogniPalWidget, messageHtml } = await import("../apps/widget/cognipal-widget.js");
 
 function widget() {
   const w = new CogniPalWidget();
@@ -62,4 +62,14 @@ test("visitor delivery confirmation remains distinct from sending", () => {
   assert.match(w.content(), /Accepted/);
   w.messages[0].status = "failed";
   assert.match(w.content(), /Try again/);
+});
+
+
+test("local formatting permits emphasis, code and safe links, not raw HTML", () => {
+  const html = messageHtml('**Bold** `code` <script>alert(1)</script> https://example.test');
+  assert.match(html, /<strong>Bold<\/strong>/);
+  assert.match(html, /<code>code<\/code>/);
+  assert.match(html, /&lt;script&gt;/);
+  assert.match(html, /href="https:\/\/example.test"/);
+  assert.doesNotMatch(html, /<script>/);
 });

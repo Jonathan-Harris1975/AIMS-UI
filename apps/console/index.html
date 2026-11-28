@@ -98,6 +98,70 @@
             <button class="button secondary" type="submit">Add note</button>
           </form>
   </template>
+  <template id="notice-row">
+<button type="button" class="notification-item severity-{{0}}"
+            title="{{1}}"
+            data-notification-id="{{2}}"
+            data-conversation-id="{{3}}">
+{{4}}
+<span>
+<span class="sr-only">{{1}}: </span>
+<strong>{{5}}</strong>
+<small>{{6}}</small>
+<time>{{7}}</time>
+</span>
+</button>
+  </template>
+  <template id="mail-reader">
+<header class="manual-mail-message-header">
+          <div><h2>{{0}}</h2>
+            <p>From {{1}}
+              &lt;{{2}}&gt;</p>
+            <time>{{3}}</time></div>
+          <div class="manual-mail-actions">
+            <button class="button primary" data-action="reply-mail">Reply</button>
+            <label class="manual-mail-move"><span class="sr-only">Move to folder</span>
+              <select data-mail-move aria-label="Move email to folder">
+                <option value="">Move to…</option>{{4}}
+              </select></label>
+            <button class="button danger" data-action="delete-mail">Delete</button>
+          </div>
+        </header>
+        <div class="manual-mail-body">{{5}}</div>
+  </template>
+  <template id="settings-connection">
+<section class="panel settings-card">
+<h3>Console connection</h3>
+<dl>
+<div><dt>API gateway</dt><dd>{{0}}</dd></div>
+<div><dt>Mode</dt><dd>Live</dd></div>
+<div><dt>API version</dt><dd>{{1}}</dd></div>
+</dl>
+</section>
+  </template>
+  <template id="settings-identity">
+<section class="panel settings-card">
+<h3>Verified identity</h3>
+<dl>
+<div><dt>Actor</dt><dd>{{0}}</dd></div>
+<div><dt>Role</dt><dd>{{1}}</dd></div>
+<div><dt>Strategy</dt><dd>{{2}}</dd></div>
+</dl>
+</section>
+  </template>
+  <template id="settings-email">
+<section class="panel settings-card">
+<h3>Email and web chat</h3>
+<dl>
+<div><dt>Email</dt><dd>{{0}}</dd></div>
+<div><dt>Mailbox</dt><dd>{{1}}</dd></div>
+<div><dt>Email worker</dt><dd>{{2}}</dd></div>
+<div><dt>Last success</dt><dd>{{3}}</dd></div>
+<div><dt>Web chat</dt><dd>{{4}}</dd></div>
+<div><dt>Chat AI</dt><dd>{{5}}</dd></div>
+</dl>
+</section>
+  </template>
   <template id="workspace-contact">
         <section class="panel detail-card {{0}}" data-context-section="details">
           <header><strong>Contact</strong></header>

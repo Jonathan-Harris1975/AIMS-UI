@@ -393,7 +393,7 @@ ${signalLamp(state.error ? "amber" : state.bootstrap ? "green" : "neutral")}
             `).join("")}
 </div>
 <button class="embedded-notification-button" data-action="toggle-notifications" aria-label="Notifications" aria-expanded="${state.notificationOpen}" aria-controls="notification-panel">
-            ${icons.bell}${unread ? `<span>${unread}</span>` : ""}
+            ${icons.bell}<span ${unread ? "" : "hidden"}>${unread || ""}</span>
 </button>
 </nav>
         ${isInboxFamilyView() ? `
@@ -421,7 +421,7 @@ ${signalLamp(state.error ? "amber" : state.bootstrap ? "green" : "neutral")}
 <kbd>Ctrl / ⌘ K</kbd>
 </label>
 <button class="icon-button notification-button" data-action="toggle-notifications" aria-label="Notifications" aria-expanded="${state.notificationOpen}" aria-controls="notification-panel">
-            ${icons.bell}${unread ? `<span>${unread}</span>` : ""}
+            ${icons.bell}<span ${unread ? "" : "hidden"}>${unread || ""}</span>
 </button>
 </header>
         `}
@@ -458,18 +458,15 @@ function notificationPanel() {
           const rank = (item) => item.severity === "critical" ? 0 : item.severity === "warning" ? 1 : 2;
           return Number(a.status === "read") - Number(b.status === "read") || rank(a) - rank(b);
         }).map((item) => `
-<button type="button" class="notification-item severity-${escapeHtml(item.severity || "info")}"
-            title="${notificationSignal(item.severity).label}"
-            data-notification-id="${escapeHtml(item.id)}"
-            data-conversation-id="${escapeHtml(item.conversation_id || "")}">
-${signalLamp(notificationSignal(item.severity).tone)}
-<span>
-<span class="sr-only">${notificationSignal(item.severity).label}: </span>
-<strong>${escapeHtml(item.title || titleCase(item.type))}</strong>
-<small>${escapeHtml(item.body_text || "")}</small>
-<time>${escapeHtml(formatRelativeTime(item.created_at))}</time>
-</span>
-</button>
+${staticMarkup("notice-row",
+          escapeHtml(item.severity || "info"),
+          notificationSignal(item.severity).label,
+          escapeHtml(item.id),
+          escapeHtml(item.conversation_id || ""),
+          signalLamp(notificationSignal(item.severity).tone),
+          escapeHtml(item.title || titleCase(item.type)),
+          escapeHtml(item.body_text || ""),
+          escapeHtml(formatRelativeTime(item.created_at)))}
         `).join("") : emptyState("No notifications", "The signal shelf is clear.")}
 </div>
 </aside>
@@ -1031,21 +1028,13 @@ function manualMailView() {
           : (rows || emptyState("No recent mail", "This mailbox has no recent messages."))}
       </div>
       <div class="panel manual-mail-reader">${selected ? `
-        <header class="manual-mail-message-header">
-          <div><h2>${escapeHtml(selected.subject || "(No subject)")}</h2>
-            <p>From ${escapeHtml(selected.from?.name || selected.from?.address || "Unknown sender")}
-              &lt;${escapeHtml(selected.from?.address || "")}&gt;</p>
-            <time>${escapeHtml(formatDateTime(selected.receivedAt))}</time></div>
-          <div class="manual-mail-actions">
-            <button class="button primary" data-action="reply-mail">Reply</button>
-            <label class="manual-mail-move"><span class="sr-only">Move to folder</span>
-              <select data-mail-move aria-label="Move email to folder">
-                <option value="">Move to…</option>${moveOptions}
-              </select></label>
-            <button class="button danger" data-action="delete-mail">Delete</button>
-          </div>
-        </header>
-        <div class="manual-mail-body">${escapeHtml(selected.text || "(No plain-text content)")}</div>
+        ${staticMarkup("mail-reader",
+          escapeHtml(selected.subject || "(No subject)"),
+          escapeHtml(selected.from?.name || selected.from?.address || "Unknown sender"),
+          escapeHtml(selected.from?.address || ""),
+          escapeHtml(formatDateTime(selected.receivedAt)),
+          moveOptions,
+          escapeHtml(selected.text || "(No plain-text content)"))}
       ` : emptyState("Select a message", "Choose an email to read it here.")}</div>
     </section>
     ${staticMarkup("mail-compose", escapeHtml(account?.address || ""), icons.close)}
@@ -1071,36 +1060,23 @@ function settingsView() {
       `<button class="button secondary" data-action="load-social-status">Refresh</button>`,
     )}
 <div class="settings-grid">
-<section class="panel settings-card">
-<h3>Console connection</h3>
-<dl>
-<div><dt>API gateway</dt><dd>${escapeHtml(config.apiBaseUrl)}</dd></div>
-<div><dt>Mode</dt><dd>Live</dd></div>
-<div><dt>API version</dt><dd>${escapeHtml(state.bootstrap?.apiVersion || "Unknown")}</dd></div>
-</dl>
-</section>
+${staticMarkup("settings-connection",
+          escapeHtml(config.apiBaseUrl),
+          escapeHtml(state.bootstrap?.apiVersion || "Unknown"))}
 <section class="panel settings-card"><h3>Display</h3>
 <label><input type="checkbox" data-density-toggle ${displayDensity === "comfortable" ? "checked" : ""}> Comfortable spacing</label></section>
 ${document.getElementById("audio-settings").innerHTML}
-<section class="panel settings-card">
-<h3>Verified identity</h3>
-<dl>
-<div><dt>Actor</dt><dd>${escapeHtml(identity.actor || "Unknown")}</dd></div>
-<div><dt>Role</dt><dd>${escapeHtml(titleCase(identity.role || "read_only"))}</dd></div>
-<div><dt>Strategy</dt><dd>${escapeHtml(identity.strategy || "Unknown")}</dd></div>
-</dl>
-</section>
-<section class="panel settings-card">
-<h3>Email and web chat</h3>
-<dl>
-<div><dt>Email</dt><dd>${!emailLoaded ? "Unknown" : email.enabled ? "Enabled" : "Disabled"}</dd></div>
-<div><dt>Mailbox</dt><dd>${escapeHtml(!emailLoaded ? "Unknown" : emailAccount.address || "Not configured")}</dd></div>
-<div><dt>Email worker</dt><dd>${!emailLoaded ? "Unknown" : emailAccount.workerRunning ? "Polling" : emailAccount.workerStarted ? "Scheduled" : "Off"}</dd></div>
-<div><dt>Last success</dt><dd>${escapeHtml(!emailLoaded ? "Unknown" : emailPollState.lastSuccessAt ? formatDateTime(emailPollState.lastSuccessAt) : "None")}</dd></div>
-<div><dt>Web chat</dt><dd>${!chatLoaded ? "Unknown" : chat.enabled ? `Enabled · ${escapeHtml(chat.transport || "unknown")}` : "Disabled"}</dd></div>
-<div><dt>Chat AI</dt><dd>${!chatLoaded ? "Unknown" : chat.aiWorkflowEnabled ? "Enabled" : "Disabled"}</dd></div>
-</dl>
-</section>
+${staticMarkup("settings-identity",
+          escapeHtml(identity.actor || "Unknown"),
+          escapeHtml(titleCase(identity.role || "read_only")),
+          escapeHtml(identity.strategy || "Unknown"))}
+${staticMarkup("settings-email",
+          !emailLoaded ? "Unknown" : email.enabled ? "Enabled" : "Disabled",
+          escapeHtml(!emailLoaded ? "Unknown" : emailAccount.address || "Not configured"),
+          !emailLoaded ? "Unknown" : emailAccount.workerRunning ? "Polling" : emailAccount.workerStarted ? "Scheduled" : "Off",
+          escapeHtml(!emailLoaded ? "Unknown" : emailPollState.lastSuccessAt ? formatDateTime(emailPollState.lastSuccessAt) : "None"),
+          !chatLoaded ? "Unknown" : chat.enabled ? `Enabled · ${escapeHtml(chat.transport || "unknown")}` : "Disabled",
+          !chatLoaded ? "Unknown" : chat.aiWorkflowEnabled ? "Enabled" : "Disabled")}
 <section class="panel settings-card social-settings-card"><h3>Social channel setup</h3>
 <div class="social-status-strip">
 ${labelledSignal(!socialLoaded ? "neutral" : social.monitorOnly ? "amber" : "green",
@@ -2554,7 +2530,11 @@ async function pollCommsNotifications() {
   notificationPollInFlight = true;
   try {
     const r = await client.notifications();
-    if (Array.isArray(r.notifications)) updateCommsNotifications(r.notifications);
+    if (Array.isArray(r.notifications)) {
+      updateCommsNotifications(r.notifications);
+      const unread = state.notifications.filter(item => item.status !== "read").length;
+      root.querySelectorAll('[aria-label="Notifications"] > span').forEach(badge => { badge.textContent = unread || ""; badge.hidden = !unread; });
+    }
   } catch (error) {
     // Never continue polling after access is revoked or the session expires.
     if (error instanceof AimsApiError && (error.status === 401 || error.status === 403)) notificationPollDenied = true;
