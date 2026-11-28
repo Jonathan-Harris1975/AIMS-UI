@@ -151,35 +151,9 @@ function updateCommsNotifications(next) {
   state.notifications = next;
 }
 
-const icons = {
-  dashboard: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h6V4H4v9Zm0 7h6v-5H4v5Zm10 0h6V11h-6v9Zm0-16v5h6V4h-6Z"/></svg>`,
-  inbox: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v12h-5l-2 3h-2l-2-3H4V4Zm2 2v8h4l2 3 2-3h4V6H6Z"/></svg>`,
-  allConversations: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v3H3V4Zm0 6h18v3H3v-3Zm0 6h18v3H3v-3Z"/></svg>`,
-  outreach: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 11 22 2l-6 20-5-8-9-3Zm9 1.2 4.4 6.9L19 5.6l-13 5.8 5 0.8Z"/><path d="m10 13 8-8 1 1-8 8-1-1Z"/></svg>`,
-  dm: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v13H8l-4 4V4Zm3 4v2h10V8H7Zm0 4v2h7v-2H7Z"/></svg>`,
-  comment: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c5.5 0 10 3.6 10 8s-4.5 8-10 8H9l-5 3 1.5-5.3C3.3 15.2 2 13.2 2 11c0-4.4 4.5-8 10-8Z"/>
-<circle cx="7.5" cy="11" r="1.2" fill="var(--aims-bg)"/><circle cx="12" cy="11" r="1.2" fill="var(--aims-bg)"/><circle cx="16.5" cy="11" r="1.2" fill="var(--aims-bg)"/></svg>`,
-  approval: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4 5v6c0 5.1 3.4 9.8 8 11 4.6-1.2 8-5.9 8-11V5l-8-3Zm-1 14-4-4 1.4-1.4 2.6 2.6 4.6-4.6L17 10l-6 6Z"/></svg>`,
-  contacts: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0H5Z"/></svg>`,
-  workflow: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h6v5H6V3Zm8 13h4v5h-6v-5h2Zm-9-1h6v5H5v-5Zm4-7v3h6v3h2v-5H11V8H9Z"/></svg>`,
-  quarantine: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 3 6v6c0 5 3.8 9.7 9 10 5.2-.3 9-5 9-10V6l-9-4Zm-1 5h2v7h-2V7Zm0 9h2v2h-2v-2Z"/></svg>`,
-  analytics: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16v2H2V3h2v16Zm3-2v-6h3v6H7Zm5 0V7h3v10h-3Zm5 0V4h3v13h-3Z"/></svg>`,
-  mail: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3V5Zm2 2v1l7 5 7-5V7H5Zm14 10v-6.6l-7 5-7-5V17h14Z"/></svg>`,
-  settings: `<svg viewBox="0 0 24 24" aria-hidden="true">
-    <path d="m19.4 13 .1-1-.1-1 2-1.5-2-3.4-2.4 1a8 8 0 0 0-1.7-1L15 3h-4l-.4 2.6
-      a8 8 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.5-.1 1 .1 1-2 1.5 2 3.4 2.4-1a8 8 0 0 0 1.7 1L11 21h4
-      l.4-2.6a8 8 0 0 0 1.7-1l2.4 1 2-3.4-2-1.5ZM13 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8Z"/>
-  </svg>`,
-  search: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 19.6-5.2-5.2a7 7 0 1 0-1.4 1.4l5.2 5.2 1.4-1.4ZM5 10a5 5 0 1 1 10 0 5 5 0 0 1-10 0Z"/></svg>`,
-  bell: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 16v-5a6 6 0 1 0-12 0v5l-2 2h16l-2-2Zm-8 4h4a2 2 0 0 1-4 0Z"/></svg>`,
-  menu: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18v2H3V6Zm0 5h18v2H3v-2Zm0 5h18v2H3v-2Z"/></svg>`,
-  close: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.7 5.3 5.3 5.3 5.3-5.3 1.4 1.4-5.3 5.3 5.3 5.3-1.4 1.4-5.3-5.3-5.3 5.3-1.4-1.4 5.3-5.3-5.3-5.3 1.4-1.4Z"/></svg>`,
-  arrow: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7-1.4-1.4 5.6-5.6-5.6-5.6L9 5Z"/></svg>`,
-  home: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 8-1.3 1.5L18 11v9h-5v-6h-2v6H6v-9l-1.7 1.5L3 11l9-8Z"/></svg>`,
-  download: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2v10.2l3.6-3.6 1.4 1.4-6 6-6-6 1.4-1.4 3.6 3.6V3ZM5 19h14v2H5v-2Z"/></svg>`,
-  chevronDown: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.7 8.3 5.3 5.3 5.3-5.3 1.4 1.4-6.7 6.7-6.7-6.7 1.4-1.4Z"/></svg>`,
-  more: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm7 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm7 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4Z"/></svg>`,
-};
+// Static artwork is parsed once with the document, not embedded in the executable bundle.
+const icons = Object.fromEntries([...document.querySelector("#console-icons").content.querySelectorAll("svg[data-icon]")]
+  .map(icon => [icon.dataset.icon, icon.outerHTML]));
 
 const navItems = [
   ["dashboard", "Overview", icons.dashboard],
@@ -1098,6 +1072,7 @@ function manualMailView() {
         <label>Subject<input name="subject" maxlength="500" required></label>
         <label>Message<textarea name="bodyText" rows="10" required></textarea></label>
         <input name="inReplyTo" type="hidden"><input name="references" type="hidden">
+        <p role="alert" data-mail-compose-error hidden></p>
         <footer><button type="button" class="button secondary" data-action="close-mail-dialog">Cancel</button><button type="submit" class="button primary">Send</button></footer>
       </form>
     </dialog>
@@ -1681,8 +1656,21 @@ function outreachView() {
 }
 
 let renderedView = null;
+let renderedEntity = null;
 function render() {
+  const entity = state.view === "workspace" ? state.selectedConversationId : state.view === "contacts" ? state.selectedContactId : null;
   const sameView = renderedView === state.view;
+  const sameEntity = sameView && renderedEntity === entity;
+  // An open composer is a live form. Never replace its DOM for a background render.
+  if (sameView && state.view === "mail" && root.querySelector("#manual-mail-dialog")?.open) return;
+  const drafts = sameEntity ? [...root.querySelectorAll("#reply-form textarea, #reply-form select, #note-form textarea, #contact-edit-form input")]
+    .map(control => ({ form: control.form?.id, name: control.name, value: control.value })) : [];
+  const active = sameEntity && root.contains(document.activeElement) ? document.activeElement : null;
+  const focusId = active?.id;
+  const focusForm = active?.form?.id;
+  const focusName = active?.name;
+  const selection = active && typeof active.selectionStart === "number" ? [active.selectionStart, active.selectionEnd] : null;
+  renderedEntity = entity;
   const priorScroll = sameView ? window.scrollY : 0;
   const noticeScroll = root.querySelector(".notification-list")?.scrollTop || 0;
   const legendOpen = sameView && root.querySelector(".comms-indicator-key")?.open;
@@ -1715,6 +1703,15 @@ function render() {
   };
   root.innerHTML = (views[state.view] || dashboardView)();
   bindEvents();
+  for (const draft of drafts) {
+    const control = document.getElementById(draft.form)?.elements.namedItem(draft.name);
+    if (control && "value" in control) control.value = draft.value;
+  }
+  const restoredFocus = focusId ? document.getElementById(focusId) : focusForm && focusName ? document.getElementById(focusForm)?.elements.namedItem(focusName) : null;
+  if (restoredFocus && typeof restoredFocus.focus === "function") {
+    restoredFocus.focus({ preventScroll: true });
+    if (selection && typeof restoredFocus.setSelectionRange === "function") restoredFocus.setSelectionRange(...selection);
+  }
   if (sameView) window.scrollTo({ top: priorScroll, behavior: "instant" });
   const noticeList = root.querySelector(".notification-list");
   if (noticeList) noticeList.scrollTop = noticeScroll;
@@ -1835,8 +1832,12 @@ function bindEvents() {
   root.querySelector('[data-action="delete-mail"]')?.addEventListener("click", deleteSelectedManualMail);
   root.querySelector('[data-action="compose-mail"]')?.addEventListener("click", () => openManualMailComposer());
   root.querySelector('[data-action="reply-mail"]')?.addEventListener("click", () => openManualMailComposer(true));
-  root.querySelectorAll('[data-action="close-mail-dialog"]').forEach((button) => button.addEventListener("click", () => root.querySelector("#manual-mail-dialog")?.close()));
+  root.querySelectorAll('[data-action="close-mail-dialog"]').forEach((button) => button.addEventListener("click", () => {
+    if (!root.querySelector('#manual-mail-form [type="submit"]')?.disabled) root.querySelector("#manual-mail-dialog")?.close();
+  }));
   root.querySelector("#manual-mail-form")?.addEventListener("submit", submitManualMail);
+  root.querySelector("#manual-mail-dialog")?.addEventListener("close", render);
+  root.querySelector("#manual-mail-dialog")?.addEventListener("cancel", event => { if (event.currentTarget.querySelector('[type="submit"]')?.disabled) event.preventDefault(); });
 }
 
 function bindThemedSelects() {
@@ -1937,6 +1938,9 @@ function toggleNotifications(sourceButton = null) {
 }
 
 function navigate(view) {
+  if (state.view === "workspace" && view !== "workspace") { ++conversationRequest; state.loading = false; }
+  if (state.view === "contacts" && view !== "contacts") { ++contactRequest; state.contactBusy = false; }
+  if (state.view === "mail" && view !== "mail") { ++mailRequest; state.manualMail.loading = false; }
   state.view = view;
   state.sidebarOpen = false;
   state.notificationOpen = false;
@@ -1950,7 +1954,12 @@ function navigate(view) {
   focusAfterRender("#aims-main-content");
 }
 
+let conversationRequest = 0;
+let contactRequest = 0;
+let mailRequest = 0;
 async function openConversation(conversationId) {
+  const request = ++conversationRequest;
+  const current = () => request === conversationRequest && state.view === "workspace" && state.selectedConversationId === conversationId;
   state.selectedConversationId = conversationId;
   state.workspaceContextTab = "details";
   state.view = "workspace";
@@ -1959,18 +1968,24 @@ async function openConversation(conversationId) {
   state.notificationOpen = false;
   render();
   try {
-    state.workspace = await client.workspace(conversationId);
+    const workspace = await client.workspace(conversationId);
+    if (!current()) return;
+    state.workspace = workspace;
     state.error = null;
   } catch (error) {
-    toast(error.message || "Conversation could not be loaded.", "error");
+    if (current()) toast(error.message || "Conversation could not be loaded.", "error");
   } finally {
-    state.loading = false;
-    render();
+    if (request === conversationRequest) {
+      state.loading = false;
+      if (current()) render();
+    }
   }
 }
 
 async function openContact(contactId) {
   if (!contactId) return;
+  const request = ++contactRequest;
+  const current = () => request === contactRequest && state.view === "contacts" && state.selectedContactId === contactId;
   state.selectedContactId = contactId;
   state.contactProfile = null;
   state.contactBusy = true;
@@ -1978,17 +1993,22 @@ async function openContact(contactId) {
   history.replaceState(null, "", `${location.pathname}${location.search}#contacts`);
   render();
   try {
-    state.contactProfile = await client.contact(contactId);
+    const profile = await client.contact(contactId);
+    if (!current()) return;
+    state.contactProfile = profile;
     state.error = null;
   } catch (error) {
-    toast(error.message || "Contact could not be loaded.", "error");
+    if (current()) toast(error.message || "Contact could not be loaded.", "error");
   } finally {
-    state.contactBusy = false;
-    render();
+    if (request === contactRequest) {
+      state.contactBusy = false;
+      if (current()) render();
+    }
   }
 }
 
 function closeContact() {
+  ++contactRequest;
   state.selectedContactId = "";
   state.contactProfile = null;
   state.contactBusy = false;
@@ -2052,30 +2072,47 @@ async function deleteContact() {
 }
 
 async function loadManualMail() {
-  state.manualMail.loading = true; render();
+  const request = ++mailRequest;
+  const mail = state.manualMail;
+  const current = () => request === mailRequest && state.view === "mail";
+  let accountKey = mail.accountKey;
+  let folder = mail.folder;
+  mail.loading = true; render();
   try {
-    if (!state.manualMail.accounts.length) {
+    let accounts = mail.accounts;
+    if (!accounts.length) {
       const result = await client.manualMailAccounts();
-      state.manualMail.accounts = result.accounts || [];
-      const currentEnabled = state.manualMail.accounts.some(
-        (item) => item.key === state.manualMail.accountKey && item.enabled,
-      );
-      if (!currentEnabled) state.manualMail.accountKey = state.manualMail.accounts.find((item) => item.enabled)?.key || "admin";
+      if (!current()) return;
+      accounts = result.accounts || [];
+      if (!accounts.some(item => item.key === accountKey && item.enabled)) {
+        accountKey = accounts.find(item => item.enabled)?.key || "admin";
+      }
     }
-    const folderResult = await client.manualMailFolders(state.manualMail.accountKey);
-    state.manualMail.folders = folderResult.folders || [];
-    if (!state.manualMail.folders.some((item) => item.name === state.manualMail.folder)) {
-      state.manualMail.folder = state.manualMail.folders.find((item) => item.name.toUpperCase() === "INBOX")?.name
-        || state.manualMail.folders[0]?.name || "INBOX";
+    const folderResult = await client.manualMailFolders(accountKey);
+    if (!current()) return;
+    const folders = folderResult.folders || [];
+    if (!folders.some(item => item.name === folder)) {
+      folder = folders.find(item => item.name.toUpperCase() === "INBOX")?.name || folders[0]?.name || "INBOX";
     }
-    const result = await client.manualMailMessages(state.manualMail.accountKey, 30, state.manualMail.folder);
-    state.manualMail.messages = result.messages || [];
-    const selectionExists = state.manualMail.messages.some(
-      (item) => String(item.uid) === String(state.manualMail.selectedUid),
-    );
-    if (!selectionExists) state.manualMail.selectedUid = state.manualMail.messages[0]?.uid || null;
-  } catch (error) { toast(error?.message || "Mail could not be loaded.", "error"); }
-  finally { state.manualMail.loading = false; render(); }
+    const result = await client.manualMailMessages(accountKey, 30, folder);
+    if (!current()) return;
+    const messages = result.messages || [];
+    const sameMailbox = mail.accountKey === accountKey && mail.folder === folder;
+    Object.assign(mail, { accounts, accountKey, folder, folders, messages,
+      selectedUid: sameMailbox && messages.some(item => String(item.uid) === String(mail.selectedUid))
+        ? mail.selectedUid : messages[0]?.uid || null });
+  } catch (error) {
+    if (current()) {
+      mail.messages = [];
+      mail.selectedUid = null;
+      toast(error?.message || "Mail could not be loaded.", "error");
+    }
+  } finally {
+    if (request === mailRequest) {
+      mail.loading = false;
+      if (current()) render();
+    }
+  }
 }
 
 async function selectManualMailbox(key) {
@@ -2115,7 +2152,11 @@ function openManualMailComposer(reply = false) {
 }
 
 async function submitManualMail(event) {
-  event.preventDefault(); const form = event.currentTarget; const submit = form.querySelector('[type="submit"]'); submit.disabled = true;
+  event.preventDefault(); const form = event.currentTarget; const submit = form.querySelector('[type="submit"]');
+  if (submit.disabled) return;
+  submit.disabled = true;
+  const errorNotice = form.querySelector("[data-mail-compose-error]");
+  if (errorNotice) { errorNotice.hidden = true; errorNotice.textContent = ""; }
   try {
     await client.sendManualMail(state.manualMail.accountKey, {
       to: [form.elements.to.value],
@@ -2125,7 +2166,10 @@ async function submitManualMail(event) {
       references: JSON.parse(form.elements.references.value || "[]"),
     });
     root.querySelector("#manual-mail-dialog")?.close(); toast("Email sent."); await loadManualMail();
-  } catch (error) { toast(error?.message || "Email could not be sent.", "error"); submit.disabled = false; }
+  } catch (error) {
+    if (errorNotice) { errorNotice.textContent = error?.message || "Email could not be sent."; errorNotice.hidden = false; }
+    submit.disabled = false;
+  }
 }
 
 async function loadBootstrap() {
@@ -2542,7 +2586,7 @@ async function openNotification(button) {
     await client.markNotification(id, "read");
     const notification = state.notifications.find((item) => item.id === id);
     if (notification) notification.status = "read";
-  } catch {}
+  } catch (error) { toast(error?.message || "Notification could not be marked as read.", "error"); }
   if (conversationId) openConversation(conversationId);
   else if (state.notificationOpen) toggleNotifications();
 }
@@ -2576,7 +2620,7 @@ document.addEventListener("keydown", (event) => {
 let notificationPollInFlight = false;
 let notificationPollDenied = false;
 async function pollCommsNotifications() {
-  if (!state.bootstrap || state.loading || notificationPollInFlight || notificationPollDenied) return;
+  if (document.visibilityState === "hidden" || !state.bootstrap || state.loading || notificationPollInFlight || notificationPollDenied) return;
   notificationPollInFlight = true;
   try {
     const r = await client.notifications();
