@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from autonomy_admission_check import set_admission_check
+from routine_action_admission import verified_routine_action_update
 
 API = "https://api.github.com"
 TOKEN = os.environ["GH_TOKEN"]
@@ -671,38 +672,6 @@ def pr_files(number: int) -> list[str]:
     return list(dict.fromkeys(names))
 
 
-RENOVATE_ACTION_PIN_LINE = re.compile(
-    r"""\s*uses:\s*['"]?[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@[0-9a-f]{40}['"]?\s*(?:#.*)?"""
-)
-
-
-def renovate_sensitive_changes_are_dependency_pins(number: int) -> bool:
-    """Allow Renovate protected workflow edits only for immutable action SHA pins.
-
-    Renovate owns GitHub Action revision updates, but not workflow logic or any
-    other governance/security control. Missing patches fail closed.
-    """
-    sensitive = [item for item in pr_file_details(number)
-                 if sensitive_file(str(item.get("filename", "")))]
-    if not sensitive:
-        return True
-    for item in sensitive:
-        path = str(item.get("filename", ""))
-        if item.get("previous_filename") or not path.startswith(".github/workflows/"):
-            return False
-        patch_text = item.get("patch")
-        if not isinstance(patch_text, str) or not patch_text:
-            return False
-        changed = [
-            line[1:].strip()
-            for line in patch_text.splitlines()
-            if line[:1] in {"+", "-"} and not line.startswith(("+++", "---"))
-        ]
-        if not changed or any(RENOVATE_ACTION_PIN_LINE.fullmatch(line) is None for line in changed):
-            return False
-    return True
-
-
 def sensitive_file(path: str) -> bool:
     """Return True for high-risk or unclassified paths; only explicit low-risk paths pass."""
     normalized = path.replace("\\", "/").removeprefix("./")
@@ -848,6 +817,20 @@ def require_operator_risk_approval(pr: dict[str, Any], paths: list[str], kind: s
     sha = str(pr.get("head", {}).get("sha", ""))
     if not re.fullmatch(r"[0-9a-f]{40}", sha):
         raise RuntimeError(f"PR #{number} has no valid head SHA for risk approval")
+    # Only verified Renovate pin-only updates of selected official actions may
+    # use the routine maintenance lane. The policy and all other changes still
+    # require independent owner approval. Exact-head checks follow as before.
+    if kind == "renovate" and renovate_auto_eligible(pr):
+        try:
+            routine = verified_routine_action_update(pr, paths, get, REPO, DEFAULT_BRANCH)
+        except (ApiError, KeyError, ValueError, TypeError, StopIteration, OSError, AttributeError):
+            log(f"PR #{number}: routine action evidence unavailable; retaining owner-risk gate.")
+            routine = False
+        if routine:
+            if RISK_APPROVAL_LABEL in labels:
+                remove_label(number, RISK_APPROVAL_LABEL)
+            log(f"PR #{number}: verified routine official action update at {sha[:12]}; exact-head checks still required.")
+            return False
     if has_operator_risk_approval(number, sha):
         if RISK_APPROVAL_LABEL in labels:
             remove_label(number, RISK_APPROVAL_LABEL)
@@ -1186,8 +1169,7 @@ def _reconcile_pr_candidate(pr: dict[str, Any]) -> None:
     if kind in {"kilo", "cto", "branch-pr", "renovate", "codex"}:
         number = int(pr["number"])
         changed_paths = pr_files(number)
-        approved_pin_only = kind == "renovate" and renovate_sensitive_changes_are_dependency_pins(number)
-        if not approved_pin_only and require_operator_risk_approval(pr, changed_paths, kind):
+        if require_operator_risk_approval(pr, changed_paths, kind):
             return
 
     if kind == "kilo":
