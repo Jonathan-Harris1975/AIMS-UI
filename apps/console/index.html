@@ -49,6 +49,47 @@
     <svg data-icon="chevronDown" viewBox="0 0 24 24" aria-hidden="true"><path d="m6.7 8.3 5.3 5.3 5.3-5.3 1.4 1.4-6.7 6.7-6.7-6.7 1.4-1.4Z"/></svg>
     <svg data-icon="more" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm7 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm7 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4Z"/></svg>
   </template>
+  <template id="mail-compose">
+    <dialog class="manual-mail-dialog" id="manual-mail-dialog" aria-labelledby="manual-mail-dialog-title">
+      <form method="dialog" class="manual-mail-compose" id="manual-mail-form">
+        <header>
+          <div><h2 id="manual-mail-dialog-title">New email</h2><p>Sending as {{0}}</p></div>
+          <button type="button" class="icon-button" data-action="close-mail-dialog" aria-label="Close">{{1}}</button>
+        </header>
+        <label>To<input name="to" type="email" required autocomplete="off"></label>
+        <label>Subject<input name="subject" maxlength="500" required></label>
+        <label>Message<textarea name="bodyText" rows="10" required></textarea></label>
+        <input name="inReplyTo" type="hidden"><input name="references" type="hidden">
+        <p role="alert" data-mail-compose-error hidden></p>
+        <footer><button type="button" class="button secondary" data-action="close-mail-dialog">Cancel</button><button type="submit" class="button primary">Send</button></footer>
+      </form>
+    </dialog>
+  </template>
+  <template id="contact-editor">
+    <section class="panel contact-editor">
+      <header class="panel-header stacked">
+        <div>
+          <strong>Manage contact</strong>
+          <span>{{0}} linked conversation{{1}}</span>
+        </div>
+        <button class="icon-button" type="button" data-action="close-contact" aria-label="Close contact editor">
+          {{2}}
+        </button>
+      </header>
+      <form id="contact-edit-form" class="contact-edit-form">
+        <label><span>Name</span><input name="displayName" maxlength="300" value="{{3}}" data-slot-6=""></label>
+        <label><span>Email</span><input name="primaryEmail" type="email" maxlength="320" value="{{4}}" data-slot-6=""></label>
+        <label><span>Phone</span><input name="phone" maxlength="100" value="{{5}}" data-slot-6=""></label>
+        <div class="contact-edit-actions">
+          <span>Deleting a contact keeps linked conversations intact and reassigns them to a non-personal placeholder.</span>
+          <div class="button-row">
+            {{7}}
+            {{8}}
+          </div>
+        </div>
+      </form>
+    </section>
+  </template>
   <template id="audio-settings">
 <section class="panel settings-card comms-audio-settings">
 <h3>Audio notifications</h3>

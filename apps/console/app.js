@@ -319,6 +319,10 @@ function priorityPill(priority) {
   return labelledSignal(prioritySignal(value), `Priority: ${titleCase(value)}`, "priority");
 }
 
+function staticMarkup(id, ...values) {
+  return document.getElementById(id).innerHTML.replace(/data-slot-(\d+)=""|\{\{(\d+)\}\}/g, (_, attr, value) => values[Number(attr ?? value)] ?? "");
+}
+
 function emptyState(title, copy) {
   return `<div class="empty-state"><div class="empty-mark">${icons.inbox}</div><h3>${escapeHtml(title)}</h3><p>${escapeHtml(copy)}</p></div>`;
 }
@@ -842,29 +846,12 @@ function contactsView() {
   const profile = state.contactProfile?.profile || state.contactProfile || null;
   const contact = profile?.contact || null;
   const editor = contact ? `
-    <section class="panel contact-editor">
-      <header class="panel-header stacked">
-        <div>
-          <strong>Manage contact</strong>
-          <span>${profile.conversations?.length || 0} linked conversation${profile.conversations?.length === 1 ? "" : "s"}</span>
-        </div>
-        <button class="icon-button" type="button" data-action="close-contact" aria-label="Close contact editor">
-          ${icons.close}
-        </button>
-      </header>
-      <form id="contact-edit-form" class="contact-edit-form">
-        <label><span>Name</span><input name="displayName" maxlength="300" value="${escapeHtml(contact.display_name || "")}" ${canEdit ? "" : "disabled"}></label>
-        <label><span>Email</span><input name="primaryEmail" type="email" maxlength="320" value="${escapeHtml(contact.primary_email || "")}" ${canEdit ? "" : "disabled"}></label>
-        <label><span>Phone</span><input name="phone" maxlength="100" value="${escapeHtml(contact.phone || "")}" ${canEdit ? "" : "disabled"}></label>
-        <div class="contact-edit-actions">
-          <span>Deleting a contact keeps linked conversations intact and reassigns them to a non-personal placeholder.</span>
-          <div class="button-row">
-            ${canDelete ? `<button class="button danger" type="button" data-action="delete-contact" ${state.contactBusy ? "disabled" : ""}>Delete contact</button>` : ""}
-            ${canEdit ? `<button class="button primary" type="submit" ${state.contactBusy ? "disabled" : ""}>Save changes</button>` : ""}
-          </div>
-        </div>
-      </form>
-    </section>
+    ${staticMarkup("contact-editor",
+      profile.conversations?.length || 0, profile.conversations?.length === 1 ? "" : "s", icons.close,
+      escapeHtml(contact.display_name || ""), escapeHtml(contact.primary_email || ""), escapeHtml(contact.phone || ""),
+      canEdit ? "" : "disabled",
+      canDelete ? `<button class="button danger" type="button" data-action="delete-contact" ${state.contactBusy ? "disabled" : ""}>Delete contact</button>` : "",
+      canEdit ? `<button class="button primary" type="submit" ${state.contactBusy ? "disabled" : ""}>Save changes</button>` : "")}
   ` : state.contactBusy ? `<section class="panel contact-editor" role="status" aria-live="polite" aria-busy="true"><p class="muted">Loading contact…</p></section>` : "";
   return shell(`
     ${pageHeader("Contacts", "Edit contact details without breaking the conversation history anchored to each record.")}
@@ -1065,20 +1052,7 @@ function manualMailView() {
         <div class="manual-mail-body">${escapeHtml(selected.text || "(No plain-text content)")}</div>
       ` : emptyState("Select a message", "Choose an email to read it here.")}</div>
     </section>
-    <dialog class="manual-mail-dialog" id="manual-mail-dialog" aria-labelledby="manual-mail-dialog-title">
-      <form method="dialog" class="manual-mail-compose" id="manual-mail-form">
-        <header>
-          <div><h2 id="manual-mail-dialog-title">New email</h2><p>Sending as ${escapeHtml(account?.address || "")}</p></div>
-          <button type="button" class="icon-button" data-action="close-mail-dialog" aria-label="Close">${icons.close}</button>
-        </header>
-        <label>To<input name="to" type="email" required autocomplete="off"></label>
-        <label>Subject<input name="subject" maxlength="500" required></label>
-        <label>Message<textarea name="bodyText" rows="10" required></textarea></label>
-        <input name="inReplyTo" type="hidden"><input name="references" type="hidden">
-        <p role="alert" data-mail-compose-error hidden></p>
-        <footer><button type="button" class="button secondary" data-action="close-mail-dialog">Cancel</button><button type="submit" class="button primary">Send</button></footer>
-      </form>
-    </dialog>
+    ${staticMarkup("mail-compose", escapeHtml(account?.address || ""), icons.close)}
   `);
 }
 
