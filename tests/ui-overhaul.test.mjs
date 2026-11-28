@@ -289,3 +289,18 @@ test('notification badges respect hidden state in standalone and embedded consol
   assert.equal((app.match(/<span \$\{unread \? "" : "hidden"\}>\$\{unread \|\| ""\}<\/span>/g) || []).length, 2)
   assert.match(app, /badge\.hidden = !unread/)
 })
+
+test('embedded mobile navigation uses current-view selectors without hiding notifications', async () => {
+  const app = await readFile(new URL('../apps/console/app.js', import.meta.url), 'utf8')
+  const styles = await readFile(new URL('../apps/console/styles.css', import.meta.url), 'utf8')
+  assert.equal((app.match(/<select data-embedded-view>/g) || []).length, 2)
+  assert.match(app, /Current communications view/)
+  assert.match(app, /Current unified inbox view/)
+  assert.match(app, /key === "inbox" \? isInboxFamilyView\(\) : state.view === key/)
+  assert.match(app, /activeInboxSubView\(\) === key \? "selected"/)
+  assert.match(app, /if \(routableViews.has\(select.value\)\) navigate\(select.value\)/)
+  assert.match(styles, /\.layout\.embedded \.embedded-workspace-select \{ display: none/)
+  assert.match(styles, /@media \(max-width: 639px\) \{\s*\.layout\.embedded \.embedded-workspace-select \{ display: block; \}/)
+  assert.match(styles, /\.layout\.embedded \.embedded-nav-scroll, \.layout\.embedded \.embedded-inbox-subnav-scroll \{ display: none; \}/)
+  assert.match(app, /<button class="embedded-notification-button"/)
+})
