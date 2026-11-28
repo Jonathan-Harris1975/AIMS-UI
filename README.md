@@ -81,7 +81,7 @@ Bundle policy lives in `config/bundle-budget.json` and is enforced by `npm run c
 
 - gzipped JavaScript warning threshold: **49,000 bytes**;
 - gzipped JavaScript hard ceiling: **52,000 bytes**;
-- total bundle ceiling: **420,000 bytes**; gzipped CSS ceiling: **13,000 bytes**; largest-asset ceiling: **160,000 bytes**.
+- total bundle ceiling: **425,000 bytes**; gzipped CSS ceiling: **13,000 bytes**; largest-asset ceiling: **160,000 bytes**.
 
 The checker always reports actual gzipped JavaScript, warning limit, hard limit, remaining bytes, percentage consumed and state. Entering the warning band is visible in CI but does not fail the build. Exceeding the hard ceiling still fails validation and release.
 
