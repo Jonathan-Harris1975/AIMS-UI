@@ -327,14 +327,6 @@ function emptyState(title, copy) {
   return `<div class="empty-state"><div class="empty-mark">${icons.inbox}</div><h3>${escapeHtml(title)}</h3><p>${escapeHtml(copy)}</p></div>`;
 }
 
-function embeddedViewSelect(items, current, label) {
-  const options = items.map(([key, name]) => {
-    const count = key === "approvals" ? pendingApprovals().length : 0;
-    return `<option value="${key}" ${current === key ? "selected" : ""}>${escapeHtml(name)}${count ? ` (${count})` : ""}</option>`;
-  }).join("");
-  return staticMarkup("embedded-view-select", escapeHtml(label), options);
-}
-
 function shell(content) {
   const identity = state.bootstrap?.identity || { actor: "Unknown", role: "read_only" };
   const unread = state.notifications.filter((item) => item.status !== "read").length;
@@ -380,7 +372,6 @@ ${staticMarkup("sidebar-identity",
 <main class="main" id="aims-main-content" tabindex="-1" ${state.sidebarOpen ? "inert" : ""}>
         ${config.embedded ? `
 <nav class="embedded-nav" aria-label="Communications sections">
-${embeddedViewSelect(navItems, isInboxFamilyView() ? "inbox" : state.view, "Current communications view")}
 <div class="embedded-nav-scroll">
             ${navItems.map(([key, label, icon]) => `
 <button
@@ -398,7 +389,6 @@ ${embeddedViewSelect(navItems, isInboxFamilyView() ? "inbox" : state.view, "Curr
 </nav>
         ${isInboxFamilyView() ? `
 <nav class="embedded-inbox-subnav" aria-label="Unified inbox sections">
-${embeddedViewSelect(inboxSubItems, activeInboxSubView(), "Current unified inbox view")}
 <div class="embedded-inbox-subnav-scroll">
               ${inboxSubItems.map(([subKey, subLabel, subIcon]) => `
 <button class="embedded-inbox-subnav-item ${activeInboxSubView() === subKey ? "active" : ""}"
@@ -1572,9 +1562,6 @@ function bindEvents() {
     root.querySelector(".layout").dataset.density = displayDensity;
   });
   root.querySelectorAll("[data-view]").forEach((button) => button.addEventListener("click", () => navigate(button.dataset.view)));
-  root.querySelectorAll("[data-embedded-view]").forEach(select => select.addEventListener("change", () => {
-    if (routableViews.has(select.value)) navigate(select.value);
-  }));
   root.querySelectorAll("[data-conversation-id]:not([data-notification-id])").forEach((element) => element.addEventListener("click", (event) => {
     const id = event.currentTarget.dataset.conversationId;
     if (id) openConversation(id);
