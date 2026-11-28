@@ -38,3 +38,16 @@ test("failed bootstrap removes the loading layout before rendering the error she
   const render = app.slice(renderStart, renderEnd);
   assert.match(render, /root\.className = "";\s*if \(state\.error && !state\.bootstrap\) \{\s*root\.innerHTML = errorView\(\)/);
 });
+
+
+test("static console icons are supplied by the inert document template", async () => {
+  const html = await readFile(resolve(root, "apps/console/index.html"), "utf8");
+  const app = await readFile(resolve(root, "apps/console/app.js"), "utf8");
+  const template = html.match(/<template id="console-icons">([\s\S]*?)<\/template>/);
+  assert.ok(template);
+  const names = [...template[1].matchAll(/<svg data-icon="([^"]+)"[^>]*aria-hidden="true"/g)].map(match => match[1]);
+  assert.equal(names.length, 22);
+  assert.equal(new Set(names).size, names.length);
+  for (const [, name] of app.matchAll(/\bicons\.(\w+)/g)) assert.ok(names.includes(name), "Missing icon: " + name);
+  assert.match(app, /document\.querySelector\("#console-icons"\)\.content/);
+});
