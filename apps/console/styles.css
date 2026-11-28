@@ -86,7 +86,7 @@ svg { width: 20px; height: 20px; fill: currentColor; }
 .summary-card:last-child { border-right: 0; }
 .summary-card > div:first-child { display: grid; gap: var(--aims-space-1); }
 .summary-card span, .summary-card small { color: var(--aims-text-faint); font-size: var(--aims-type-xs); }
-.summary-card strong { font-size: var(--aims-type-xl); line-height: 1; letter-spacing: -.03em; }
+.summary-card strong { font-size: var(--aims-type-xl); line-height: 1; font-family: ui-monospace, Consolas, monospace; font-variant-numeric: tabular-nums; letter-spacing: -.03em; }
 
 .dashboard-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(260px, .8fr); gap: var(--aims-space-6); }
 .panel { background: var(--aims-surface-raised); border: 1px solid var(--aims-border); border-radius: var(--aims-radius); }
@@ -705,3 +705,10 @@ input, textarea, select, button { max-width: 100%; }
   .quick-filter, .filter-disclosure > summary { min-height: 44px; }
   .panel-header { padding: 10px; gap: 8px; }
 }
+
+/* Industrial console: restrained hierarchy, optional comfortable data density. */
+.panel-header strong { letter-spacing: .025em; }
+.queue-table th { letter-spacing: .035em; }
+.age, .metric-grid strong { font-variant-numeric: tabular-nums; }
+[data-density="comfortable"] .queue-table td, [data-density="comfortable"] .queue-card { padding-block: 16px; }
+.settings-card summary { cursor:pointer; min-height:44px; }

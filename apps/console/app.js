@@ -103,6 +103,9 @@ function acknowledgeCommsNotification(id) {
   } catch {}
 }
 
+let displayDensity = "compact";
+try { if (localStorage.getItem("aims-density") === "comfortable") displayDensity = "comfortable"; } catch {}
+
 const state = {
   view: "dashboard",
   bootstrap: null,
@@ -324,7 +327,7 @@ function shell(content) {
   const identity = state.bootstrap?.identity || { actor: "Unknown", role: "read_only" };
   const unread = state.notifications.filter((item) => item.status !== "read").length;
   return `
-<div class="layout ${state.sidebarOpen ? "sidebar-open" : ""} ${config.embedded ? "embedded" : ""}">
+<div class="layout ${state.sidebarOpen ? "sidebar-open" : ""} ${config.embedded ? "embedded" : ""}" data-density="${displayDensity}">
 <a class="skip-link" href="#aims-main-content">Skip to main content</a>
 <button class="scrim" data-action="close-sidebar" aria-label="Close navigation" tabindex="-1"></button>
 <aside class="sidebar" id="aims-sidebar" aria-label="AIMS navigation" ${state.sidebarOpen ? 'role="dialog" aria-modal="true"' : ""}>
@@ -1106,6 +1109,8 @@ function settingsView() {
 <div><dt>API version</dt><dd>${escapeHtml(state.bootstrap?.apiVersion || "Unknown")}</dd></div>
 </dl>
 </section>
+<section class="panel settings-card"><h3>Display</h3>
+<label><input type="checkbox" data-density-toggle ${displayDensity === "comfortable" ? "checked" : ""}> Comfortable spacing</label></section>
 <section class="panel settings-card comms-audio-settings">
 <h3>Audio notifications</h3>
 <p>Only actionable alerts sound.</p>
@@ -1168,8 +1173,8 @@ ${labelledSignal(!socialLoaded ? "neutral" : social.monitorOnly ? "amber" : "gre
           ? `<p class="async-status" role="status" aria-live="polite">Updating social provider status…</p>`
           : ""}` : ""}
 </section>
-<section class="panel settings-card">
-<h3>Responsive contract</h3>
+<details class="panel settings-card">
+<summary>Responsive contract</summary>
 <dl>
 <div>
 <dt>Minimum width</dt>
@@ -1184,12 +1189,8 @@ ${labelledSignal(!socialLoaded ? "neutral" : social.monitorOnly ? "amber" : "gre
 <dd>${escapeHtml((state.bootstrap?.responsiveContract?.actions || []).join(", "))}</dd>
 </div>
 </dl>
-</section>
-<section class="panel settings-card">
-<h3>Security boundary</h3>
-<p>The browser holds no AIMS delegation secret. HIVE identity verification and HMAC signing happen in the
-          edge gateway before AIMS performs its own RBAC checks.</p>
-</section>
+</details>
+${document.getElementById("security-boundary").innerHTML}
 </div>
   `);
 }
@@ -1720,6 +1721,11 @@ function render() {
 }
 
 function bindEvents() {
+  root.querySelector("[data-density-toggle]")?.addEventListener("change", event => {
+    displayDensity = event.target.checked ? "comfortable" : "compact";
+    try { localStorage.setItem("aims-density", displayDensity); } catch {}
+    root.querySelector(".layout").dataset.density = displayDensity;
+  });
   root.querySelectorAll("[data-view]").forEach((button) => button.addEventListener("click", () => navigate(button.dataset.view)));
   root.querySelectorAll("[data-conversation-id]").forEach((element) => element.addEventListener("click", (event) => {
     const id = event.currentTarget.dataset.conversationId;
