@@ -289,6 +289,21 @@ function approvalMetadata(approval) {
   try { return JSON.parse(approval?.metadata_json || "{}"); } catch { return {}; }
 }
 
+function signalLamp(tone) {
+  const safeTone = ["red", "amber", "green", "info", "neutral"].includes(tone) ? tone : "neutral";
+  const active = safeTone === "red" || safeTone === "green" ? safeTone : "amber";
+  const lenses = ["red", "amber", "green"].map((lens) =>
+    `<span data-lens="${lens}" data-active="${lens === active}"></span>`).join("");
+  return `<span class="signal-lamp signal-${safeTone}" aria-hidden="true">${lenses}</span>`;
+}
+
+function notificationSignal(severity) {
+  if (severity === "critical") return { tone: "red", label: "Critical" };
+  if (severity === "warning") return { tone: "amber", label: "Warning" };
+  if (severity === "info" || !severity) return { tone: "info", label: "Information" };
+  return { tone: "neutral", label: "Unknown severity" };
+}
+
 function statusPill(status) {
   return `<span class="pill pill-${escapeHtml(status || "unknown")}">${escapeHtml(titleCase(status || "unknown"))}</span>`;
 }
@@ -340,7 +355,7 @@ function shell(content) {
 <div class="sidebar-footer">
 <a class="hive-home-link" href="${escapeHtml(config.hiveHomeUrl)}" aria-label="Return to HIVE">${icons.home}<span>Back to HIVE</span></a>
 <div class="service-card">
-<span class="service-dot ${state.error || !state.bootstrap ? "warning" : "live"}"></span>
+${signalLamp(state.error ? "amber" : state.bootstrap ? "green" : "neutral")}
 <div>
 <strong>${state.error ? "Refresh needs attention" : state.bootstrap ? "Session active" : "Checking session"}</strong>
 <small>Protected gateway session only</small>
@@ -432,8 +447,9 @@ function notificationPanel() {
 <button type="button" class="notification-item severity-${escapeHtml(item.severity || "info")}"
             data-notification-id="${escapeHtml(item.id)}"
             data-conversation-id="${escapeHtml(item.conversation_id || "")}">
-<span class="notification-dot"></span>
+${signalLamp(notificationSignal(item.severity).tone)}
 <span>
+<small class="notification-severity">${notificationSignal(item.severity).label}</small>
 <strong>${escapeHtml(item.title || titleCase(item.type))}</strong>
 <small>${escapeHtml(item.body_text || "")}</small>
 <time>${escapeHtml(formatRelativeTime(item.created_at))}</time>
@@ -658,10 +674,10 @@ function dashboardView() {
 <button class="button primary" data-view="inbox">Open inbox</button>`,
     )}
 <div class="dashboard-health" role="status">
-<span class="service-dot ${state.monitoringUnavailable || state.error ? "warning" : "live"}" aria-hidden="true"></span>
-<span><strong>Channel monitoring</strong>
+${signalLamp(state.monitoringUnavailable || state.error ? "amber" : "neutral")}
+<span><strong>Channel monitoring · ${state.monitoringUnavailable || state.error ? "Incomplete snapshot" : "Configuration snapshot"}</strong>
 <small>
-          ${state.monitoringUnavailable ? "Some monitoring is unavailable · " : ""}
+          Configuration and reported worker state, not verified channel health. ${state.monitoringUnavailable ? "Some monitoring is unavailable · " : ""}
           Social: ${!socialPoll ? "Unknown" : socialPoll.pollWorkerEnabled ? "Enabled" : "Off"} ·
           Mail: ${!state.emailStatus ? "Unknown" : emailAccount.workerRunning ? "Polling" : emailAccount.workerStarted ? "Scheduled" : "Off"} ·
           Chat: ${!chat ? "Unknown" : chat.enabled ? "Enabled" : "Off"}
@@ -1113,7 +1129,7 @@ function settingsView() {
 </section>
 <section class="panel settings-card social-settings-card"><h3>Social channel setup</h3>
 <div class="social-status-strip">
-<span class="pill ${social.monitorOnly ? "pill-pending" : "pill-open"}">
+<span class="pill ${!socialLoaded ? "pill-unknown" : social.monitorOnly ? "pill-pending" : "pill-open"}">
             ${!socialLoaded ? "Unknown" : social.monitorOnly ? "Monitoring only" : "Outbound enabled"}
 </span>
 <span>${!socialLoaded ? "Poll worker unknown" : social.pollWorkerEnabled ? "Poll worker enabled" : "Poll worker disabled"}</span>

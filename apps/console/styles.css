@@ -643,3 +643,36 @@ input, textarea, select, button { max-width: 100%; }
   .layout.embedded .embedded-nav-item,
   .layout.embedded .embedded-inbox-subnav-item { font-size: var(--aims-type-xs); }
 }
+
+/* Signal lamps: restrained hi-fi / studio-console hardware, not flashing alerts. */
+.signal-lamp {
+  display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto;
+  padding: 3px; border: 1px solid #526275; border-radius: 5px;
+  background: #0a1322; vertical-align: middle; line-height: 1;
+}
+.signal-lamp > span {
+  display: block; width: 9px; height: 9px; flex: 0 0 9px;
+  border-radius: 3px; background: #182435; border: 1px solid #39485b;
+}
+.signal-lamp > span[data-active="true"] {
+  background: currentColor; border-color: currentColor;
+  box-shadow: 0 0 4px currentColor, 0 0 9px currentColor, inset 0 2px 1px #ffffffaa;
+}
+/* Saturated LED lenses; text retains the existing readable semantic colours. */
+.signal-lamp.signal-red { color: #ff3655; }
+.signal-lamp.signal-amber { color: #ffce28; }
+.signal-lamp.signal-green { color: #35ff88; }
+.signal-lamp.signal-info { color: #23eaff; }
+@media (forced-colors: active) {
+  .signal-lamp { border-color: CanvasText; background: Canvas; }
+  .signal-lamp > span { border-color: GrayText; background: Canvas; }
+  .signal-lamp > span[data-active="true"] { background: CanvasText; border-color: CanvasText; outline: 1px solid CanvasText; }
+}
+
+.signal-red { color: var(--aims-danger); }
+.signal-amber { color: var(--aims-warning); }
+.signal-green { color: var(--aims-success); }
+.signal-info { color: var(--aims-info); }
+.signal-neutral { color: var(--aims-text-faint); }
+.notification-item > .signal-lamp { align-self: start; margin-top: 3px; }
+.notification-severity { font-weight: 650; }
