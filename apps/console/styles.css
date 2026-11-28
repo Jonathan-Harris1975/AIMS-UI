@@ -126,11 +126,6 @@ svg { width: 20px; height: 20px; fill: currentColor; }
 .conversation-cell small, .age, .owner { color: var(--aims-text-faint); font-size: var(--aims-type-xs); }
 .channel-avatar { width: 34px; height: 34px; border-radius: var(--aims-radius-sm); display: grid; place-items: center; font-weight: 800; color: var(--aims-text-soft); background: var(--aims-panel-subtle); border: 1px solid var(--aims-border); flex: 0 0 auto; }
 .channel-label, .interaction-label, .priority, .pill, .ai-state { min-height: 24px; width: max-content; display: inline-flex; align-items: center; gap: var(--aims-space-1); border-radius: var(--aims-radius-sm); border: 1px solid var(--aims-border); padding: 0 var(--aims-space-2); color: var(--aims-text-soft); background: var(--aims-panel-subtle); font-size: var(--aims-type-xs); }
-.priority > span, .pill::before { width: 6px; height: 6px; border-radius: var(--aims-radius-lg); background: var(--aims-text-faint); content: ""; flex: 0 0 auto; }
-.priority-critical > span, .pill-quarantined::before, .pill-blocked::before { background: var(--aims-danger); }
-.priority-high > span, .pill-pending::before, .pill-snoozed::before { background: var(--aims-warning); }
-.priority-medium > span, .pill-escalated::before { background: var(--aims-info); }
-.priority-low > span, .pill-open::before, .pill-auto-sent::before { background: var(--aims-success); }
 .pill-quarantined, .pill-blocked { color: var(--aims-danger); }
 .pill-pending, .pill-snoozed { color: var(--aims-warning); }
 .pill-open, .pill-auto-sent { color: var(--aims-success); }
@@ -678,3 +673,6 @@ input, textarea, select, button { max-width: 100%; }
 .signal-neutral { color: var(--aims-text-faint); }
 .notification-item > .signal-lamp { align-self: start; margin-top: 3px; }
 .notification-severity { font-weight: 650; }
+
+/* Shared status and priority lamps: no secondary pill border or visible repeated label. */
+.indicator-status { display: inline-flex; align-items: center; flex: 0 0 auto; width: max-content; vertical-align: middle; }

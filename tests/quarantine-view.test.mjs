@@ -5,9 +5,10 @@ import { runInNewContext } from 'node:vm';
 import { escapeHtml } from '../packages/shared/format.js';
 
 const app = await readFile(new URL('../apps/console/app.js', import.meta.url), 'utf8');
+const signalHelpers = app.slice(app.indexOf('function signalLamp('), app.indexOf('function emptyState('));
 const views = app.slice(app.indexOf('function quarantineSummary('), app.indexOf('\nfunction analyticsView('));
 function renderItem(item, { allowed = true, busy = false } = {}) {
-  return runInNewContext(`${views}\nquarantineView()`, {
+  return runInNewContext(`${signalHelpers}\n${views}\nquarantineView()`, {
     state: { bootstrap: {}, quarantine: [item], quarantineStatus: 'active', quarantineBusy: new Set(busy ? [item.id] : []) },
     shell: (value) => value, pageHeader: () => '', escapeHtml, titleCase: String, formatDateTime: String,
     roleAllows: () => allowed, emptyState: () => '',
