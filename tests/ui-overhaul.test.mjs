@@ -254,3 +254,17 @@ test('all distinct navigation destinations use unique icon artwork', async () =>
   assert.match(nav, /"outreach", "Outreach", icons\.outreach/)
   assert.match(nav, /"analytics", "Analytics", icons\.analytics/)
 })
+
+
+test('compact inbox preserves distinct indicators and avoids duplicate channel labels', async () => {
+  const app = await readFile(new URL('../apps/console/app.js', import.meta.url), 'utf8')
+  const css = await readFile(new URL('../apps/console/styles.css', import.meta.url), 'utf8')
+  assert.match(app, /interactionLabel\(row\) !== channelLabel\(row.channel\)/)
+  assert.match(app, /class="queue-card-lamps"[^\n]*priorityPill[^\n]*statusPill/)
+  const html = await readFile(new URL('../apps/console/index.html', import.meta.url), 'utf8')
+  assert.match(html, /class="comms-indicator-key"/)
+  assert.match(app, /getElementById\("comms-indicator-key"\)\.innerHTML/)
+  assert.match(app, /state.queueLoadedAt = new Date\(\).toISOString\(\)/)
+  assert.match(css, /\.queue-card-lamps \{ display: grid/)
+  assert.match(css, /\.quick-filter, \.filter-disclosure > summary \{ min-height: 44px/)
+})

@@ -20,6 +20,27 @@
       </div>
     </div>
   </div>
+  <template id="comms-indicator-key">
+    <details class="comms-indicator-key"><summary>Indicator key</summary>
+      <p>Cards: priority above status. Tables: separate columns.</p>
+      <section><strong>Priority</strong><div class="comms-key-items">
+        <span><span class="signal-lamp signal-red" aria-hidden="true"><span data-lens="red" data-active="true"></span><span data-lens="amber" data-active="false"></span><span data-lens="green" data-active="false"></span></span>Critical</span>
+        <span><span class="signal-lamp signal-orange" aria-hidden="true"><span data-lens="red" data-active="true"></span><span data-lens="amber" data-active="false"></span><span data-lens="green" data-active="false"></span></span>High</span>
+        <span><span class="signal-lamp signal-amber" aria-hidden="true"><span data-lens="red" data-active="false"></span><span data-lens="amber" data-active="true"></span><span data-lens="green" data-active="false"></span></span>Medium</span>
+        <span><span class="signal-lamp signal-info" aria-hidden="true"><span data-lens="red" data-active="false"></span><span data-lens="amber" data-active="true"></span><span data-lens="green" data-active="false"></span></span>Normal</span>
+        <span><span class="signal-lamp signal-low" aria-hidden="true"><span data-lens="red" data-active="false"></span><span data-lens="amber" data-active="false"></span><span data-lens="green" data-active="true"></span></span>Low</span>
+        <span><span class="signal-lamp signal-neutral" aria-hidden="true"><span data-lens="red" data-active="false"></span><span data-lens="amber" data-active="true"></span><span data-lens="green" data-active="false"></span></span>Unknown</span>
+      </div></section>
+      <section><strong>Conversation</strong><div class="comms-key-items">
+        <span><span class="signal-lamp signal-red" aria-hidden="true"><span data-lens="red" data-active="true"></span><span data-lens="amber" data-active="false"></span><span data-lens="green" data-active="false"></span></span>Failed / blocked</span>
+        <span><span class="signal-lamp signal-amber" aria-hidden="true"><span data-lens="red" data-active="false"></span><span data-lens="amber" data-active="true"></span><span data-lens="green" data-active="false"></span></span>Pending</span>
+        <span><span class="signal-lamp signal-info" aria-hidden="true"><span data-lens="red" data-active="false"></span><span data-lens="amber" data-active="true"></span><span data-lens="green" data-active="false"></span></span>Open</span>
+        <span><span class="signal-lamp signal-green" aria-hidden="true"><span data-lens="red" data-active="false"></span><span data-lens="amber" data-active="false"></span><span data-lens="green" data-active="true"></span></span>Resolved / sent</span>
+        <span><span class="signal-lamp signal-purple" aria-hidden="true"><span data-lens="red" data-active="false"></span><span data-lens="amber" data-active="true"></span><span data-lens="green" data-active="false"></span></span>Snoozed</span>
+        <span><span class="signal-lamp signal-neutral" aria-hidden="true"><span data-lens="red" data-active="false"></span><span data-lens="amber" data-active="true"></span><span data-lens="green" data-active="false"></span></span>Unknown</span>
+      </div></section>
+    </details>
+  </template>
   <script type="module" src="./app.js"></script>
 </body>
 </html>

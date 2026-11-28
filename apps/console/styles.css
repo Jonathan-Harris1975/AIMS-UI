@@ -679,3 +679,29 @@ input, textarea, select, button { max-width: 100%; }
 
 /* Shared status and priority lamps: no secondary pill border or visible repeated label. */
 .indicator-status { display: inline-flex; align-items: center; flex: 0 0 auto; width: max-content; vertical-align: middle; }
+
+/* Compact, consistent command-panel presentation. */
+.panel, .summary-grid, .queue-card, .notification-panel { border-radius: 6px; }
+.panel-header { min-height: 52px; gap: 10px; }
+.filter-count { font-variant-numeric: tabular-nums; color: inherit !important; opacity: .85; }
+.queue-card-lamps { display: grid; justify-items: end; gap: 5px; }
+.comms-indicator-key { width: 100%; font-size: var(--aims-type-xs); color: var(--aims-text-soft); }
+.comms-indicator-key summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; }
+.comms-indicator-key summary:focus-visible { outline: 2px solid var(--aims-accent-strong); outline-offset: 2px; }
+.comms-indicator-key section { margin-block: 8px; }
+.comms-key-items { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 6px; }
+.comms-key-items > span { display: inline-flex; align-items: center; gap: 5px; }
+.notification-item { min-height: 56px; padding: 8px 12px; gap: 10px; }
+.notification-item > span:last-child { gap: 3px; }
+.workspace-title h1 { overflow-wrap: anywhere; min-width: 0; }
+@media (max-width: 640px) {
+  .queue-cards { padding: 8px; gap: 7px; }
+  .queue-card { padding: 9px; border-radius: 5px; }
+  .queue-card-title > span { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .queue-card-tags, .queue-card-meta { margin-top: 5px; }
+  .queue-card-meta { padding-top: 5px; gap: 5px; }
+  .queue-card-meta > span { display: flex; flex-wrap: wrap; gap: 4px; }
+  .queue-card-meta > span:last-child { grid-column: 1 / -1; }
+  .quick-filter, .filter-disclosure > summary { min-height: 44px; }
+  .panel-header { padding: 10px; gap: 8px; }
+}
