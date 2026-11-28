@@ -598,3 +598,48 @@ input, textarea, select, button { max-width: 100%; }
 /* Embedded workspace uses the same restrained, named navigation as the HIVE shell. */
 .embedded-nav-scroll, .embedded-inbox-subnav-scroll { min-width: 0; padding-block: 4px; scroll-padding-inline: 4px; }
 .embedded-notification-button:focus-visible { outline: 2px solid var(--aims-accent-strong); outline-offset: 2px; }
+
+/* Embedded Communications is a HIVE workspace, not a second application shell.
+   The host owns global navigation; the frame owns only its contextual controls. */
+.layout.embedded { display: block; min-width: 0; }
+.layout.embedded > .sidebar,
+.layout.embedded > .scrim { display: none; }
+.layout.embedded > .main { width: 100%; min-width: 0; }
+.layout.embedded .embedded-nav {
+  min-height: 48px;
+  padding-inline: clamp(12px, 2.5vw, 24px);
+  background: var(--aims-bg);
+}
+.layout.embedded .embedded-nav-item,
+.layout.embedded .embedded-inbox-subnav-item {
+  min-height: 44px;
+  border-radius: 0;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  font-size: var(--aims-type-sm);
+}
+.layout.embedded .embedded-nav-item.active,
+.layout.embedded .embedded-inbox-subnav-item.active {
+  border-bottom-color: var(--aims-accent);
+  background: transparent;
+  color: var(--aims-text);
+}
+.layout.embedded .embedded-nav-scroll,
+.layout.embedded .embedded-inbox-subnav-scroll {
+  scrollbar-width: thin;
+  overscroll-behavior-inline: contain;
+}
+.layout.embedded .embedded-inbox-subnav {
+  min-height: 44px;
+  background: var(--aims-surface-raised);
+  padding-inline: clamp(12px, 2.5vw, 24px);
+}
+.layout.embedded .content {
+  padding: clamp(12px, 2.5vw, 24px);
+}
+.layout.embedded .page-header { margin-bottom: var(--aims-space-5); }
+@media (max-width: 640px) {
+  .layout.embedded .embedded-nav { padding-inline: var(--aims-space-2); }
+  .layout.embedded .embedded-nav-item,
+  .layout.embedded .embedded-inbox-subnav-item { font-size: var(--aims-type-xs); }
+}
