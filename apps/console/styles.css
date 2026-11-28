@@ -647,22 +647,24 @@ input, textarea, select, button { max-width: 100%; }
 /* Signal lamps: restrained hi-fi / studio-console hardware, not flashing alerts. */
 .signal-lamp {
   display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto;
-  padding: 3px; border: 1px solid #526275; border-radius: 5px;
-  background: #0a1322; vertical-align: middle; line-height: 1;
+  padding: 3px; border: 1px solid #7b8aa0; border-radius: 4px;
+  background: #08111d; box-shadow: inset 0 0 0 1px #0f1c2c;
+  vertical-align: middle; line-height: 1;
 }
 .signal-lamp > span {
   display: block; width: 9px; height: 9px; flex: 0 0 9px;
-  border-radius: 3px; background: #182435; border: 1px solid #39485b;
+  border-radius: 2px; background: #121d2b; border: 1px solid #4a586c;
 }
 .signal-lamp > span[data-active="true"] {
   background: currentColor; border-color: currentColor;
-  box-shadow: 0 0 4px currentColor, 0 0 9px currentColor, inset 0 2px 1px #ffffffaa;
+  box-shadow: 0 0 4px currentColor, 0 0 9px currentColor, inset 0 2px 1px #ffffffb3;
 }
 /* Saturated LED lenses; text retains the existing readable semantic colours. */
 .signal-lamp.signal-red { color: #ff3655; }
 .signal-lamp.signal-amber { color: #ffce28; }
 .signal-lamp.signal-green { color: #35ff88; }
 .signal-lamp.signal-info { color: #23eaff; }
+.signal-lamp.signal-neutral { color: #F1F5FF; }
 @media (forced-colors: active) {
   .signal-lamp { border-color: CanvasText; background: Canvas; }
   .signal-lamp > span { border-color: GrayText; background: Canvas; }
