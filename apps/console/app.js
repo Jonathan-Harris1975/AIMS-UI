@@ -616,7 +616,7 @@ function quickFilterBar() {
 
 function queueTable(rows = queueRows(), limit = 50, compact = false) {
   const visible = rows.slice(0, limit);
-  if (!visible.length) return emptyState("No matching conversations", "Change the filters or search terms. Nothing is hiding under the rug.");
+  if (!visible.length) return emptyState("No matching conversations", "Change filters or search terms.");
   return `
     <div class="queue-wrap">
       <table class="queue-table ${compact ? "queue-table-compact" : ""}">
@@ -706,7 +706,7 @@ function dashboardView() {
   return shell(`
     ${pageHeader(
       "Overview",
-      "Supervise exceptions first, then scan automated activity and channel status.",
+      "Review exceptions and automated activity.",
       `<button class="button secondary" data-action="refresh">Refresh data</button>
 <button class="button primary" data-view="inbox">Open inbox</button>`,
     )}
@@ -732,10 +732,10 @@ ${signalLamp(state.monitoringUnavailable || state.error ? "amber" : "neutral")}
 </header>
         ${urgent.length ? queueTable(urgent, 5, true) : state.error ? emptyState(
           "Attention status unavailable",
-          "The queue refresh failed. A previously loaded queue cannot confirm that no action is needed.",
+          "Refresh failed. Current exceptions are unknown.",
         ) : emptyState(
           "No conversations need attention",
-          "No overdue, high-priority, blocked or escalated conversations in the loaded queue.",
+          "No exceptions in the loaded queue.",
         )}
 </section>
 <section class="panel channel-panel">
@@ -752,22 +752,11 @@ ${signalLamp(state.monitoringUnavailable || state.error ? "amber" : "neutral")}
   `);
 }
 
-function commsIndicatorKey() {
-  const groups = [
-    ["Priority", [["red", "Critical"], ["orange", "High"], ["amber", "Medium"], ["info", "Normal"], ["low", "Low"], ["neutral", "Unknown"]]],
-    ["Conversation", [["red", "Failed / blocked"], ["amber", "Pending"], ["info", "Open"], ["green", "Resolved / sent"], ["purple", "Snoozed"], ["neutral", "Unknown"]]],
-  ];
-  return `<details class="comms-indicator-key"><summary>Indicator key</summary>
-    <p>On cards: priority above conversation status. On tables: separate columns.</p>
-    ${groups.map(([name, values]) => `<section><strong>${name}</strong><div class="comms-key-items">
-      ${values.map(([tone, label]) => `<span>${signalLamp(tone)}${label}</span>`).join("")}</div></section>`).join("")}</details>`;
-}
-
 function inboxView() {
   return shell(`
     ${pageHeader(
       "Unified inbox",
-      "Review exceptions across every supported channel. Automated conversations stay visible but quiet.",
+      "Review communications exceptions.",
       `<button class="button secondary" data-action="refresh">Refresh queue</button>`,
     )}
     <section class="panel inbox-panel">
@@ -777,7 +766,7 @@ function inboxView() {
           <span>Loaded queue · ${state.queueLoadedAt ? escapeHtml(formatDateTime(state.queueLoadedAt)) : "Not yet refreshed"}
             ${state.error ? " · refresh failed" : ""} · up to 50 conversations</span>
         </div>
-        ${quickFilterBar()}${filterBar()}${commsIndicatorKey()}
+        ${quickFilterBar()}${filterBar()}${document.getElementById("comms-indicator-key").innerHTML}
       </header>
       ${queueTable()}
     </section>
