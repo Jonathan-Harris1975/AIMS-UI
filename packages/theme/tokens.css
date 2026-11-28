@@ -62,6 +62,7 @@
   /* Shape */
   --aims-radius-sm: 8px;
   --aims-radius: 12px;
+  --aims-radius-md: var(--aims-radius);
   --aims-radius-lg: 18px;
 
   /* Motion */
