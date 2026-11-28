@@ -304,12 +304,38 @@ function notificationSignal(severity) {
   return { tone: "neutral", label: "Unknown severity" };
 }
 
-function statusPill(status) {
-  return `<span class="pill pill-${escapeHtml(status || "unknown")}">${escapeHtml(titleCase(status || "unknown"))}</span>`;
+function statusSignal(status) {
+  const value = String(status || "unknown").trim().toLowerCase();
+  if (["quarantined", "blocked", "failed", "error", "critical"].includes(value)) return "red";
+  if (["pending", "snoozed", "escalated", "replay_pending", "warning", "overdue"].includes(value)) return "amber";
+  if (["open", "auto-sent", "auto_sent", "resolved", "completed", "closed", "sent"].includes(value)) return "green";
+  if (["checking", "queued", "in_progress", "human", "assigned", "info"].includes(value)) return "info";
+  return "neutral";
+}
+
+function prioritySignal(priority) {
+  const value = String(priority || "unknown").trim().toLowerCase();
+  if (value === "critical" || value === "urgent") return "red";
+  if (value === "high") return "amber";
+  if (value === "medium") return "info";
+  if (value === "low") return "green";
+  return "neutral";
+}
+
+function labelledSignal(tone, label, kind) {
+  const accessible = escapeHtml(label);
+  return `<span class="indicator-status indicator-${kind}" title="${accessible}">
+    ${signalLamp(tone)}<span class="sr-only">${accessible}</span></span>`;
+}
+
+function statusPill(status, label) {
+  const value = status || "unknown";
+  return labelledSignal(statusSignal(value), label || `Status: ${titleCase(value)}`, "state");
 }
 
 function priorityPill(priority) {
-  return `<span class="priority priority-${escapeHtml(priority || "low")}"><span></span>${escapeHtml(titleCase(priority || "low"))}</span>`;
+  const value = priority || "unknown";
+  return labelledSignal(prioritySignal(value), `Priority: ${titleCase(value)}`, "priority");
 }
 
 function emptyState(title, copy) {
@@ -636,7 +662,7 @@ function queueTable(rows = queueRows(), limit = 50, compact = false) {
                 ${escapeHtml(interactionLabel(row))}
               </span>
               ${statusPill(row.operational_status)}
-              ${row.last_auto_sent_at ? `<span class="pill pill-auto-sent">Auto-sent</span>` : ""}
+              ${row.last_auto_sent_at ? statusPill("auto-sent", "Delivery: Auto-sent") : ""}
             </span>
             <span class="queue-card-meta">
               <span><b>Response</b>${escapeHtml(row.response_due_at
@@ -923,7 +949,8 @@ function quarantineView() {
           const active = ["quarantined", "replay_pending"].includes(item.status);
           return `<article>
           <div>
-            <span class="pill pill-quarantined">${escapeHtml(titleCase(item.failure_class || "unknown"))}</span>
+            ${statusPill(item.status, `Quarantine status: ${titleCase(item.status || "unknown")}`)}
+            <span class="channel-label">${escapeHtml(titleCase(item.failure_class || "unknown"))}</span>
             <h3>${escapeHtml(item.action_type || item.source_type)}</h3>
             <p>${escapeHtml(quarantineSummary(item))}</p>
             <small>${escapeHtml(formatDateTime(item.created_at))} · ${Number(item.attempts || 0)} attempts · ${escapeHtml(titleCase(item.action_status || item.status))}</small>
@@ -1131,9 +1158,8 @@ function settingsView() {
 </section>
 <section class="panel settings-card social-settings-card"><h3>Social channel setup</h3>
 <div class="social-status-strip">
-<span class="pill ${!socialLoaded ? "pill-unknown" : social.monitorOnly ? "pill-pending" : "pill-open"}">
-            ${!socialLoaded ? "Unknown" : social.monitorOnly ? "Monitoring only" : "Outbound enabled"}
-</span>
+${statusPill(!socialLoaded ? "unknown" : social.monitorOnly ? "pending" : "open",
+            !socialLoaded ? "Social configuration unknown" : social.monitorOnly ? "Monitoring only" : "Outbound enabled")}
 <span>${!socialLoaded ? "Poll worker unknown" : social.pollWorkerEnabled ? "Poll worker enabled" : "Poll worker disabled"}</span>
 </div>
 <div class="social-capability-grid">
