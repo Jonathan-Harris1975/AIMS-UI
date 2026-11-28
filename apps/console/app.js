@@ -727,7 +727,7 @@ ${signalLamp(state.monitoringUnavailable || state.error ? "amber" : "neutral")}
 <div class="dashboard-grid">
 <section class="panel panel-wide">
 <header class="panel-header">
-<div><strong>Needs attention</strong><span>Overdue, high-priority or blocked conversations in the loaded queue</span></div>
+<div><strong>Needs attention</strong><span>Loaded queue exceptions</span></div>
 <button class="text-button" data-view="inbox">View inbox</button>
 </header>
         ${urgent.length ? queueTable(urgent, 5, true) : state.error ? emptyState(
@@ -845,7 +845,7 @@ function approvalsView() {
               <span class="risk-label">${escapeHtml(titleCase(approval.risk || "unknown"))} risk</span>
             </div>
             <h3>${escapeHtml(approval.title)}</h3>
-            <p>${escapeHtml(approval.rationale || "Review the evidence and action scope.")}</p>
+            <p>${escapeHtml(approval.rationale || "Review evidence and scope.")}</p>
             <small>${escapeHtml(approval.contact || "Unknown contact")} · ${escapeHtml(approval.action)}</small>
           </div>
           <div class="approval-actions"><button class="button secondary" data-conversation-id="${escapeHtml(approval.conversationId)}">Review context</button></div>
@@ -925,7 +925,7 @@ function workflowsView() {
         <div>
           <strong>${escapeHtml(titleCase(name))}</strong>
           <span>${count} loaded conversation${count === 1 ? "" : "s"}</span>
-          <small>Definition and transition controls connect through the protected gateway.</small>
+          <small>Protected gateway controls.</small>
         </div>
         <button class="button secondary" data-view="inbox">Inspect queue</button>
       </article>`).join("") || emptyState(
@@ -952,7 +952,7 @@ function quarantineView() {
       <div class="quarantine-filters">
         <button class="button ${state.quarantineStatus === "active" ? "primary" : "secondary"}" data-quarantine-status="active">Active</button>
         <button class="button ${state.quarantineStatus === "history" ? "primary" : "secondary"}" data-quarantine-status="history">History</button>
-        <small>Showing up to 500 records. Completed history follows the retention policy.</small>
+        <small>Up to 500 records; history follows retention.</small>
       </div>
       ${state.quarantine.length ? `<div class="quarantine-list">
         ${state.quarantine.map((item) => {
@@ -1011,13 +1011,13 @@ function analyticsView() {
       ${summaryCard("Held for review", metrics.held ?? "–", "Pending/undecided conversations excluded", "blue")}
     </div>
     <section class="panel analytics-panel">
-      <header class="panel-header"><div><strong>Volume by channel</strong><span>Relative share in the current reporting window</span></div></header>
+      <header class="panel-header"><div><strong>Volume by channel</strong><span>Reporting window share</span></div></header>
       <div class="analytics-bars">${metrics.channels.map(({ channel, count }) => `<div>
         <span>${escapeHtml(channelLabel(channel))}</span><div><i style="width:${Math.round((count / maximum) * 100)}%"></i></div><b>${count}</b>
       </div>`).join("") || '<p>No conversations in this reporting window.</p>'}</div>
     </section>
     <section class="panel analytics-panel">
-      <header class="panel-header"><div><strong>Autonomous and review outcomes</strong><span>One current outcome per conversation; retries do not add conversations.</span></div></header>
+      <header class="panel-header"><div><strong>Autonomous and review outcomes</strong><span>One outcome per conversation; excludes duplicate retries.</span></div></header>
       ${countList(metrics.autonomy, (row) => `${channelLabel(row.channel)} · ${titleCase(row.outcome)}${row.reason ? ` · ${titleCase(row.reason)}` : ""}`)}
     </section>
     <section class="panel analytics-panel">
