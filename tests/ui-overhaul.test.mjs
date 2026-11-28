@@ -281,3 +281,11 @@ test('inert templates cannot shadow their own live rendered IDs', async () => {
     assert.ok(![...body.matchAll(/\bid="([^"]+)"/g)].some(match => match[1] === id), id + ' shadows a live element')
   }
 })
+
+test('notification badges respect hidden state in standalone and embedded consoles', async () => {
+  const app = await readFile(new URL('../apps/console/app.js', import.meta.url), 'utf8')
+  const styles = await readFile(new URL('../apps/console/styles.css', import.meta.url), 'utf8')
+  assert.match(styles, /\.notification-button span\[hidden\],\s*\.embedded-notification-button span\[hidden\]\s*\{\s*display:\s*none;\s*\}/)
+  assert.equal((app.match(/<span \$\{unread \? "" : "hidden"\}>\$\{unread \|\| ""\}<\/span>/g) || []).length, 2)
+  assert.match(app, /badge\.hidden = !unread/)
+})
