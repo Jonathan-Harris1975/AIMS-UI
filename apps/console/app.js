@@ -327,6 +327,14 @@ function emptyState(title, copy) {
   return `<div class="empty-state"><div class="empty-mark">${icons.inbox}</div><h3>${escapeHtml(title)}</h3><p>${escapeHtml(copy)}</p></div>`;
 }
 
+function embeddedViewSelect(items, current, label) {
+  const options = items.map(([key, name]) => {
+    const count = key === "approvals" ? pendingApprovals().length : 0;
+    return `<option value="${key}" ${current === key ? "selected" : ""}>${escapeHtml(name)}${count ? ` (${count})` : ""}</option>`;
+  }).join("");
+  return staticMarkup("embedded-view-select", escapeHtml(label), options);
+}
+
 function shell(content) {
   const identity = state.bootstrap?.identity || { actor: "Unknown", role: "read_only" };
   const unread = state.notifications.filter((item) => item.status !== "read").length;
@@ -376,14 +384,7 @@ ${staticMarkup("sidebar-identity",
 <main class="main" id="aims-main-content" tabindex="-1" ${state.sidebarOpen ? "inert" : ""}>
         ${config.embedded ? `
 <nav class="embedded-nav" aria-label="Communications sections">
-<label class="embedded-workspace-select">
-<span class="sr-only">Current communications view</span>
-<select data-embedded-view>
-              ${navItems.map(([key, label]) =>
-                `<option value="${key}" ${(key === "inbox" ? isInboxFamilyView() : state.view === key) ? "selected" : ""}>
-                  ${escapeHtml(label)}${key === "approvals" && pendingApprovals().length ? ` (${pendingApprovals().length})` : ""}</option>`).join("")}
-</select>
-</label>
+${embeddedViewSelect(navItems, isInboxFamilyView() ? "inbox" : state.view, "Current communications view")}
 <div class="embedded-nav-scroll">
             ${navItems.map(([key, label, icon]) => `
 <button
@@ -401,12 +402,7 @@ ${staticMarkup("sidebar-identity",
 </nav>
         ${isInboxFamilyView() ? `
 <nav class="embedded-inbox-subnav" aria-label="Unified inbox sections">
-<label class="embedded-workspace-select">
-<span class="sr-only">Current unified inbox view</span>
-<select data-embedded-view>
-              ${inboxSubItems.map(([key, label]) => `<option value="${key}" ${activeInboxSubView() === key ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}
-</select>
-</label>
+${embeddedViewSelect(inboxSubItems, activeInboxSubView(), "Current unified inbox view")}
 <div class="embedded-inbox-subnav-scroll">
               ${inboxSubItems.map(([subKey, subLabel, subIcon]) => `
 <button class="embedded-inbox-subnav-item ${activeInboxSubView() === subKey ? "active" : ""}"
