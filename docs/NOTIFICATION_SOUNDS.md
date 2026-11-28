@@ -16,3 +16,5 @@ When embedded in HIVE-UI, newly received eligible notifications are sent to the 
 The UI normalizes messages to the shared event schema at `.github/schemas/notification-event.schema.json` before notification delivery.
 
 The UI normalizes HIVE operational events to the same event schema at `.github/schemas/notification-event.schema.json` before notification delivery.
+
+Standalone and embedded operator consoles now use the same bounded, non-overlapping 15-second notification polling, with a refresh on return to the tab. Polling stops on authentication or permission errors until a successful bootstrap restores the session. Browser autoplay and background-tab throttling still apply. This is not closed-browser or signed-out push delivery.
