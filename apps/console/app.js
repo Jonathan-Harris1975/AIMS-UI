@@ -290,8 +290,8 @@ function approvalMetadata(approval) {
 }
 
 function signalLamp(tone) {
-  const safeTone = ["red", "amber", "green", "info", "neutral"].includes(tone) ? tone : "neutral";
-  const active = safeTone === "red" || safeTone === "green" ? safeTone : "amber";
+  const safeTone = ["red", "amber", "green", "info", "neutral", "orange", "purple", "low"].includes(tone) ? tone : "neutral";
+  const active = ["red", "orange"].includes(safeTone) ? "red" : ["green", "low"].includes(safeTone) ? "green" : "amber";
   const lenses = ["red", "amber", "green"].map((lens) =>
     `<span data-lens="${lens}" data-active="${lens === active}"></span>`).join("");
   return `<span class="signal-lamp signal-${safeTone}" aria-hidden="true">${lenses}</span>`;
@@ -307,18 +307,20 @@ function notificationSignal(severity) {
 function statusSignal(status) {
   const value = String(status || "unknown").trim().toLowerCase();
   if (["quarantined", "blocked", "failed", "error", "critical"].includes(value)) return "red";
-  if (["pending", "snoozed", "escalated", "replay_pending", "warning", "overdue"].includes(value)) return "amber";
-  if (["open", "auto-sent", "auto_sent", "resolved", "completed", "closed", "sent"].includes(value)) return "green";
-  if (["checking", "queued", "in_progress", "human", "assigned", "info"].includes(value)) return "info";
+  if (["pending", "escalated", "replay_pending", "warning", "overdue"].includes(value)) return "amber";
+  if (["auto-sent", "auto_sent", "resolved", "completed", "closed", "sent"].includes(value)) return "green";
+  if (value === "snoozed") return "purple";
+  if (["open", "checking", "queued", "in_progress", "human", "assigned", "info"].includes(value)) return "info";
   return "neutral";
 }
 
 function prioritySignal(priority) {
   const value = String(priority || "unknown").trim().toLowerCase();
   if (value === "critical" || value === "urgent") return "red";
-  if (value === "high") return "amber";
-  if (value === "medium") return "info";
-  if (value === "low") return "green";
+  if (value === "high") return "orange";
+  if (value === "medium") return "amber";
+  if (value === "normal") return "info";
+  if (value === "low") return "low";
   return "neutral";
 }
 
@@ -1158,8 +1160,8 @@ function settingsView() {
 </section>
 <section class="panel settings-card social-settings-card"><h3>Social channel setup</h3>
 <div class="social-status-strip">
-${statusPill(!socialLoaded ? "unknown" : social.monitorOnly ? "pending" : "open",
-            !socialLoaded ? "Social configuration unknown" : social.monitorOnly ? "Monitoring only" : "Outbound enabled")}
+${labelledSignal(!socialLoaded ? "neutral" : social.monitorOnly ? "amber" : "green",
+            !socialLoaded ? "Social configuration unknown" : social.monitorOnly ? "Monitoring only" : "Outbound enabled", "state")}
 <span>${!socialLoaded ? "Poll worker unknown" : social.pollWorkerEnabled ? "Poll worker enabled" : "Poll worker disabled"}</span>
 </div>
 <div class="social-capability-grid">

@@ -660,6 +660,9 @@ input, textarea, select, button { max-width: 100%; }
 .signal-lamp.signal-green { color: #35ff88; }
 .signal-lamp.signal-info { color: #23eaff; }
 .signal-lamp.signal-neutral { color: #F1F5FF; }
+/* Communications urgency and deferred-work colours. Low priority uses the right lens; snoozed uses the centre. */
+.signal-lamp.signal-orange { color: #ff9233; }
+.signal-lamp.signal-purple, .signal-lamp.signal-low { color: #b98aff; }
 @media (forced-colors: active) {
   .signal-lamp { border-color: CanvasText; background: Canvas; }
   .signal-lamp > span { border-color: GrayText; background: Canvas; }
