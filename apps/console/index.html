@@ -52,16 +52,16 @@
   <template id="connection-error">
     <section class="connection-error panel" role="alert">
       <div class="error-orb">!</div>
-      <h2>{{0}}</h2>
+      <h2 data-slot-0=""></h2>
       <p>Check the gateway URL, HIVE session verification and AIMS Comms Hub readiness.</p>
       <div><button class="button primary" data-action="refresh">Try again</button></div>
     </section>
   </template>
   <template id="newsletter-header">
-      <header class="panel-header"><div><strong>Newsletter confirmation</strong><span>SMTP acceptance and confirmed consent are separate outcomes.</span></div></header>
+    <header class="panel-header"><div><strong>Newsletter confirmation</strong><span>SMTP acceptance and confirmed consent are separate outcomes.</span></div></header>
   </template>
   <template id="newsletter-note">
-      <p>Signup request counters are cumulative for the backend state file, outside this reporting window.</p>
+    <p>Signup request counters are cumulative for the backend state file, outside this reporting window.</p>
   </template>
   <template id="reply-composer">
           <form id="reply-form" class="reply-composer">

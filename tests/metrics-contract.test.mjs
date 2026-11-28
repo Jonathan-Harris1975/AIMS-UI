@@ -62,14 +62,15 @@ async function analyticsHarness(client) {
   const app = await readFile(new URL("../apps/console/app.js", import.meta.url), "utf8");
   const html = await readFile(new URL("../apps/console/index.html", import.meta.url), "utf8");
   const templates = new Map([...html.matchAll(/<template id="([^"]+)">([\s\S]*?)<\/template>/g)].map((match) => [match[1], match[2]]));
-  const helper = app.slice(app.indexOf("function staticMarkup("), app.indexOf("function emptyState("));
+  const helperMatch = app.match(/function staticMarkup\([\s\S]*?^}/m);
+  const helper = helperMatch ? helperMatch[0] : "";
   const view = app.slice(app.indexOf("function analyticsView()"), app.indexOf("function manualMailView()"));
   const load = app.slice(app.indexOf("async function loadMetrics()"), app.indexOf("async function updateWorkspaceStatus("));
   const state = { metrics: null, metricsLoading: false, metricsError: null, metricsLoadedAt: null };
   const screen = { html: "" };
   const context = {
     state, client, readCommsMetrics, escapeHtml, formatDateTime, titleCase,
-    document: { getElementById: (id) => ({ innerHTML: templates.get(id) }) },
+    document: { getElementById: (id) => { const t = templates.get(id); if (!t) throw new Error(`Missing template: ${id}`); return { innerHTML: t }; } },
     shell: (html) => html,
     pageHeader: (title, subtitle, button) => `<h1>${title}</h1><p>${subtitle}</p>${button}`,
     summaryCard: (label, value, subtitle) => `<p>${label}: ${value} · ${subtitle}</p>`,
