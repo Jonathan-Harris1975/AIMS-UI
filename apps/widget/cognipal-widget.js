@@ -104,13 +104,6 @@ class HttpTransport {
   }
 }
 
-function messageHtml(text) {
-  return String(text).split(/(https?:\/\/[^\s<>"\x27]+)/g).map((part, index) => {
-    const safe = escapeHtml(part);
-    return index % 2 ? `<a href="${safe}" target="_blank" rel="noopener noreferrer">${safe}</a>` : safe;
-  }).join("");
-}
-
 function starterMarkup() {
   const path = location.pathname.toLowerCase();
   const prompt = /book/.test(path) ? "Which AI book should I start with?" : /podcast/.test(path) ? "Help me find a relevant episode"
@@ -403,7 +396,7 @@ export class CogniPalWidget extends HTMLElement {
              data-message-id="${escapeHtml(item.id)}">Try again</button>`
         : "";
       return `<article class="cp-message ${escapeHtml(item.role || "assistant")}">
-        <div class="cp-bubble">${messageHtml(item.text || item.body_text || "")}</div>
+        <div class="cp-bubble">${escapeHtml(item.text || item.body_text || "")}</div>
         <div class="cp-meta">${sender} ${escapeHtml(time)}${retry}</div>
       </article>`;
     }).join("");
