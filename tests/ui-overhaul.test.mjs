@@ -235,3 +235,22 @@ test('embedded communications uses the host shell without a second desktop sideb
   assert.match(styles, /\.layout\.embedded > \.main \{[^}]*width: 100%/)
   assert.match(styles, /\.layout\.embedded \.embedded-nav-item\.active,[\s\S]*?border-bottom-color: var\(--aims-accent\)/)
 })
+
+
+test('all distinct navigation destinations use unique icon artwork', async () => {
+  const app = await readFile(new URL('../apps/console/app.js', import.meta.url), 'utf8')
+  const nav = app.slice(app.indexOf('const navItems = ['), app.indexOf('const inboxRouteViews'))
+  const names = [...nav.matchAll(/icons\.(\w+)\]/g)].map(match => match[1])
+  assert.equal(names.length, 13)
+  assert.equal(new Set(names).size, names.length)
+  const artwork = names.map(name => {
+    const start = app.indexOf('  ' + name + ': `<svg')
+    assert.ok(start >= 0, 'missing SVG for ' + name)
+    const end = app.indexOf('</svg>`', start)
+    assert.ok(end > start)
+    return app.slice(app.indexOf('<svg', start), end + 6)
+  })
+  assert.equal(new Set(artwork).size, artwork.length)
+  assert.match(nav, /"outreach", "Outreach", icons\.outreach/)
+  assert.match(nav, /"analytics", "Analytics", icons\.analytics/)
+})
