@@ -1413,11 +1413,7 @@ function workspaceView() {
               <small>${escapeHtml(formatRelativeTime(note.created_at))}</small>
             </article>`).join("") || `<p class="muted">No private notes.</p>`}
           </div>
-          ${roleAllows(role, "note") ? `<form id="note-form" class="note-form">
-            <textarea name="bodyText" rows="2" placeholder="Add a private note"
-              aria-label="Private note" required></textarea>
-            <button class="button secondary" type="submit">Add note</button>
-          </form>` : ""}
+          ${roleAllows(role, "note") ? staticMarkup("note-composer") : ""}
         </section>
       </aside>
     </div>
