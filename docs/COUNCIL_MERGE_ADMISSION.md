@@ -1,0 +1,3 @@
+# Council evidence and merge admission
+
+Council remains a scheduled, exact-default-branch-SHA assessment. Its persisted report is valid only for the SHA it assessed. A later merge does not certify the new SHA or allow stale evidence to be reused. Council must not hold an otherwise eligible pull request; it reports assessment availability and findings separately. Existing branch protection, exact-head CI and security gates, risk approval, human holds, trusted identity verification and native merge rules remain mandatory. A legacy Council-only hold is cleared by trusted reconciliation, not by a check bypass. No production or security workflow is disabled.

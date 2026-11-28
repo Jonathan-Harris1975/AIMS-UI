@@ -424,6 +424,32 @@ class ManagedBranchOwnershipTests(unittest.TestCase):
         admit.assert_called_once_with(22, self.sha)
         approve.assert_not_called()
 
+    def test_missing_council_report_does_not_block_green_pr(self):
+        pr = copy.deepcopy(self.pr)
+        pr["labels"].append({"name": automation.COUNCIL_FREEZE_LABEL})
+        with (
+            patch.object(automation, "council_evidence_freeze", return_value=(True, "missing report")) as council,
+            patch.object(automation, "remove_label") as remove,
+            patch.object(automation, "pr_files", return_value=["apps/portal/src/example.ts"]),
+            patch.object(automation, "all_required_checks_green", return_value=(True, "green")),
+            patch.object(automation, "current_head_unchanged", return_value=self.pr),
+            patch.object(automation, "admit_to_native_merge") as admit,
+        ):
+            automation.reconcile_pr(pr)
+        council.assert_not_called()
+        remove.assert_called_once_with(22, automation.COUNCIL_FREEZE_LABEL)
+        admit.assert_called_once_with(22, self.sha)
+
+    def test_missing_council_report_does_not_override_failed_ci(self):
+        with (
+            patch.object(automation, "council_evidence_freeze", return_value=(True, "missing report")),
+            patch.object(automation, "pr_files", return_value=["apps/portal/src/example.ts"]),
+            patch.object(automation, "all_required_checks_green", return_value=(False, "failed CI")),
+            patch.object(automation, "admit_to_native_merge") as admit,
+        ):
+            automation.reconcile_pr(copy.deepcopy(self.pr))
+        admit.assert_not_called()
+
     def test_managed_branch_pr_touching_protected_controls_gets_human_hold(self):
         risk_label = self.enterContext(patch.object(automation, "add_labels"))
         self.enterContext(patch.object(automation, "comment"))
