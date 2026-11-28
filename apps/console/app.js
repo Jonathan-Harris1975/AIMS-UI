@@ -152,8 +152,11 @@ function updateCommsNotifications(next) {
 const icons = {
   dashboard: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h6V4H4v9Zm0 7h6v-5H4v5Zm10 0h6V11h-6v9Zm0-16v5h6V4h-6Z"/></svg>`,
   inbox: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v12h-5l-2 3h-2l-2-3H4V4Zm2 2v8h4l2 3 2-3h4V6H6Z"/></svg>`,
+  allConversations: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v3H3V4Zm0 6h18v3H3v-3Zm0 6h18v3H3v-3Z"/></svg>`,
+  outreach: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 11 22 2l-6 20-5-8-9-3Zm9 1.2 4.4 6.9L19 5.6l-13 5.8 5 0.8Z"/><path d="m10 13 8-8 1 1-8 8-1-1Z"/></svg>`,
   dm: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v13H8l-4 4V4Zm3 4v2h10V8H7Zm0 4v2h7v-2H7Z"/></svg>`,
-  comment: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v13H9l-6 4V4Zm3 3v7h11V7H6Zm2 2h7v2H8V9Z"/></svg>`,
+  comment: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c5.5 0 10 3.6 10 8s-4.5 8-10 8H9l-5 3 1.5-5.3C3.3 15.2 2 13.2 2 11c0-4.4 4.5-8 10-8Z"/>
+<circle cx="7.5" cy="11" r="1.2" fill="var(--aims-bg)"/><circle cx="12" cy="11" r="1.2" fill="var(--aims-bg)"/><circle cx="16.5" cy="11" r="1.2" fill="var(--aims-bg)"/></svg>`,
   approval: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4 5v6c0 5.1 3.4 9.8 8 11 4.6-1.2 8-5.9 8-11V5l-8-3Zm-1 14-4-4 1.4-1.4 2.6 2.6 4.6-4.6L17 10l-6 6Z"/></svg>`,
   contacts: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0H5Z"/></svg>`,
   workflow: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h6v5H6V3Zm8 13h4v5h-6v-5h2Zm-9-1h6v5H5v-5Zm4-7v3h6v3h2v-5H11V8H9Z"/></svg>`,
@@ -183,14 +186,14 @@ const navItems = [
   ["approvals", "Approvals", icons.approval],
   ["contacts", "Contacts", icons.contacts],
   ["workflows", "Workflows", icons.workflow],
-  ["outreach", "Outreach", icons.analytics],
+  ["outreach", "Outreach", icons.outreach],
   ["quarantine", "Quarantine", icons.quarantine],
   ["analytics", "Analytics", icons.analytics],
   ["settings", "Settings", icons.settings],
 ];
 
 const inboxSubItems = [
-  ["inbox", "All conversations", icons.inbox],
+  ["inbox", "All conversations", icons.allConversations],
   ["dms", "DMs", icons.dm],
   ["comments", "Comments", icons.comment],
 ];
