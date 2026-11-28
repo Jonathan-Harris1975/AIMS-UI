@@ -1111,23 +1111,7 @@ function settingsView() {
 </section>
 <section class="panel settings-card"><h3>Display</h3>
 <label><input type="checkbox" data-density-toggle ${displayDensity === "comfortable" ? "checked" : ""}> Comfortable spacing</label></section>
-<section class="panel settings-card comms-audio-settings">
-<h3>Audio notifications</h3>
-<p>Only actionable alerts sound.</p>
-<label><input type="checkbox" data-comms-audio="enabled" ${commsAudioPreferences().enabled ? "checked" : ""}> Sound on</label>
-<label><input type="checkbox" data-comms-audio="review_required" ${commsAudioPreferences().review_required ? "checked" : ""}> Review required sound</label>
-<label><input type="checkbox" data-comms-audio="urgent" ${commsAudioPreferences().urgent ? "checked" : ""}> Urgent sound</label>
-<label><input type="checkbox" data-comms-audio="resolved" ${commsAudioPreferences().resolved ? "checked" : ""}> Resolved confirmation sound</label>
-<label><input type="checkbox" data-comms-audio="new_message" ${commsAudioPreferences().new_message ? "checked" : ""}> Actionable new message sound</label>
-<label class="comms-audio-volume">
-          Volume <input type="range" min="0" max="1" step="0.05" value="${commsAudioPreferences().volume}" data-comms-audio="volume">
-<span>${Math.round(commsAudioPreferences().volume * 100)}%</span>
-</label>
-<div class="comms-audio-actions">
-<button class="button secondary" type="button" data-action="test-comms-sound">Test Sound</button>
-</div>
-<p class="comms-audio-status" role="status" aria-live="polite"></p>
-</section>
+${document.getElementById("audio-settings").innerHTML}
 <section class="panel settings-card">
 <h3>Verified identity</h3>
 <dl>
@@ -1788,6 +1772,14 @@ function bindEvents() {
   root.querySelector('[data-action="open-sidebar"]')?.addEventListener("click", openSidebar);
   root.querySelectorAll('[data-action="close-sidebar"]').forEach((button) => button.addEventListener("click", closeSidebar));
   root.querySelectorAll('[data-action="toggle-notifications"]').forEach((button) => button.addEventListener("click", () => toggleNotifications(button)));
+  const prefs = commsAudioPreferences();
+  root.querySelectorAll("[data-comms-audio]").forEach(control => {
+    const key = control.dataset.commsAudio;
+    if (key === "volume") {
+      control.value = prefs.volume;
+      control.nextElementSibling.textContent = `${Math.round(prefs.volume * 100)}%`;
+    } else control.checked = !!prefs[key];
+  });
   root.querySelectorAll("[data-comms-audio]").forEach((control) => control.addEventListener("change", () => {
     const key = control.dataset.commsAudio;
     const value = control.type === "checkbox" ? control.checked : Number(control.value);

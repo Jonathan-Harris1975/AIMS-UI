@@ -49,6 +49,25 @@
     <svg data-icon="chevronDown" viewBox="0 0 24 24" aria-hidden="true"><path d="m6.7 8.3 5.3 5.3 5.3-5.3 1.4 1.4-6.7 6.7-6.7-6.7 1.4-1.4Z"/></svg>
     <svg data-icon="more" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm7 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm7 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4Z"/></svg>
   </template>
+  <template id="audio-settings">
+<section class="panel settings-card comms-audio-settings">
+<h3>Audio notifications</h3>
+<p>Only actionable alerts sound.</p>
+<label><input type="checkbox" data-comms-audio="enabled"> Sound on</label>
+<label><input type="checkbox" data-comms-audio="review_required"> Review required sound</label>
+<label><input type="checkbox" data-comms-audio="urgent"> Urgent sound</label>
+<label><input type="checkbox" data-comms-audio="resolved"> Resolved confirmation sound</label>
+<label><input type="checkbox" data-comms-audio="new_message"> Actionable new message sound</label>
+<label class="comms-audio-volume">
+          Volume <input type="range" min="0" max="1" step="0.05" value="0.65" data-comms-audio="volume">
+<span>65%</span>
+</label>
+<div class="comms-audio-actions">
+<button class="button secondary" type="button" data-action="test-comms-sound">Test Sound</button>
+</div>
+<p class="comms-audio-status" role="status" aria-live="polite"></p>
+</section>
+  </template>
   <template id="security-boundary">
 <details class="panel settings-card">
 <summary>Security boundary</summary>
