@@ -226,3 +226,12 @@ test('workspace readiness follows bootstrap and notifications poll without overl
   assert.match(app, /setInterval\(\(\) => void pollCommsNotifications\(\), 15_000\)/)
   assert.doesNotMatch(app, /if \(config\.embedded\) setInterval/)
 })
+
+
+test('embedded communications uses the host shell without a second desktop sidebar', async () => {
+  const styles = await readFile(new URL('../apps/console/styles.css', import.meta.url), 'utf8')
+  assert.match(styles, /\.layout\.embedded \{[^}]*display: block/)
+  assert.match(styles, /\.layout\.embedded > \.sidebar,\s*\.layout\.embedded > \.scrim \{ display: none; \}/)
+  assert.match(styles, /\.layout\.embedded > \.main \{[^}]*width: 100%/)
+  assert.match(styles, /\.layout\.embedded \.embedded-nav-item\.active,[\s\S]*?border-bottom-color: var\(--aims-accent\)/)
+})
