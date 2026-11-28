@@ -672,38 +672,6 @@ def pr_files(number: int) -> list[str]:
     return list(dict.fromkeys(names))
 
 
-RENOVATE_ACTION_PIN_LINE = re.compile(
-    r"""\s*uses:\s*['"]?[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@[0-9a-f]{40}['"]?\s*(?:#.*)?"""
-)
-
-
-def renovate_sensitive_changes_are_dependency_pins(number: int) -> bool:
-    """Allow Renovate protected workflow edits only for immutable action SHA pins.
-
-    Renovate owns GitHub Action revision updates, but not workflow logic or any
-    other governance/security control. Missing patches fail closed.
-    """
-    sensitive = [item for item in pr_file_details(number)
-                 if sensitive_file(str(item.get("filename", "")))]
-    if not sensitive:
-        return True
-    for item in sensitive:
-        path = str(item.get("filename", ""))
-        if item.get("previous_filename") or not path.startswith(".github/workflows/"):
-            return False
-        patch_text = item.get("patch")
-        if not isinstance(patch_text, str) or not patch_text:
-            return False
-        changed = [
-            line[1:].strip()
-            for line in patch_text.splitlines()
-            if line[:1] in {"+", "-"} and not line.startswith(("+++", "---"))
-        ]
-        if not changed or any(RENOVATE_ACTION_PIN_LINE.fullmatch(line) is None for line in changed):
-            return False
-    return True
-
-
 def sensitive_file(path: str) -> bool:
     """Return True for high-risk or unclassified paths; only explicit low-risk paths pass."""
     normalized = path.replace("\\", "/").removeprefix("./")
@@ -1201,8 +1169,7 @@ def _reconcile_pr_candidate(pr: dict[str, Any]) -> None:
     if kind in {"kilo", "cto", "branch-pr", "renovate", "codex"}:
         number = int(pr["number"])
         changed_paths = pr_files(number)
-        approved_pin_only = kind == "renovate" and renovate_sensitive_changes_are_dependency_pins(number)
-        if not approved_pin_only and require_operator_risk_approval(pr, changed_paths, kind):
+        if require_operator_risk_approval(pr, changed_paths, kind):
             return
 
     if kind == "kilo":
