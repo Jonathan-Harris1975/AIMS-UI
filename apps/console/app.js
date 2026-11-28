@@ -985,9 +985,9 @@ function analyticsView() {
       ${countList(metrics.autonomy, (row) => `${channelLabel(row.channel)} · ${titleCase(row.outcome)}${row.reason ? ` · ${titleCase(row.reason)}` : ""}`)}
     </section>
     <section class="panel analytics-panel">
-      <header class="panel-header"><div><strong>Newsletter confirmation</strong><span>SMTP acceptance and confirmed consent are separate outcomes.</span></div></header>
+      ${staticMarkup("newsletter-header")}
       ${countList(metrics.newsletter, (row) => titleCase(row.outcome))}
-      <p>Signup request counters are cumulative for the backend state file, outside this reporting window.</p>
+      ${staticMarkup("newsletter-note")}
       ${metrics.newsletterRequests
         ? countList(Object.entries(metrics.newsletterRequests).map(([outcome, count]) => ({ outcome, count })), (row) => titleCase(row.outcome))
         : '<p>Request counters unavailable.</p>'}
@@ -1495,12 +1495,7 @@ async function downloadAttachment(attachmentId, button) {
 function errorView() {
   return shell(`
     ${pageHeader("Connection not ready", "The live AIMS gateway could not be loaded.")}
-    <section class="connection-error panel" role="alert">
-      <div class="error-orb">!</div>
-      <h2>${escapeHtml(state.error?.message || "AIMS gateway could not be reached.")}</h2>
-      <p>Check the gateway URL, HIVE session verification and AIMS Comms Hub readiness.</p>
-      <div><button class="button primary" data-action="refresh">Try again</button></div>
-    </section>
+    ${staticMarkup("connection-error", escapeHtml(state.error?.message || "AIMS gateway could not be reached."))}
   `);
 }
 
