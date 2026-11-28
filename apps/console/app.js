@@ -884,15 +884,11 @@ function workflowsView() {
   return shell(`
     ${pageHeader("Workflows", "Monitor workflow assignments in the loaded queue and inspect conversations when intervention is needed.")}
     <div class="workflow-grid">
-      ${Object.entries(workflowGroups).map(([name, count]) => `<article class="workflow-card">
-        <div class="workflow-node">${icons.workflow}</div>
-        <div>
-          <strong>${escapeHtml(titleCase(name))}</strong>
-          <span>${count} loaded conversation${count === 1 ? "" : "s"}</span>
-          <small>Protected gateway controls.</small>
-        </div>
-        <button class="button secondary" data-view="inbox">Inspect queue</button>
-      </article>`).join("") || emptyState(
+      ${Object.entries(workflowGroups).map(([name, count]) => `${staticMarkup("workflow-card",
+          icons.workflow,
+          escapeHtml(titleCase(name)),
+          count,
+          count === 1 ? "" : "s")}`).join("") || emptyState(
         "No workflow activity",
         "Definitions will appear after the backend returns workflow records.",
       )}
@@ -1257,21 +1253,14 @@ function workspaceView() {
           </span>
         </header>
         <div class="message-thread">
-          ${(conversation.messages || []).map((message) => `<article
-            class="message ${message.direction === "outbound" ? "outbound" : "inbound"}">
-            <div class="message-avatar">
-              ${escapeHtml((message.sender || (message.direction === "outbound" ? "A" : "V")).charAt(0).toUpperCase())}
-            </div>
-            <div>
-              <header>
-                <strong>${escapeHtml(message.sender || (
+          ${(conversation.messages || []).map((message) => `${staticMarkup("workspace-message",
+          message.direction === "outbound" ? "outbound" : "inbound",
+          escapeHtml((message.sender || (message.direction === "outbound" ? "A" : "V")).charAt(0).toUpperCase()),
+          escapeHtml(message.sender || (
                   message.direction === "outbound" ? "AIMS" : contact.display_name || "Visitor"
-                ))}</strong>
-                <time>${escapeHtml(formatDateTime(message.received_at || message.created_at))}</time>
-              </header>
-              <p>${escapeHtml(message.body_text || "")}</p>
-            </div>
-          </article>`).join("") || emptyState("No messages", "The conversation record contains no message bodies.")}
+                )),
+          escapeHtml(formatDateTime(message.received_at || message.created_at)),
+          escapeHtml(message.body_text || ""))}`).join("") || emptyState("No messages", "The conversation record contains no message bodies.")}
         </div>
         ${canReply ? `
           ${staticMarkup("reply-composer", socialThread && socialMonitorOnly ? "disabled" : "",
@@ -1374,20 +1363,13 @@ function workspaceView() {
             <div><dt>Next action</dt><dd>${escapeHtml(aiState.next_action || "Not set")}</dd></div>
           </dl>
           ${drafts.length ? `<div class="draft-box"><strong>Latest draft</strong><p>${escapeHtml(drafts[0].body_text || drafts[0].content || "")}</p></div>` : ""}
-          ${latestAutoSent ? `<div class="auto-sent-box">
-            <strong>Sent automatically</strong>
-            <dl>
-              <div>
-                <dt>Channel</dt>
-                <dd>${escapeHtml(channelLabel(latestAutoSentDetails.channel || conversation.channel))}</dd>
-              </div>
-              <div><dt>Confidence</dt><dd>${escapeHtml(autoSentConfidence)}</dd></div>
-              <div><dt>Grounding</dt><dd>${escapeHtml(autoSentGrounding)}</dd></div>
-              <div><dt>Model</dt><dd>${escapeHtml(latestAutoSentDetails.model || "Deterministic")}</dd></div>
-            </dl>
-            <p>${escapeHtml(autoSentReasons)}</p>
-            <small>${escapeHtml(formatDateTime(latestAutoSent.occurred_at || latestAutoSent.created_at))}</small>
-          </div>` : ""}
+          ${latestAutoSent ? `${staticMarkup("workspace-auto-sent",
+          escapeHtml(channelLabel(latestAutoSentDetails.channel || conversation.channel)),
+          escapeHtml(autoSentConfidence),
+          escapeHtml(autoSentGrounding),
+          escapeHtml(latestAutoSentDetails.model || "Deterministic"),
+          escapeHtml(autoSentReasons),
+          escapeHtml(formatDateTime(latestAutoSent.occurred_at || latestAutoSent.created_at)))}` : ""}
           ${pendingApproval ? `<div class="approval-box">
             <strong>Approval required</strong>
             <p>${escapeHtml(pendingApproval.rationale
@@ -2530,8 +2512,7 @@ async function openNotification(button) {
 function openCommands() {
   const dialog = document.getElementById("aims-commands");
   const input = dialog.querySelector("input");
-  const list = dialog.querySelector("datalist");
-  list.innerHTML = navItems.map(([key, label]) => `<option value="${escapeHtml(label)}" data-view="${key}"></option>`).join("");
+  dialog.querySelector("datalist").innerHTML = navItems.map(([, label]) => `<option>${escapeHtml(label)}</option>`).join("");
   input.value = "";
   dialog.showModal();
   input.focus();

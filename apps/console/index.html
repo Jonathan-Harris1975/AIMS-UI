@@ -49,6 +49,48 @@
     <svg data-icon="chevronDown" viewBox="0 0 24 24" aria-hidden="true"><path d="m6.7 8.3 5.3 5.3 5.3-5.3 1.4 1.4-6.7 6.7-6.7-6.7 1.4-1.4Z"/></svg>
     <svg data-icon="more" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm7 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm7 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4Z"/></svg>
   </template>
+  <template id="workflow-card">
+<article class="workflow-card">
+        <div class="workflow-node">{{0}}</div>
+        <div>
+          <strong>{{1}}</strong>
+          <span>{{2}} loaded conversation{{3}}</span>
+          <small>Protected gateway controls.</small>
+        </div>
+        <button class="button secondary" data-view="inbox">Inspect queue</button>
+      </article>
+  </template>
+  <template id="workspace-auto-sent">
+<div class="auto-sent-box">
+            <strong>Sent automatically</strong>
+            <dl>
+              <div>
+                <dt>Channel</dt>
+                <dd>{{0}}</dd>
+              </div>
+              <div><dt>Confidence</dt><dd>{{1}}</dd></div>
+              <div><dt>Grounding</dt><dd>{{2}}</dd></div>
+              <div><dt>Model</dt><dd>{{3}}</dd></div>
+            </dl>
+            <p>{{4}}</p>
+            <small>{{5}}</small>
+          </div>
+  </template>
+  <template id="workspace-message">
+<article
+            class="message {{0}}">
+            <div class="message-avatar">
+              {{1}}
+            </div>
+            <div>
+              <header>
+                <strong>{{2}}</strong>
+                <time>{{3}}</time>
+              </header>
+              <p>{{4}}</p>
+            </div>
+          </article>
+  </template>
   <template id="workspace-contact">
         <section class="panel detail-card {{0}}" data-context-section="details">
           <header><strong>Contact</strong></header>
