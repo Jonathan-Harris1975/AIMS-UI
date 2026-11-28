@@ -138,7 +138,7 @@ test('embedded icon navigation retains accessible names on mobile', async () => 
   const app = await readFile(new URL('../apps/console/app.js', import.meta.url), 'utf8')
   assert.match(app, /data-view="\$\{key\}" aria-label="\$\{escapeHtml\(label\)\}"/)
   assert.match(app, /data-view="\$\{subKey\}" aria-label="\$\{escapeHtml\(subLabel\)\}"/)
-  assert.match(app, /Ctrl \/ ⌘ K/)
+  assert.match(await readFile(new URL('../apps/console/index.html', import.meta.url), 'utf8'), /Ctrl \/ ⌘ K/)
 })
 
 test('mobile navigation isolates background and contains keyboard focus', async () => {
