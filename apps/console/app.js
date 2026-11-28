@@ -363,20 +363,15 @@ function shell(content) {
 </button>
           `).join("")}
 </nav>
-<div class="sidebar-footer">
-<a class="hive-home-link" href="${escapeHtml(config.hiveHomeUrl)}" aria-label="Return to HIVE">${icons.home}<span>Back to HIVE</span></a>
-<div class="service-card" title="${state.error ? "Refresh needs attention" : state.bootstrap ? "Session active" : "Checking session"}">
-${signalLamp(state.error ? "amber" : state.bootstrap ? "green" : "neutral")}
-<div>
-<strong>Session<span class="sr-only">: ${state.error ? "Refresh needs attention" : state.bootstrap ? "Active" : "Checking"}</span></strong>
-<small>Protected gateway session only</small>
-</div>
-</div>
-<div class="user-card">
-<div class="avatar">${escapeHtml(String(identity.actor || "U").charAt(0).toUpperCase())}</div>
-<div><strong>${escapeHtml(identity.actor || "Unknown")}</strong><small>${escapeHtml(titleCase(identity.role || "read_only"))}</small></div>
-</div>
-</div>
+${staticMarkup("sidebar-identity",
+          escapeHtml(config.hiveHomeUrl),
+          icons.home,
+          state.error ? "Refresh needs attention" : state.bootstrap ? "Session active" : "Checking session",
+          signalLamp(state.error ? "amber" : state.bootstrap ? "green" : "neutral"),
+          state.error ? "Refresh needs attention" : state.bootstrap ? "Active" : "Checking",
+          escapeHtml(String(identity.actor || "U").charAt(0).toUpperCase()),
+          escapeHtml(identity.actor || "Unknown"),
+          escapeHtml(titleCase(identity.role || "read_only")))}
 </aside>
 <main class="main" id="aims-main-content" tabindex="-1" ${state.sidebarOpen ? "inert" : ""}>
         ${config.embedded ? `
@@ -443,18 +438,8 @@ ${signalLamp(state.error ? "amber" : state.bootstrap ? "green" : "neutral")}
   `;
 }
 
-function notificationPanel() {
-  if (!state.notificationOpen) return "";
-  return `
-<aside class="notification-panel" id="notification-panel" role="dialog" aria-labelledby="notification-panel-title" tabindex="-1">
-<header>
-<div><strong id="notification-panel-title">Notifications</strong><span>${state.notifications.length} recent</span></div>
-<button class="icon-button" data-action="toggle-notifications" aria-label="Close notifications">
-          ${icons.close}
-</button>
-</header>
-<div class="notification-list">
-        ${state.notifications.length ? [...state.notifications].sort((a, b) => {
+function notificationRows() {
+  return state.notifications.length ? [...state.notifications].sort((a, b) => {
           const rank = (item) => item.severity === "critical" ? 0 : item.severity === "warning" ? 1 : 2;
           return Number(a.status === "read") - Number(b.status === "read") || rank(a) - rank(b);
         }).map((item) => `
@@ -467,9 +452,16 @@ ${staticMarkup("notice-row",
           escapeHtml(item.title || titleCase(item.type)),
           escapeHtml(item.body_text || ""),
           escapeHtml(formatRelativeTime(item.created_at)))}
-        `).join("") : emptyState("No notifications", "The signal shelf is clear.")}
-</div>
-</aside>
+        `).join("") : emptyState("No notifications", "The signal shelf is clear.");
+}
+
+function notificationPanel() {
+  if (!state.notificationOpen) return "";
+  return `
+${staticMarkup("notification-panel",
+          state.notifications.length,
+          icons.close,
+          notificationRows())}
   `;
 }
 
@@ -1092,12 +1084,8 @@ ${labelledSignal(!socialLoaded ? "neutral" : social.monitorOnly ? "amber" : "gre
 </article>`;
           }).join("")}
 </div>
-        ${canManageSocial ? `<div class="button-row">
-<button class="button secondary" data-action="reconcile-social"
-            ${state.socialBusy ? "disabled aria-busy=\"true\"" : ""}>Reconcile webhooks</button>
-<button class="button secondary" data-action="poll-social"
-            ${state.socialBusy ? "disabled aria-busy=\"true\"" : ""}>Run poll now</button>
-</div>
+        ${canManageSocial ? `${staticMarkup("settings-social-actions",
+          state.socialBusy ? "disabled aria-busy=\"true\"" : "")}
         ${state.socialBusy
           ? `<p class="async-status" role="status" aria-live="polite">Updating social provider status…</p>`
           : ""}` : ""}
@@ -2518,19 +2506,13 @@ async function pollCommsNotifications() {
   try {
     const r = await client.notifications();
     if (Array.isArray(r.notifications)) {
-      const changed = JSON.stringify(state.notifications) !== JSON.stringify(r.notifications);
       updateCommsNotifications(r.notifications);
-      if (changed && state.notificationOpen) {
-        const list = root.querySelector(".notification-list");
-        const fresh = document.createElement("template");
-        fresh.innerHTML = notificationPanel();
-        const next = fresh.content.querySelector(".notification-list");
-        if (list && next && !list.contains(document.activeElement)) {
-          const top = list.scrollTop;
-          list.innerHTML = next.innerHTML;
-          list.scrollTop = top;
-          root.querySelector("#notification-panel-title + span").textContent = state.notifications.length + " recent";
-        }
+      const list = root.querySelector(".notification-list");
+      if (list && !list.contains(document.activeElement)) {
+        const top = list.scrollTop;
+        list.innerHTML = notificationRows();
+        list.scrollTop = top;
+        root.querySelector("#notification-panel-title + span").textContent = state.notifications.length + " recent";
       }
       const unread = state.notifications.filter(item => item.status !== "read").length;
       root.querySelectorAll('[aria-label="Notifications"] > span').forEach(badge => { badge.textContent = unread || ""; badge.hidden = !unread; });

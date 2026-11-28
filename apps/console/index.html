@@ -198,6 +198,41 @@
                 {{3}}
               </article>
   </template>
+  <template id="sidebar-identity">
+<div class="sidebar-footer">
+<a class="hive-home-link" href="{{0}}" aria-label="Return to HIVE">{{1}}<span>Back to HIVE</span></a>
+<div class="service-card" title="{{2}}">
+{{3}}
+<div>
+<strong>Session<span class="sr-only">: {{4}}</span></strong>
+<small>Protected gateway session only</small>
+</div>
+</div>
+<div class="user-card">
+<div class="avatar">{{5}}</div>
+<div><strong>{{6}}</strong><small>{{7}}</small></div>
+</div>
+</div>
+  </template>
+  <template id="settings-social-actions">
+<div class="button-row">
+<button class="button secondary" data-action="reconcile-social" data-slot-0="">Reconcile webhooks</button>
+<button class="button secondary" data-action="poll-social" data-slot-0="">Run poll now</button>
+</div>
+  </template>
+  <template id="notification-panel">
+<aside class="notification-panel" id="notification-panel" role="dialog" aria-labelledby="notification-panel-title" tabindex="-1">
+<header>
+<div><strong id="notification-panel-title">Notifications</strong><span>{{0}} recent</span></div>
+<button class="icon-button" data-action="toggle-notifications" aria-label="Close notifications">
+          {{1}}
+</button>
+</header>
+<div class="notification-list">
+{{2}}
+</div>
+</aside>
+  </template>
   <template id="workspace-contact">
         <section class="panel detail-card {{0}}" data-context-section="details">
           <header><strong>Contact</strong></header>
