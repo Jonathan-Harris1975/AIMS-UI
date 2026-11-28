@@ -360,6 +360,33 @@
           edge gateway before AIMS performs its own RBAC checks.</p>
 </details>
   </template>
+  <template id="shell-brand">
+<div class="brand">
+<div class="brand-mark"><span>A</span></div>
+<div><strong>AIMS</strong><small>Comms Hub</small></div>
+<button class="icon-button mobile-only" data-action="close-sidebar" aria-label="Close navigation">{{0}}</button>
+</div>
+  </template>
+  <template id="shell-search">
+<label class="global-search">
+            {{0}}
+<input id="global-search" type="search" value="{{1}}" placeholder="Search queue, contact or conversation" autocomplete="off" aria-label="Search conversations">
+<kbd>Ctrl / ⌘ K</kbd>
+</label>
+  </template>
+  <template id="shell-snapshot-warning">
+<div class="snapshot-warning" role="alert">
+<strong>Queue refresh failed</strong>
+<span>Showing the last loaded snapshot, not verified current status. {{0}}</span>
+</div>
+  </template>
+  <template id="shell-toast">
+<div class="toast toast-{{0}}"
+        role="{{1}}"
+        aria-live="{{2}}" aria-atomic="true">
+        {{3}}
+</div>
+  </template>
   <template id="embedded-view-select">
     <select class="embedded-workspace-select" data-embedded-view aria-label="{{0}}">{{1}}</select>
   </template>
