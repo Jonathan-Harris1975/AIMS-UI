@@ -47,8 +47,8 @@ test('console exposes named navigation, search and overlay semantics', async () 
   assert.match(app, /href="#aims-main-content"/)
   assert.match(app, /aria-label="Search conversations"/)
   const html = await readFile(new URL('../apps/console/index.html', import.meta.url), 'utf8')
-  assert.match(html, /<template id="notification-panel">\s*<aside[^>]*id="notification-panel" role="dialog"/)
-  assert.match(app, /staticMarkup\("notification-panel"/)
+  assert.match(html, /<template id="notification-panel-template">\s*<aside[^>]*id="notification-panel" role="dialog"/)
+  assert.match(app, /staticMarkup\("notification-panel-template"/)
   assert.match(app, /aria-current="page"/)
   assert.match(app, /aria-busy="true"/)
   assert.match(styles, /\.skip-link/)
@@ -272,4 +272,12 @@ test('compact inbox preserves distinct indicators and avoids duplicate channel l
   assert.match(app, /state.queueLoadedAt = new Date\(\).toISOString\(\)/)
   assert.match(css, /\.queue-card-lamps \{ display: grid/)
   assert.match(css, /\.quick-filter, \.filter-disclosure > summary \{ min-height: 44px/)
+})
+
+
+test('inert templates cannot shadow their own live rendered IDs', async () => {
+  const html = await readFile(new URL('../apps/console/index.html', import.meta.url), 'utf8')
+  for (const [, id, body] of html.matchAll(/<template id="([^"]+)">([\s\S]*?)<\/template>/g)) {
+    assert.ok(![...body.matchAll(/\bid="([^"]+)"/g)].some(match => match[1] === id), id + ' shadows a live element')
+  }
 })

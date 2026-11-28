@@ -458,7 +458,7 @@ ${staticMarkup("notice-row",
 function notificationPanel() {
   if (!state.notificationOpen) return "";
   return `
-${staticMarkup("notification-panel",
+${staticMarkup("notification-panel-template",
           state.notifications.length,
           icons.close,
           notificationRows())}
