@@ -202,3 +202,13 @@ test('all console semantic CSS tokens resolve and keyboard focus stays visible',
   assert.match(styles, /\.manual-mail-dialog\s*\{[^}]*overflow-y:\s*auto;[^}]*overscroll-behavior:\s*contain;[^}]*\}/)
   assert.match(styles, /@media \(max-width: 360px\)\s*\{[\s\S]*?\.summary-card:nth-last-child\(2\)\s*\{[^}]*border-bottom:\s*1px solid var\(--aims-border\)/)
 })
+
+
+test('embedded navigation keeps visible labels, scrolling and focus affordances on narrow screens', async () => {
+  const styles = await readFile(new URL('../apps/console/styles.css', import.meta.url), 'utf8')
+  assert.doesNotMatch(styles, /\.embedded-nav-item span \{ display: none/)
+  assert.match(styles, /\.embedded-nav-item span \{ display: inline/)
+  assert.match(styles, /\.embedded-nav-item \{ min-height: 44px/)
+  assert.match(styles, /\.embedded-nav-scroll, \.embedded-inbox-subnav-scroll \{ scrollbar-width: thin/)
+  assert.match(styles, /\.embedded-notification-button:focus-visible \{ outline: 2px solid/)
+})
