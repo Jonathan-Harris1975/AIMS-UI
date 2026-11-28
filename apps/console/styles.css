@@ -62,6 +62,7 @@ svg { width: 20px; height: 20px; fill: currentColor; }
 .icon-button { width: 40px; height: 40px; border: 1px solid var(--aims-border); background: transparent; border-radius: var(--aims-radius-sm); display: grid; place-items: center; cursor: pointer; position: relative; }
 .icon-button:hover { border-color: var(--aims-border-strong); background: var(--aims-panel-subtle); }
 .notification-button span, .embedded-notification-button span { position: absolute; right: -4px; top: -4px; min-width: 20px; height: 20px; padding: 0 var(--aims-space-1); border-radius: var(--aims-radius-lg); background: var(--aims-danger-strong); color: var(--aims-text); border: 2px solid var(--aims-bg); display: grid; place-items: center; font-size: var(--aims-type-xs); font-weight: 800; }
+.notification-button span[hidden], .embedded-notification-button span[hidden] { display: none; }
 .mobile-title { display: none; }
 .content { padding: var(--aims-space-8); max-width: 1600px; margin: 0 auto; }
 
