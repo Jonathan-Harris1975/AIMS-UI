@@ -32,9 +32,15 @@ test('monitoring snapshot cannot be presented as green verified health', () => {
   assert.match(css, /\.signal-lamp > span\[data-active="true"\]/);
 });
 
-test('routine notification severity remains accessible without a redundant visible label', () => {
-  assert.match(app, /<span class="sr-only">\$\{notificationSignal\(item\.severity\)\.label\}: <\/span>/);
-  assert.match(app, /title="\$\{notificationSignal\(item\.severity\)\.label\}"/);
+test('routine notification severity remains accessible without a redundant visible label', async () => {
+  const html = await readFile(new URL('../apps/console/index.html', import.meta.url), 'utf8');
+  const template = html.match(/<template id="notice-row">([\s\S]*?)<\/template>/)[1];
+  const { tone, label } = notificationSignal('critical');
+  const render = new Function('document', helpers + '\nreturn staticMarkup;')({ getElementById: () => ({ innerHTML: template }) });
+  const row = render('notice-row', 'critical', label, 'id', '', signalLamp(tone), 'Title', 'Body', 'Now');
+  assert.match(row, /<span class="sr-only">Critical: <\/span>/);
+  assert.match(row, /title="Critical"/);
+  assert.match(row, /signal-lamp signal-red/);
 });
 
 test('monitoring state is accessible but not repeated beside its lamp', () => {

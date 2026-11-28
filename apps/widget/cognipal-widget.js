@@ -104,10 +104,11 @@ class HttpTransport {
   }
 }
 
-function messageHtml(text) {
+export function messageHtml(text) {
   return String(text).split(/(https?:\/\/[^\s<>"\x27]+)/g).map((part, index) => {
     const safe = escapeHtml(part);
-    return index % 2 ? `<a href="${safe}" target="_blank" rel="noopener noreferrer">${safe}</a>` : safe;
+    return index % 2 ? `<a href="${safe}" target="_blank" rel="noopener noreferrer">${safe}</a>`
+      : safe.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>").replace(/`([^`\n]+)`/g, "<code>$1</code>");
   }).join("");
 }
 
@@ -145,8 +146,9 @@ export class CogniPalWidget extends HTMLElement {
 
   connectedCallback() {
     this.config = resolveWidgetConfig(this);
-    if (this.dataset.theme === "auto" && matchMedia("(prefers-color-scheme: dark)").matches) this.dataset.theme = "dark";
+    this.syncTheme();
     this.lastContent = null;
+    this.search = "";
     this.messages = [];
     this.lastSyncAt = "";
     this.mode = "automation";
@@ -155,6 +157,14 @@ export class CogniPalWidget extends HTMLElement {
     this.consented = Boolean(this.session);
     this.render();
     if (!this.bound) { this.bind(); this.bound = true; }
+  }
+
+  syncTheme() {
+    if (!this.dataset.theme || this.dataset.theme === "auto") {
+      const scheme = getComputedStyle(document.documentElement).colorScheme;
+      this.dataset.appearance = scheme === "dark" || (scheme !== "light" && matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+    }
+
   }
 
   disconnectedCallback() {
@@ -175,6 +185,14 @@ export class CogniPalWidget extends HTMLElement {
       if (action === "retry") void this.initialiseConversation();
       if (action === "retry-message") void this.retryMessage(actionTarget.dataset.messageId);
       if (action === "reset" && !this.sending && globalThis.confirm("Clear this local chat and start over?")) this.resetConversation();
+      if (action === "copy") {
+        const item = this.messages.find(message => message.id === actionTarget.dataset.messageId);
+        if (item) {
+          try { Promise.resolve(navigator.clipboard.writeText(item.text || item.body_text || "")).then(
+            () => { actionTarget.textContent = "Copied"; }, () => { actionTarget.textContent = "Copy failed"; }); }
+          catch { actionTarget.textContent = "Copy failed"; }
+        }
+      }
       if (action === "starter") {
         this.draft = actionTarget.textContent.trim(); this.render(); this.shadowRoot.querySelector("textarea")?.focus();
       }
@@ -193,6 +211,7 @@ export class CogniPalWidget extends HTMLElement {
       }
     });
     this.shadowRoot.addEventListener("input", (event) => {
+      if (event.target.matches(".cp-search")) { this.search = event.target.value; this.render(); return; }
       if (!event.target.matches("textarea")) return;
       this.draft = event.target.value;
       event.target.style.height = "auto";
@@ -204,6 +223,7 @@ export class CogniPalWidget extends HTMLElement {
 
   toggle(force) {
     this.open = typeof force === "boolean" ? force : !this.open;
+    if (this.open) this.syncTheme();
     this.connection = "unknown";
     this.render();
     if (this.open) {
@@ -239,6 +259,7 @@ export class CogniPalWidget extends HTMLElement {
       });
       if (this.attempt !== attempt) return;
       this.session = session;
+      this.search = "";
       this.messages = [];
       this.lastSyncAt = "";
       writeStoredSession(this.config.siteId, session);
@@ -350,7 +371,7 @@ export class CogniPalWidget extends HTMLElement {
     this.session = null;
     this.attempt = null;
     this.loading = this.sending = this.waking = false;
-    this.lastSyncAt = this.draft = "";
+    this.lastSyncAt = this.draft = this.search = "";
     this.connection = "unknown";
     this.messages = [];
     this.consented = false;
@@ -365,7 +386,7 @@ export class CogniPalWidget extends HTMLElement {
   }
 
   stopPolling() {
-    clearInterval(this.pollTimer);
+    clearTimeout(this.pollTimer);
     clearTimeout(this.wakeTimer);
     this.pollTimer = null;
     this.wakeTimer = null;
@@ -401,7 +422,8 @@ export class CogniPalWidget extends HTMLElement {
         <button class="cp-button secondary" data-action="retry">Try again</button>
       </section>`;
     }
-    const messages = this.messages.map((item) => {
+    const query = (this.search || "").trim().toLowerCase();
+    const messages = this.messages.filter(item => String(item.text || item.body_text || "").toLowerCase().includes(query)).map((item) => {
       const sender = item.role === "visitor" ? "You" : item.role === "operator" ? "AIMS team" : "CogniPal";
       const time = Date.parse(item.createdAt) ? new Date(item.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
       const retry = ["failed", "pending"].includes(item.status) && item.role === "visitor" && this.mode !== "closed"
@@ -410,13 +432,14 @@ export class CogniPalWidget extends HTMLElement {
         : "";
       return `<article class="cp-message ${escapeHtml(item.role || "assistant")}">
         <div class="cp-bubble">${messageHtml(item.text || item.body_text || "")}</div>
-        <div class="cp-meta">${sender} ${escapeHtml(time)}${item.status === "accepted" ? " · Accepted" : ""}${retry}</div>
+        <div class="cp-meta">${sender} ${escapeHtml(time)}${item.status === "accepted" ? " · Accepted" : ""}${retry}
+          <button type="button" class="cp-message-retry" data-action="copy" data-message-id="${escapeHtml(item.id)}">Copy</button></div>
       </article>`;
     }).join("");
     return `<div class="cp-thread" role="log" aria-live="polite" aria-relevant="additions text">
       ${this.mode === "human" ? '<div class="cp-mode">Human support active</div>' : this.mode === "takeover_requested" ? '<div class="cp-mode">Human support requested</div>' : ""}
-      ${messages}
-      ${!this.messages.some(item => item.role === "visitor") && this.mode !== "closed" ? starterMarkup() : ""}
+      ${messages || (query ? '<p role="status">No matching messages.</p>' : "")}
+      ${!query && !this.messages.some(item => item.role === "visitor") && this.mode !== "closed" ? starterMarkup() : ""}
       ${this.mode === "closed" ? '<p class="cp-mode">Conversation closed. Start a new chat to continue.</p>' : ""}
       ${this.waking ? `<div class="cp-wake" role="status"><span aria-hidden="true"></span>Waking CogniPal and checking the AIMS route…</div>` : ""}
       ${this.sending && !this.waking ? `<div class="cp-typing" role="status" aria-label="CogniPal is thinking">
@@ -436,6 +459,7 @@ export class CogniPalWidget extends HTMLElement {
             <div class="cp-heading"><strong>${escapeHtml(this.config.title)}</strong><span></span></div>
             <button class="cp-icon-button" data-action="toggle" aria-label="Minimise chat"><svg viewBox="0 0 24 24"><path d="M5 11h14v2H5z"/></svg></button>
           </header>
+          <div class="cp-search-bar" hidden><input class="cp-search" type="search" aria-label="Search this chat" placeholder="Search chat"></div>
           <main class="cp-body"></main>
           <footer class="cp-footer" hidden>
             <div class="cp-alert" role="alert" hidden></div>
@@ -468,8 +492,11 @@ export class CogniPalWidget extends HTMLElement {
       this.lastContent = content;
       body.scrollTop = follow ? body.scrollHeight : top;
     }
+    get(".cp-search-bar").hidden = !this.session || this.messages.length < 2;
+    const search = get(".cp-search");
+    if (search.value !== (this.search || "")) search.value = this.search || "";
     get(".cp-footer").hidden = !this.consented || !this.session;
-    const alert = get(".cp-alert");
+    const alert = get(".cp-footer .cp-alert");
     alert.hidden = !this.error;
     alert.textContent = this.error;
     const input = get("textarea");

@@ -363,20 +363,15 @@ function shell(content) {
 </button>
           `).join("")}
 </nav>
-<div class="sidebar-footer">
-<a class="hive-home-link" href="${escapeHtml(config.hiveHomeUrl)}" aria-label="Return to HIVE">${icons.home}<span>Back to HIVE</span></a>
-<div class="service-card" title="${state.error ? "Refresh needs attention" : state.bootstrap ? "Session active" : "Checking session"}">
-${signalLamp(state.error ? "amber" : state.bootstrap ? "green" : "neutral")}
-<div>
-<strong>Session<span class="sr-only">: ${state.error ? "Refresh needs attention" : state.bootstrap ? "Active" : "Checking"}</span></strong>
-<small>Protected gateway session only</small>
-</div>
-</div>
-<div class="user-card">
-<div class="avatar">${escapeHtml(String(identity.actor || "U").charAt(0).toUpperCase())}</div>
-<div><strong>${escapeHtml(identity.actor || "Unknown")}</strong><small>${escapeHtml(titleCase(identity.role || "read_only"))}</small></div>
-</div>
-</div>
+${staticMarkup("sidebar-identity",
+          escapeHtml(config.hiveHomeUrl),
+          icons.home,
+          state.error ? "Refresh needs attention" : state.bootstrap ? "Session active" : "Checking session",
+          signalLamp(state.error ? "amber" : state.bootstrap ? "green" : "neutral"),
+          state.error ? "Refresh needs attention" : state.bootstrap ? "Active" : "Checking",
+          escapeHtml(String(identity.actor || "U").charAt(0).toUpperCase()),
+          escapeHtml(identity.actor || "Unknown"),
+          escapeHtml(titleCase(identity.role || "read_only")))}
 </aside>
 <main class="main" id="aims-main-content" tabindex="-1" ${state.sidebarOpen ? "inert" : ""}>
         ${config.embedded ? `
@@ -393,7 +388,7 @@ ${signalLamp(state.error ? "amber" : state.bootstrap ? "green" : "neutral")}
             `).join("")}
 </div>
 <button class="embedded-notification-button" data-action="toggle-notifications" aria-label="Notifications" aria-expanded="${state.notificationOpen}" aria-controls="notification-panel">
-            ${icons.bell}${unread ? `<span>${unread}</span>` : ""}
+            ${icons.bell}<span ${unread ? "" : "hidden"}>${unread || ""}</span>
 </button>
 </nav>
         ${isInboxFamilyView() ? `
@@ -421,7 +416,7 @@ ${signalLamp(state.error ? "amber" : state.bootstrap ? "green" : "neutral")}
 <kbd>Ctrl / ⌘ K</kbd>
 </label>
 <button class="icon-button notification-button" data-action="toggle-notifications" aria-label="Notifications" aria-expanded="${state.notificationOpen}" aria-controls="notification-panel">
-            ${icons.bell}${unread ? `<span>${unread}</span>` : ""}
+            ${icons.bell}<span ${unread ? "" : "hidden"}>${unread || ""}</span>
 </button>
 </header>
         `}
@@ -443,36 +438,30 @@ ${signalLamp(state.error ? "amber" : state.bootstrap ? "green" : "neutral")}
   `;
 }
 
-function notificationPanel() {
-  if (!state.notificationOpen) return "";
-  return `
-<aside class="notification-panel" id="notification-panel" role="dialog" aria-labelledby="notification-panel-title" tabindex="-1">
-<header>
-<div><strong id="notification-panel-title">Notifications</strong><span>${state.notifications.length} recent</span></div>
-<button class="icon-button" data-action="toggle-notifications" aria-label="Close notifications">
-          ${icons.close}
-</button>
-</header>
-<div class="notification-list">
-        ${state.notifications.length ? [...state.notifications].sort((a, b) => {
+function notificationRows() {
+  return state.notifications.length ? [...state.notifications].sort((a, b) => {
           const rank = (item) => item.severity === "critical" ? 0 : item.severity === "warning" ? 1 : 2;
           return Number(a.status === "read") - Number(b.status === "read") || rank(a) - rank(b);
         }).map((item) => `
-<button type="button" class="notification-item severity-${escapeHtml(item.severity || "info")}"
-            title="${notificationSignal(item.severity).label}"
-            data-notification-id="${escapeHtml(item.id)}"
-            data-conversation-id="${escapeHtml(item.conversation_id || "")}">
-${signalLamp(notificationSignal(item.severity).tone)}
-<span>
-<span class="sr-only">${notificationSignal(item.severity).label}: </span>
-<strong>${escapeHtml(item.title || titleCase(item.type))}</strong>
-<small>${escapeHtml(item.body_text || "")}</small>
-<time>${escapeHtml(formatRelativeTime(item.created_at))}</time>
-</span>
-</button>
-        `).join("") : emptyState("No notifications", "The signal shelf is clear.")}
-</div>
-</aside>
+${staticMarkup("notice-row",
+          escapeHtml(item.severity || "info"),
+          notificationSignal(item.severity).label,
+          escapeHtml(item.id),
+          escapeHtml(item.conversation_id || ""),
+          signalLamp(notificationSignal(item.severity).tone),
+          escapeHtml(item.title || titleCase(item.type)),
+          escapeHtml(item.body_text || ""),
+          escapeHtml(formatRelativeTime(item.created_at)))}
+        `).join("") : emptyState("No notifications", "The signal shelf is clear.");
+}
+
+function notificationPanel() {
+  if (!state.notificationOpen) return "";
+  return `
+${staticMarkup("notification-panel-template",
+          state.notifications.length,
+          icons.close,
+          notificationRows())}
   `;
 }
 
@@ -1019,11 +1008,10 @@ function manualMailView() {
       "Read and send manual email. These mailboxes remain outside AIMS automation.",
       `<button class="button primary" data-action="compose-mail" ${account?.enabled ? "" : "disabled"}>Compose</button>`,
     )}
-    <section class="manual-mail-toolbar" aria-label="Manual mailboxes">
-      ${accountButtons || '<span class="muted">No manual mailboxes are configured.</span>'}
-      <label class="manual-mail-folder">Folder <select data-mail-folder aria-label="Mail folder">${folderOptions}</select></label>
-      <button class="button secondary" data-action="refresh-mail" ${account?.enabled ? "" : "disabled"}>Refresh</button>
-    </section>
+    ${staticMarkup("manual-mail-toolbar",
+          accountButtons || '<span class="muted">No manual mailboxes are configured.</span>',
+          folderOptions,
+          account?.enabled ? "" : "disabled")}
     <section class="manual-mail-layout">
       <div class="panel manual-mail-list">
         <header><strong>${escapeHtml(account?.address || "Mailbox")}</strong><span>${mail.messages.length} recent</span></header>
@@ -1031,21 +1019,13 @@ function manualMailView() {
           : (rows || emptyState("No recent mail", "This mailbox has no recent messages."))}
       </div>
       <div class="panel manual-mail-reader">${selected ? `
-        <header class="manual-mail-message-header">
-          <div><h2>${escapeHtml(selected.subject || "(No subject)")}</h2>
-            <p>From ${escapeHtml(selected.from?.name || selected.from?.address || "Unknown sender")}
-              &lt;${escapeHtml(selected.from?.address || "")}&gt;</p>
-            <time>${escapeHtml(formatDateTime(selected.receivedAt))}</time></div>
-          <div class="manual-mail-actions">
-            <button class="button primary" data-action="reply-mail">Reply</button>
-            <label class="manual-mail-move"><span class="sr-only">Move to folder</span>
-              <select data-mail-move aria-label="Move email to folder">
-                <option value="">Move to…</option>${moveOptions}
-              </select></label>
-            <button class="button danger" data-action="delete-mail">Delete</button>
-          </div>
-        </header>
-        <div class="manual-mail-body">${escapeHtml(selected.text || "(No plain-text content)")}</div>
+        ${staticMarkup("mail-reader",
+          escapeHtml(selected.subject || "(No subject)"),
+          escapeHtml(selected.from?.name || selected.from?.address || "Unknown sender"),
+          escapeHtml(selected.from?.address || ""),
+          escapeHtml(formatDateTime(selected.receivedAt)),
+          moveOptions,
+          escapeHtml(selected.text || "(No plain-text content)"))}
       ` : emptyState("Select a message", "Choose an email to read it here.")}</div>
     </section>
     ${staticMarkup("mail-compose", escapeHtml(account?.address || ""), icons.close)}
@@ -1071,36 +1051,23 @@ function settingsView() {
       `<button class="button secondary" data-action="load-social-status">Refresh</button>`,
     )}
 <div class="settings-grid">
-<section class="panel settings-card">
-<h3>Console connection</h3>
-<dl>
-<div><dt>API gateway</dt><dd>${escapeHtml(config.apiBaseUrl)}</dd></div>
-<div><dt>Mode</dt><dd>Live</dd></div>
-<div><dt>API version</dt><dd>${escapeHtml(state.bootstrap?.apiVersion || "Unknown")}</dd></div>
-</dl>
-</section>
+${staticMarkup("settings-connection",
+          escapeHtml(config.apiBaseUrl),
+          escapeHtml(state.bootstrap?.apiVersion || "Unknown"))}
 <section class="panel settings-card"><h3>Display</h3>
 <label><input type="checkbox" data-density-toggle ${displayDensity === "comfortable" ? "checked" : ""}> Comfortable spacing</label></section>
 ${document.getElementById("audio-settings").innerHTML}
-<section class="panel settings-card">
-<h3>Verified identity</h3>
-<dl>
-<div><dt>Actor</dt><dd>${escapeHtml(identity.actor || "Unknown")}</dd></div>
-<div><dt>Role</dt><dd>${escapeHtml(titleCase(identity.role || "read_only"))}</dd></div>
-<div><dt>Strategy</dt><dd>${escapeHtml(identity.strategy || "Unknown")}</dd></div>
-</dl>
-</section>
-<section class="panel settings-card">
-<h3>Email and web chat</h3>
-<dl>
-<div><dt>Email</dt><dd>${!emailLoaded ? "Unknown" : email.enabled ? "Enabled" : "Disabled"}</dd></div>
-<div><dt>Mailbox</dt><dd>${escapeHtml(!emailLoaded ? "Unknown" : emailAccount.address || "Not configured")}</dd></div>
-<div><dt>Email worker</dt><dd>${!emailLoaded ? "Unknown" : emailAccount.workerRunning ? "Polling" : emailAccount.workerStarted ? "Scheduled" : "Off"}</dd></div>
-<div><dt>Last success</dt><dd>${escapeHtml(!emailLoaded ? "Unknown" : emailPollState.lastSuccessAt ? formatDateTime(emailPollState.lastSuccessAt) : "None")}</dd></div>
-<div><dt>Web chat</dt><dd>${!chatLoaded ? "Unknown" : chat.enabled ? `Enabled · ${escapeHtml(chat.transport || "unknown")}` : "Disabled"}</dd></div>
-<div><dt>Chat AI</dt><dd>${!chatLoaded ? "Unknown" : chat.aiWorkflowEnabled ? "Enabled" : "Disabled"}</dd></div>
-</dl>
-</section>
+${staticMarkup("settings-identity",
+          escapeHtml(identity.actor || "Unknown"),
+          escapeHtml(titleCase(identity.role || "read_only")),
+          escapeHtml(identity.strategy || "Unknown"))}
+${staticMarkup("settings-email",
+          !emailLoaded ? "Unknown" : email.enabled ? "Enabled" : "Disabled",
+          escapeHtml(!emailLoaded ? "Unknown" : emailAccount.address || "Not configured"),
+          !emailLoaded ? "Unknown" : emailAccount.workerRunning ? "Polling" : emailAccount.workerStarted ? "Scheduled" : "Off",
+          escapeHtml(!emailLoaded ? "Unknown" : emailPollState.lastSuccessAt ? formatDateTime(emailPollState.lastSuccessAt) : "None"),
+          !chatLoaded ? "Unknown" : chat.enabled ? `Enabled · ${escapeHtml(chat.transport || "unknown")}` : "Disabled",
+          !chatLoaded ? "Unknown" : chat.aiWorkflowEnabled ? "Enabled" : "Disabled")}
 <section class="panel settings-card social-settings-card"><h3>Social channel setup</h3>
 <div class="social-status-strip">
 ${labelledSignal(!socialLoaded ? "neutral" : social.monitorOnly ? "amber" : "green",
@@ -1117,33 +1084,16 @@ ${labelledSignal(!socialLoaded ? "neutral" : social.monitorOnly ? "amber" : "gre
 </article>`;
           }).join("")}
 </div>
-        ${canManageSocial ? `<div class="button-row">
-<button class="button secondary" data-action="reconcile-social"
-            ${state.socialBusy ? "disabled aria-busy=\"true\"" : ""}>Reconcile webhooks</button>
-<button class="button secondary" data-action="poll-social"
-            ${state.socialBusy ? "disabled aria-busy=\"true\"" : ""}>Run poll now</button>
-</div>
+        ${canManageSocial ? `${staticMarkup("settings-social-actions",
+          state.socialBusy ? "disabled aria-busy=\"true\"" : "")}
         ${state.socialBusy
           ? `<p class="async-status" role="status" aria-live="polite">Updating social provider status…</p>`
           : ""}` : ""}
 </section>
-<details class="panel settings-card">
-<summary>Responsive contract</summary>
-<dl>
-<div>
-<dt>Minimum width</dt>
-<dd>${escapeHtml(state.bootstrap?.responsiveContract?.minimumWidth || 320)}px</dd>
-</div>
-<div>
-<dt>Pagination</dt>
-<dd>${escapeHtml(state.bootstrap?.responsiveContract?.pagination || "cursor")}</dd>
-</div>
-<div>
-<dt>Actions</dt>
-<dd>${escapeHtml((state.bootstrap?.responsiveContract?.actions || []).join(", "))}</dd>
-</div>
-</dl>
-</details>
+${staticMarkup("settings-responsive",
+          escapeHtml(state.bootstrap?.responsiveContract?.minimumWidth || 320),
+          escapeHtml(state.bootstrap?.responsiveContract?.pagination || "cursor"),
+          escapeHtml((state.bootstrap?.responsiveContract?.actions || []).join(", ")))}
 ${document.getElementById("security-boundary").innerHTML}
 </div>
   `);
@@ -1388,19 +1338,16 @@ function workspaceView() {
             ${attachments.map((attachment) => {
               const status = String(attachment.status || "reference_only");
               const stored = status === "stored";
-              return `<article class="attachment-row">
-                <div class="attachment-icon">${icons.download}</div>
-                <div class="attachment-meta">
-                  <strong>${escapeHtml(attachment.filename || "Attachment")}</strong>
-                  <small>${escapeHtml(stored ? "Stored securely in Comms Hub" : status === "quarantined" ? "Quarantined" : status === "ingest_failed" ? "Storage failed" : "Processing")}</small>
-                </div>
-                ${stored
+              return `${staticMarkup("workspace-attachment",
+          icons.download,
+          escapeHtml(attachment.filename || "Attachment"),
+          escapeHtml(stored ? "Stored securely in Comms Hub" : status === "quarantined" ? "Quarantined" : status === "ingest_failed" ? "Storage failed" : "Processing"),
+          stored
                   ? `<button class="button secondary compact" type="button"
                       data-attachment-id="${escapeHtml(attachment.id)}">Open</button>`
                   : `<span class="attachment-status">
                       ${escapeHtml(titleCase(status.replaceAll("_", " ")))}
-                    </span>`}
-              </article>`;
+                    </span>`)}`;
             }).join("")}
           </div>
         </section>` : ""}
@@ -1629,7 +1576,7 @@ function bindEvents() {
     root.querySelector(".layout").dataset.density = displayDensity;
   });
   root.querySelectorAll("[data-view]").forEach((button) => button.addEventListener("click", () => navigate(button.dataset.view)));
-  root.querySelectorAll("[data-conversation-id]").forEach((element) => element.addEventListener("click", (event) => {
+  root.querySelectorAll("[data-conversation-id]:not([data-notification-id])").forEach((element) => element.addEventListener("click", (event) => {
     const id = event.currentTarget.dataset.conversationId;
     if (id) openConversation(id);
   }));
@@ -1709,7 +1656,7 @@ function bindEvents() {
     try { const audio = new Audio(COMMS_AUDIO_SOUNDS.review_required); audio.volume = commsAudioPreferences().volume; await audio.play(); status.textContent = "Review sound played."; }
     catch { status.textContent = "Audio could not play. Interact with the page and check browser audio settings, then test again."; }
   });
-  root.querySelectorAll("[data-notification-id]").forEach((button) => button.addEventListener("click", () => openNotification(button)));
+
   root.querySelectorAll("[data-contact-id]").forEach((button) => button.addEventListener("click", () => openContact(button.dataset.contactId)));
   root.querySelector('[data-action="close-contact"]')?.addEventListener("click", closeContact);
   root.querySelector("#contact-edit-form")?.addEventListener("submit", submitContactEdit);
@@ -2547,6 +2494,10 @@ document.addEventListener("keydown", (event) => {
 });
 
 // Poll only an established operator session, in either standalone or embedded mode.
+root.addEventListener("click", event => {
+  const button = event.target.closest("[data-notification-id]");
+  if (button) void openNotification(button);
+});
 let notificationPollInFlight = false;
 let notificationPollDenied = false;
 async function pollCommsNotifications() {
@@ -2554,7 +2505,18 @@ async function pollCommsNotifications() {
   notificationPollInFlight = true;
   try {
     const r = await client.notifications();
-    if (Array.isArray(r.notifications)) updateCommsNotifications(r.notifications);
+    if (Array.isArray(r.notifications)) {
+      updateCommsNotifications(r.notifications);
+      const list = root.querySelector(".notification-list");
+      if (list && !list.contains(document.activeElement)) {
+        const top = list.scrollTop;
+        list.innerHTML = notificationRows();
+        list.scrollTop = top;
+        root.querySelector("#notification-panel-title + span").textContent = state.notifications.length + " recent";
+      }
+      const unread = state.notifications.filter(item => item.status !== "read").length;
+      root.querySelectorAll('[aria-label="Notifications"] > span').forEach(badge => { badge.textContent = unread || ""; badge.hidden = !unread; });
+    }
   } catch (error) {
     // Never continue polling after access is revoked or the session expires.
     if (error instanceof AimsApiError && (error.status === 401 || error.status === 403)) notificationPollDenied = true;

@@ -46,7 +46,9 @@ test('console exposes named navigation, search and overlay semantics', async () 
   const styles = await readFile(new URL('../apps/console/styles.css', import.meta.url), 'utf8')
   assert.match(app, /href="#aims-main-content"/)
   assert.match(app, /aria-label="Search conversations"/)
-  assert.match(app, /id="notification-panel" role="dialog"/)
+  const html = await readFile(new URL('../apps/console/index.html', import.meta.url), 'utf8')
+  assert.match(html, /<template id="notification-panel-template">\s*<aside[^>]*id="notification-panel" role="dialog"/)
+  assert.match(app, /staticMarkup\("notification-panel-template"/)
   assert.match(app, /aria-current="page"/)
   assert.match(app, /aria-busy="true"/)
   assert.match(styles, /\.skip-link/)
@@ -87,8 +89,10 @@ test('operator overview shows actual attention items, not ordinary conversations
   assert.match(app, /No conversations need attention/)
   assert.match(app, /in the loaded queue/)
   assert.doesNotMatch(app, /Queue snapshot only · Provider health in Settings/)
-  assert.match(app, /Protected gateway session only/)
-  assert.doesNotMatch(app, /<strong>Connected<\/strong><small>Protected gateway<\/small>/)
+  const html = await readFile(new URL('../apps/console/index.html', import.meta.url), 'utf8')
+  assert.match(html, /<template id="sidebar-identity">[\s\S]*?Protected gateway session only/)
+  assert.match(app, /staticMarkup\("sidebar-identity"/)
+  assert.doesNotMatch(app + html, /<strong>Connected<\/strong><small>Protected gateway<\/small>/)
 })
 
 test('manual mail inherits defined readable semantic text tokens', async () => {
@@ -268,4 +272,12 @@ test('compact inbox preserves distinct indicators and avoids duplicate channel l
   assert.match(app, /state.queueLoadedAt = new Date\(\).toISOString\(\)/)
   assert.match(css, /\.queue-card-lamps \{ display: grid/)
   assert.match(css, /\.quick-filter, \.filter-disclosure > summary \{ min-height: 44px/)
+})
+
+
+test('inert templates cannot shadow their own live rendered IDs', async () => {
+  const html = await readFile(new URL('../apps/console/index.html', import.meta.url), 'utf8')
+  for (const [, id, body] of html.matchAll(/<template id="([^"]+)">([\s\S]*?)<\/template>/g)) {
+    assert.ok(![...body.matchAll(/\bid="([^"]+)"/g)].some(match => match[1] === id), id + ' shadows a live element')
+  }
 })
