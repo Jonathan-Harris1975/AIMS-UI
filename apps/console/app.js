@@ -1016,11 +1016,10 @@ function manualMailView() {
       "Read and send manual email. These mailboxes remain outside AIMS automation.",
       `<button class="button primary" data-action="compose-mail" ${account?.enabled ? "" : "disabled"}>Compose</button>`,
     )}
-    <section class="manual-mail-toolbar" aria-label="Manual mailboxes">
-      ${accountButtons || '<span class="muted">No manual mailboxes are configured.</span>'}
-      <label class="manual-mail-folder">Folder <select data-mail-folder aria-label="Mail folder">${folderOptions}</select></label>
-      <button class="button secondary" data-action="refresh-mail" ${account?.enabled ? "" : "disabled"}>Refresh</button>
-    </section>
+    ${staticMarkup("manual-mail-toolbar",
+          accountButtons || '<span class="muted">No manual mailboxes are configured.</span>',
+          folderOptions,
+          account?.enabled ? "" : "disabled")}
     <section class="manual-mail-layout">
       <div class="panel manual-mail-list">
         <header><strong>${escapeHtml(account?.address || "Mailbox")}</strong><span>${mail.messages.length} recent</span></header>
@@ -1103,23 +1102,10 @@ ${labelledSignal(!socialLoaded ? "neutral" : social.monitorOnly ? "amber" : "gre
           ? `<p class="async-status" role="status" aria-live="polite">Updating social provider status…</p>`
           : ""}` : ""}
 </section>
-<details class="panel settings-card">
-<summary>Responsive contract</summary>
-<dl>
-<div>
-<dt>Minimum width</dt>
-<dd>${escapeHtml(state.bootstrap?.responsiveContract?.minimumWidth || 320)}px</dd>
-</div>
-<div>
-<dt>Pagination</dt>
-<dd>${escapeHtml(state.bootstrap?.responsiveContract?.pagination || "cursor")}</dd>
-</div>
-<div>
-<dt>Actions</dt>
-<dd>${escapeHtml((state.bootstrap?.responsiveContract?.actions || []).join(", "))}</dd>
-</div>
-</dl>
-</details>
+${staticMarkup("settings-responsive",
+          escapeHtml(state.bootstrap?.responsiveContract?.minimumWidth || 320),
+          escapeHtml(state.bootstrap?.responsiveContract?.pagination || "cursor"),
+          escapeHtml((state.bootstrap?.responsiveContract?.actions || []).join(", ")))}
 ${document.getElementById("security-boundary").innerHTML}
 </div>
   `);
@@ -1364,19 +1350,16 @@ function workspaceView() {
             ${attachments.map((attachment) => {
               const status = String(attachment.status || "reference_only");
               const stored = status === "stored";
-              return `<article class="attachment-row">
-                <div class="attachment-icon">${icons.download}</div>
-                <div class="attachment-meta">
-                  <strong>${escapeHtml(attachment.filename || "Attachment")}</strong>
-                  <small>${escapeHtml(stored ? "Stored securely in Comms Hub" : status === "quarantined" ? "Quarantined" : status === "ingest_failed" ? "Storage failed" : "Processing")}</small>
-                </div>
-                ${stored
+              return `${staticMarkup("workspace-attachment",
+          icons.download,
+          escapeHtml(attachment.filename || "Attachment"),
+          escapeHtml(stored ? "Stored securely in Comms Hub" : status === "quarantined" ? "Quarantined" : status === "ingest_failed" ? "Storage failed" : "Processing"),
+          stored
                   ? `<button class="button secondary compact" type="button"
                       data-attachment-id="${escapeHtml(attachment.id)}">Open</button>`
                   : `<span class="attachment-status">
                       ${escapeHtml(titleCase(status.replaceAll("_", " ")))}
-                    </span>`}
-              </article>`;
+                    </span>`)}`;
             }).join("")}
           </div>
         </section>` : ""}
@@ -1605,7 +1588,7 @@ function bindEvents() {
     root.querySelector(".layout").dataset.density = displayDensity;
   });
   root.querySelectorAll("[data-view]").forEach((button) => button.addEventListener("click", () => navigate(button.dataset.view)));
-  root.querySelectorAll("[data-conversation-id]").forEach((element) => element.addEventListener("click", (event) => {
+  root.querySelectorAll("[data-conversation-id]:not([data-notification-id])").forEach((element) => element.addEventListener("click", (event) => {
     const id = event.currentTarget.dataset.conversationId;
     if (id) openConversation(id);
   }));
@@ -1685,7 +1668,7 @@ function bindEvents() {
     try { const audio = new Audio(COMMS_AUDIO_SOUNDS.review_required); audio.volume = commsAudioPreferences().volume; await audio.play(); status.textContent = "Review sound played."; }
     catch { status.textContent = "Audio could not play. Interact with the page and check browser audio settings, then test again."; }
   });
-  root.querySelectorAll("[data-notification-id]").forEach((button) => button.addEventListener("click", () => openNotification(button)));
+
   root.querySelectorAll("[data-contact-id]").forEach((button) => button.addEventListener("click", () => openContact(button.dataset.contactId)));
   root.querySelector('[data-action="close-contact"]')?.addEventListener("click", closeContact);
   root.querySelector("#contact-edit-form")?.addEventListener("submit", submitContactEdit);
@@ -2523,6 +2506,10 @@ document.addEventListener("keydown", (event) => {
 });
 
 // Poll only an established operator session, in either standalone or embedded mode.
+root.addEventListener("click", event => {
+  const button = event.target.closest("[data-notification-id]");
+  if (button) void openNotification(button);
+});
 let notificationPollInFlight = false;
 let notificationPollDenied = false;
 async function pollCommsNotifications() {
@@ -2531,7 +2518,20 @@ async function pollCommsNotifications() {
   try {
     const r = await client.notifications();
     if (Array.isArray(r.notifications)) {
+      const changed = JSON.stringify(state.notifications) !== JSON.stringify(r.notifications);
       updateCommsNotifications(r.notifications);
+      if (changed && state.notificationOpen) {
+        const list = root.querySelector(".notification-list");
+        const fresh = document.createElement("template");
+        fresh.innerHTML = notificationPanel();
+        const next = fresh.content.querySelector(".notification-list");
+        if (list && next && !list.contains(document.activeElement)) {
+          const top = list.scrollTop;
+          list.innerHTML = next.innerHTML;
+          list.scrollTop = top;
+          root.querySelector("#notification-panel-title + span").textContent = state.notifications.length + " recent";
+        }
+      }
       const unread = state.notifications.filter(item => item.status !== "read").length;
       root.querySelectorAll('[aria-label="Notifications"] > span').forEach(badge => { badge.textContent = unread || ""; badge.hidden = !unread; });
     }

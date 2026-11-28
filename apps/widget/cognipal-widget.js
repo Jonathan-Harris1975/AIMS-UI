@@ -146,10 +146,7 @@ export class CogniPalWidget extends HTMLElement {
 
   connectedCallback() {
     this.config = resolveWidgetConfig(this);
-    if (!this.dataset.theme || this.dataset.theme === "auto") {
-      const scheme = getComputedStyle(document.documentElement).colorScheme;
-      this.dataset.appearance = scheme === "dark" || (scheme !== "light" && matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
-    }
+    this.syncTheme();
     this.lastContent = null;
     this.search = "";
     this.messages = [];
@@ -160,6 +157,14 @@ export class CogniPalWidget extends HTMLElement {
     this.consented = Boolean(this.session);
     this.render();
     if (!this.bound) { this.bind(); this.bound = true; }
+  }
+
+  syncTheme() {
+    if (!this.dataset.theme || this.dataset.theme === "auto") {
+      const scheme = getComputedStyle(document.documentElement).colorScheme;
+      this.dataset.appearance = scheme === "dark" || (scheme !== "light" && matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+    }
+
   }
 
   disconnectedCallback() {
@@ -218,6 +223,7 @@ export class CogniPalWidget extends HTMLElement {
 
   toggle(force) {
     this.open = typeof force === "boolean" ? force : !this.open;
+    if (this.open) this.syncTheme();
     this.connection = "unknown";
     this.render();
     if (this.open) {
@@ -253,6 +259,7 @@ export class CogniPalWidget extends HTMLElement {
       });
       if (this.attempt !== attempt) return;
       this.session = session;
+      this.search = "";
       this.messages = [];
       this.lastSyncAt = "";
       writeStoredSession(this.config.siteId, session);
@@ -486,7 +493,8 @@ export class CogniPalWidget extends HTMLElement {
       body.scrollTop = follow ? body.scrollHeight : top;
     }
     get(".cp-search-bar").hidden = !this.session || this.messages.length < 2;
-    get(".cp-search").value = this.search || "";
+    const search = get(".cp-search");
+    if (search.value !== (this.search || "")) search.value = this.search || "";
     get(".cp-footer").hidden = !this.consented || !this.session;
     const alert = get(".cp-footer .cp-alert");
     alert.hidden = !this.error;

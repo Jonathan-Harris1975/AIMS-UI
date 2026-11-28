@@ -19,9 +19,6 @@
   --cp-r-sm:4px;
   --cp-r:6px;
   --cp-r-lg:8px;
-  --cp-fast:150ms;
-  --cp-motion:180ms;
-  --cp-ease:cubic-bezier(.16,1,.3,1);
   font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   color:var(--cp-ink);
 }
@@ -29,15 +26,13 @@
 button,input,textarea { font:inherit; }
 .cp-root { position:fixed; z-index:2147483000; bottom:20px; right:20px; display:grid; justify-items:end; gap:12px; pointer-events:none; }
 .cp-root.left { left:20px; right:auto; justify-items:start; }
-.cp-launcher { pointer-events:auto; width:58px; height:58px; border-radius:8px; padding:0; border:2px solid var(--cp-panel); background:var(--cp-panel); overflow:hidden; box-shadow:var(--cp-shadow); cursor:pointer; position:relative; transition:transform var(--cp-fast) var(--cp-ease); }
-.cp-launcher:hover { transform:translateY(-2px); }
-.cp-launcher:focus-visible,.cp-button:focus-visible,.cp-icon-button:focus-visible,.cp-composer textarea:focus-visible { outline:3px solid var(--cp-accent-soft); outline-offset:2px; }
+.cp-launcher { pointer-events:auto; width:58px; height:58px; border-radius:8px; padding:0; border:2px solid var(--cp-panel); background:var(--cp-panel); overflow:hidden; box-shadow:var(--cp-shadow); cursor:pointer; position:relative; }
+:focus-visible { outline:2px solid #23eaff;outline-offset:2px }
 .cp-launcher img { width:100%; height:100%; object-fit:cover; display:block; transform:scale(1.62); transform-origin:center 30%; }
-.cp-launcher .cp-online { position:absolute; width:12px; height:12px; right:1px; bottom:2px; border:2px solid var(--cp-panel); border-radius:50%; background:#F1F5FF; border-color:#a5b5c9; border-radius:2px; }
+.cp-launcher .cp-online { position:absolute; width:12px; height:12px; right:1px; bottom:2px; border:2px solid var(--cp-panel); background:#F1F5FF; border-color:#a5b5c9; border-radius:2px; }
 .cp-panel { pointer-events:auto; width:min(380px,calc(100vw - 24px)); height:min(610px,calc(100dvh - 100px)); border:1px solid var(--cp-line); border-radius:var(--cp-r-lg); background:var(--cp-panel); box-shadow:var(--cp-shadow); overflow:hidden; display:none; grid-template-rows:auto auto minmax(0,1fr) auto; transform-origin:bottom right; }
 .cp-root.left .cp-panel { transform-origin:bottom left; }
-.cp-panel.open { display:grid; animation:cp-in var(--cp-motion) var(--cp-ease); }
-@keyframes cp-in { from { opacity:0; transform:translateY(8px) scale(.99); } to { opacity:1; transform:none; } }
+.cp-panel.open { display:grid; }
 .cp-header { min-height:68px; display:flex; align-items:center; gap:12px; padding:12px 14px; border-bottom:1px solid var(--cp-line); background:#061126; color:#eaf7ff; }
 .cp-avatar { width:42px; height:42px; border-radius:var(--cp-r); border:1px solid var(--cp-line); overflow:hidden; flex:0 0 auto; }
 .cp-avatar img { width:100%; height:100%; object-fit:cover; display:block; transform:scale(1.62); transform-origin:center 30%; }
@@ -47,7 +42,7 @@ button,input,textarea { font:inherit; }
 .cp-icon-button { width:40px; height:40px; border:0; border-radius:var(--cp-r-sm); background:transparent; color:var(--cp-soft); cursor:pointer; display:grid; place-items:center; }
 .cp-icon-button:hover { background:var(--cp-overlay); color:var(--cp-ink); }
 .cp-icon-button svg { width:20px; height:20px; fill:currentColor; }
-.cp-body { overflow:auto; background:var(--cp-raised); padding:16px; scroll-behavior:auto; overscroll-behavior:contain; }
+.cp-body { grid-row:3;overflow:auto; background:var(--cp-raised); padding:16px; scroll-behavior:auto; overscroll-behavior:contain; }
 .cp-consent,.cp-empty,.cp-error { min-height:100%; display:grid; align-content:center; justify-items:center; text-align:center; gap:12px; padding:24px 12px; }
 .cp-consent img { width:80px; height:80px; border-radius:var(--cp-r-lg); object-fit:cover; object-position:center 28%; }
 .cp-consent h2,.cp-empty h2,.cp-error h2 { margin:4px 0 0; font-size:20px; letter-spacing:-.02em; }
@@ -77,9 +72,9 @@ button,input,textarea { font:inherit; }
 .cp-wake span { width:8px; height:8px; border-radius:50%; border:2px solid var(--cp-line); border-top-color:var(--cp-accent); animation:cp-spin .8s linear infinite; }
 @keyframes cp-spin { to { transform:rotate(360deg); } }
 .cp-mode { position:sticky; top:-16px; margin:-16px -16px 12px; padding:8px 12px; background:var(--cp-warning-soft); border-bottom:1px solid var(--cp-line); color:var(--cp-warning); font-size:11px; text-align:center; }
-.cp-footer { border-top:1px solid var(--cp-line); padding:10px 11px 9px; background:var(--cp-panel); }
+.cp-footer { grid-row:4;border-top:1px solid var(--cp-line); padding:10px 11px 9px; background:var(--cp-panel); }
 .cp-composer { display:grid; grid-template-columns:1fr auto; gap:8px; align-items:end; }
-.cp-composer textarea { font-size:16px;min-width:0;resize:none; min-height:44px; max-height:112px; border:1px solid var(--cp-line); border-radius:var(--cp-r); padding:10px 12px; color:var(--cp-ink); background:var(--cp-panel); line-height:1.45; }
+.cp-composer textarea,.cp-search {font-size:16px;min-width:0;border:1px solid var(--cp-line);border-radius:var(--cp-r);padding:10px 12px;color:var(--cp-ink);background:var(--cp-panel)}.cp-composer textarea{resize:none;min-height:44px;max-height:112px;line-height:1.45}
 .cp-send { width:44px; height:44px; border:0; border-radius:var(--cp-r); background:var(--cp-accent); color:var(--cp-panel); cursor:pointer; display:grid; place-items:center; }
 .cp-send:disabled { opacity:.45; cursor:not-allowed; }
 .cp-send svg { width:19px; height:19px; fill:currentColor; }
@@ -136,4 +131,4 @@ button,input,textarea { font:inherit; }
 :host([data-theme="dark"]) .cp-message.visitor .cp-bubble, :host([data-theme="dark"]) .cp-button.primary,:host([data-appearance="dark"]) .visitor .cp-bubble,:host([data-appearance="dark"]) .primary { color:#061126; }
 
 
-[hidden]{display:none!important}.cp-search-bar{padding:6px 12px;background:var(--cp-panel)}.cp-search{width:100%;min-height:36px;border:1px solid var(--cp-line);background:var(--cp-panel);color:var(--cp-ink);padding:6px;border-radius:4px;font-size:16px}.cp-search:focus-visible{outline:2px solid #23eaff}
+[hidden]{display:none!important}.cp-search-bar{grid-row:2;padding:6px 12px}.cp-search{width:100%;min-height:36px;padding:6px}

@@ -162,6 +162,42 @@
 </dl>
 </section>
   </template>
+  <template id="settings-responsive">
+<details class="panel settings-card">
+<summary>Responsive contract</summary>
+<dl>
+<div>
+<dt>Minimum width</dt>
+<dd>{{0}}px</dd>
+</div>
+<div>
+<dt>Pagination</dt>
+<dd>{{1}}</dd>
+</div>
+<div>
+<dt>Actions</dt>
+<dd>{{2}}</dd>
+</div>
+</dl>
+</details>
+  </template>
+  <template id="manual-mail-toolbar">
+<section class="manual-mail-toolbar" aria-label="Manual mailboxes">
+      {{0}}
+      <label class="manual-mail-folder">Folder <select data-mail-folder aria-label="Mail folder">{{1}}</select></label>
+      <button class="button secondary" data-action="refresh-mail" data-slot-2="">Refresh</button>
+    </section>
+  </template>
+  <template id="workspace-attachment">
+<article class="attachment-row">
+                <div class="attachment-icon">{{0}}</div>
+                <div class="attachment-meta">
+                  <strong>{{1}}</strong>
+                  <small>{{2}}</small>
+                </div>
+                {{3}}
+              </article>
+  </template>
   <template id="workspace-contact">
         <section class="panel detail-card {{0}}" data-context-section="details">
           <header><strong>Contact</strong></header>
