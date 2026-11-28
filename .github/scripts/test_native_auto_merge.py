@@ -9,6 +9,11 @@ import native_auto_merge
 
 
 class NativeAutoMergeTests(unittest.TestCase):
+    def test_council_is_advisory_but_security_and_operator_holds_remain(self):
+        self.assertNotIn("autonomy:council-freeze", native_auto_merge.BLOCKING_LABELS)
+        for hold in ("autonomy:human-hold", "autonomy:risk-approval-required", "do-not-merge"):
+            self.assertIn(hold, native_auto_merge.BLOCKING_LABELS)
+
     def test_import_without_credentials_does_not_raise_key_error(self):
         env = os.environ.copy()
         env.pop("NATIVE_MERGE_TOKEN", None)

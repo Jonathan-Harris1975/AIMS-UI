@@ -955,7 +955,6 @@ def admit_to_native_merge(number: int, expected_sha: str) -> None:
     blocking_labels = {
         "autonomy:human-hold",
         RISK_APPROVAL_LABEL,
-        "autonomy:council-freeze",
         "autonomy:superseded",
         "autonomy:obsolete",
         "do-not-merge",
@@ -1049,7 +1048,7 @@ def refresh_behind_kilo_prs(open_prs: list[dict[str, Any]]) -> None:
             continue
         labels = issue_labels(pr)
         if labels.intersection(
-            {"autonomy:human-hold", "autonomy:superseded", "autonomy:obsolete", COUNCIL_FREEZE_LABEL}
+            {"autonomy:human-hold", "autonomy:superseded", "autonomy:obsolete"}
         ):
             continue
         if (linked_kilo_carrier(pr, carriers) is None and
@@ -1071,7 +1070,7 @@ def refresh_behind_kilo_prs(open_prs: list[dict[str, Any]]) -> None:
             or fresh.get("draft")
             or str(fresh.get("head", {}).get("sha", "")) != head_sha
             or issue_labels(fresh).intersection(
-                {"autonomy:human-hold", "autonomy:superseded", "autonomy:obsolete", COUNCIL_FREEZE_LABEL}
+                {"autonomy:human-hold", "autonomy:superseded", "autonomy:obsolete"}
             )
         ):
             log(f"Kilo PR #{number} changed while base refresh was being evaluated; waiting.")
@@ -1118,7 +1117,7 @@ def admit_manual_pr(pr: dict[str, Any]) -> None:
         remove_label(number, "autonomy:admitted")
         labels.discard("autonomy:admitted")
     blocking_labels = {
-        "autonomy:human-hold", "autonomy:council-freeze",
+        "autonomy:human-hold",
         "autonomy:superseded", "autonomy:obsolete", "do-not-merge",
         "do not merge", "hold", "needs-manual-review", "needs-human-review",
     }
@@ -1155,6 +1154,11 @@ def _reconcile_pr_candidate(pr: dict[str, Any]) -> None:
     kind = automation_kind(pr)
     if pr.get("draft"):
         return
+    if COUNCIL_FREEZE_LABEL in issue_labels(pr):
+        remove_label(int(pr["number"]), COUNCIL_FREEZE_LABEL)
+        pr = {**pr, "labels": [label for label in pr.get("labels", [])
+                              if label.get("name") != COUNCIL_FREEZE_LABEL]}
+        log(f"PR #{pr['number']} released from legacy Council-only hold.")
     if kind is None:
         admit_manual_pr(pr)
         return
@@ -1176,23 +1180,9 @@ def _reconcile_pr_candidate(pr: dict[str, Any]) -> None:
         # Renovate eligibility is explicit metadata; manual/unlabelled updates remain human merge decisions.
         return
 
-    # The evidence freeze applies to routine dependency/feature merges. A linked
-    # Kilo implementation is an authorised repair exception: if it changes main,
-    # the exact-SHA evidence is invalidated and CI/Council must be regenerated.
-    if kind in {"renovate", "branch-pr", "codex"}:
-        frozen, freeze_reason = council_evidence_freeze()
-        number = int(pr["number"])
-        if frozen:
-            if "autonomy:admitted" in labels:
-                remove_label(number, "autonomy:admitted")
-            if COUNCIL_FREEZE_LABEL not in labels:
-                add_labels(number, [COUNCIL_FREEZE_LABEL])
-            log(f"PR #{number} ({kind}) held by Council evidence freeze: {freeze_reason}.")
-            return
-        if COUNCIL_FREEZE_LABEL in labels:
-            remove_label(number, COUNCIL_FREEZE_LABEL)
-            log(f"PR #{number} ({kind}) released from Council evidence freeze: {freeze_reason}.")
-
+    # Council is an advisory assessment of a specific default-branch SHA.
+    # A subsequent merge requires fresh evidence, but missing Council evidence
+    # is not a prerequisite for an otherwise eligible, exact-head PR.
     if kind in {"kilo", "cto", "branch-pr", "renovate", "codex"}:
         number = int(pr["number"])
         changed_paths = pr_files(number)
@@ -1288,7 +1278,6 @@ def main() -> int:
     ensure_label(RISK_APPROVAL_LABEL, "FBCA04", "High-risk or unclassified autonomous changes require exact-head owner approval")
     ensure_label("autonomy:obsolete", "D4C5F9", "Repair carrier is no longer current")
     ensure_label("autonomy:admitted", "0E8A16", "Exact-head CI/security verification complete; GitHub native auto-merge may merge")
-    ensure_label(COUNCIL_FREEZE_LABEL, "D93F0B", "Routine merge held after weekend CI PASS until Council completes on the same SHA")
 
     open_prs = list_open_prs()
     reconcile_stale_carriers(open_prs)
