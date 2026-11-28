@@ -29,3 +29,8 @@ test('monitoring snapshot cannot be presented as green verified health', () => {
   assert.match(app, /!socialLoaded \? "pill-unknown"/);
   assert.match(css, /\.signal-lamp > span\[data-active="true"\]/);
 });
+
+test('routine notification severity remains accessible without a redundant visible label', () => {
+  assert.match(app, /<span class="sr-only">\$\{notificationSignal\(item\.severity\)\.label\}: <\/span>/);
+  assert.match(app, /title="\$\{notificationSignal\(item\.severity\)\.label\}"/);
+});

@@ -354,10 +354,10 @@ function shell(content) {
 </nav>
 <div class="sidebar-footer">
 <a class="hive-home-link" href="${escapeHtml(config.hiveHomeUrl)}" aria-label="Return to HIVE">${icons.home}<span>Back to HIVE</span></a>
-<div class="service-card">
+<div class="service-card" title="${state.error ? "Refresh needs attention" : state.bootstrap ? "Session active" : "Checking session"}">
 ${signalLamp(state.error ? "amber" : state.bootstrap ? "green" : "neutral")}
 <div>
-<strong>${state.error ? "Refresh needs attention" : state.bootstrap ? "Session active" : "Checking session"}</strong>
+<strong>Session<span class="sr-only">: ${state.error ? "Refresh needs attention" : state.bootstrap ? "Active" : "Checking"}</span></strong>
 <small>Protected gateway session only</small>
 </div>
 </div>
@@ -445,11 +445,12 @@ function notificationPanel() {
 <div class="notification-list">
         ${state.notifications.length ? state.notifications.map((item) => `
 <button type="button" class="notification-item severity-${escapeHtml(item.severity || "info")}"
+            title="${notificationSignal(item.severity).label}"
             data-notification-id="${escapeHtml(item.id)}"
             data-conversation-id="${escapeHtml(item.conversation_id || "")}">
 ${signalLamp(notificationSignal(item.severity).tone)}
 <span>
-<small class="notification-severity">${notificationSignal(item.severity).label}</small>
+<span class="sr-only">${notificationSignal(item.severity).label}: </span>
 <strong>${escapeHtml(item.title || titleCase(item.type))}</strong>
 <small>${escapeHtml(item.body_text || "")}</small>
 <time>${escapeHtml(formatRelativeTime(item.created_at))}</time>
