@@ -71,5 +71,7 @@ test("local formatting permits emphasis, code and safe links, not raw HTML", () 
   assert.match(html, /<code>code<\/code>/);
   assert.match(html, /&lt;script&gt;/);
   assert.match(html, /href="https:\/\/example.test"/);
-  assert.doesNotMatch(html, /<script>/);
+  assert.doesNotMatch(html, /<script\b[^>]*>/i);
+  assert.equal(messageHtml('<ScRiPt src="x">alert(1)</sCrIpT>'), '&lt;ScRiPt src=&quot;x&quot;&gt;alert(1)&lt;/sCrIpT&gt;');
+  assert.equal(messageHtml('<IMG src=x onerror=alert(1)>'), '&lt;IMG src=x onerror=alert(1)&gt;');
 });
