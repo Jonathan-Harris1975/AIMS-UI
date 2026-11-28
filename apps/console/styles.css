@@ -581,3 +581,16 @@ input, textarea, select, button { max-width: 100%; }
 .dashboard-health small { display:block; }
 .dashboard-health .text-button { margin-left:auto; }
 @media (pointer: coarse) { .nav-subitem,.quick-filter,.button.compact,.text-button,.back-button { min-height:44px; } }
+
+/* A visible outline is stronger than a translucent shadow alone on dark surfaces. */
+.themed-select-trigger:focus-visible, .themed-select-option:focus-visible,
+.reply-composer textarea:focus-visible, .note-form textarea:focus-visible,
+.contact-edit-form input:focus-visible {
+  outline: 2px solid var(--aims-accent-strong);
+  outline-offset: 2px;
+}
+@media (max-width: 360px) {
+  .summary-card:nth-last-child(2):not(:last-child) { border-bottom: 1px solid var(--aims-border); }
+}
+/* Keep the compose form usable with a short viewport or an onscreen keyboard. */
+.manual-mail-dialog { overflow-y: auto; overscroll-behavior: contain; }
