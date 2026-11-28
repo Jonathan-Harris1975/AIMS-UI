@@ -34,3 +34,10 @@ test('routine notification severity remains accessible without a redundant visib
   assert.match(app, /<span class="sr-only">\$\{notificationSignal\(item\.severity\)\.label\}: <\/span>/);
   assert.match(app, /title="\$\{notificationSignal\(item\.severity\)\.label\}"/);
 });
+
+test('monitoring state is accessible but not repeated beside its lamp', () => {
+  assert.match(app, /<strong>Channel monitoring<\/strong>\s*<span class="sr-only">/);
+  assert.match(css, /border: 1px solid #a5b5c9; border-radius: 2px/);
+  assert.match(css, /border-radius: 1px; background: #121d2b; border: 1px solid #71839a/);
+  assert.match(css, /\.signal-lamp\.signal-neutral \{ color: #F1F5FF; \}/);
+});

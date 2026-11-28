@@ -674,9 +674,10 @@ function dashboardView() {
       `<button class="button secondary" data-action="refresh">Refresh data</button>
 <button class="button primary" data-view="inbox">Open inbox</button>`,
     )}
-<div class="dashboard-health" role="status">
+<div class="dashboard-health" role="status" title="${state.monitoringUnavailable || state.error ? "Incomplete snapshot" : "Configuration snapshot"}">
 ${signalLamp(state.monitoringUnavailable || state.error ? "amber" : "neutral")}
-<span><strong>Channel monitoring · ${state.monitoringUnavailable || state.error ? "Incomplete snapshot" : "Configuration snapshot"}</strong>
+<span><strong>Channel monitoring</strong>
+<span class="sr-only">${state.monitoringUnavailable || state.error ? "Incomplete snapshot" : "Configuration snapshot"}</span>
 <small>
           Configuration and reported worker state, not verified channel health. ${state.monitoringUnavailable ? "Some monitoring is unavailable · " : ""}
           Social: ${!socialPoll ? "Unknown" : socialPoll.pollWorkerEnabled ? "Enabled" : "Off"} ·

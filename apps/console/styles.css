@@ -647,17 +647,17 @@ input, textarea, select, button { max-width: 100%; }
 /* Signal lamps: restrained hi-fi / studio-console hardware, not flashing alerts. */
 .signal-lamp {
   display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto;
-  padding: 3px; border: 1px solid #7b8aa0; border-radius: 4px;
-  background: #08111d; box-shadow: inset 0 0 0 1px #0f1c2c;
+  padding: 3px; border: 1px solid #a5b5c9; border-radius: 2px;
+  background: #08111d; box-shadow: inset 0 0 0 1px #304056;
   vertical-align: middle; line-height: 1;
 }
 .signal-lamp > span {
   display: block; width: 9px; height: 9px; flex: 0 0 9px;
-  border-radius: 2px; background: #121d2b; border: 1px solid #4a586c;
+  box-sizing: border-box; border-radius: 1px; background: #121d2b; border: 1px solid #71839a;
 }
 .signal-lamp > span[data-active="true"] {
   background: currentColor; border-color: currentColor;
-  box-shadow: 0 0 4px currentColor, 0 0 9px currentColor, inset 0 2px 1px #ffffffb3;
+  box-shadow: 0 0 3px currentColor, 0 0 6px currentColor, inset 0 1px 0 #ffffffd9;
 }
 /* Saturated LED lenses; text retains the existing readable semantic colours. */
 .signal-lamp.signal-red { color: #ff3655; }
