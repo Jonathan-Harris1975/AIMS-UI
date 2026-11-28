@@ -60,12 +60,16 @@ test("empty actual metrics are valid; absent or malformed schemas cannot masquer
 
 async function analyticsHarness(client) {
   const app = await readFile(new URL("../apps/console/app.js", import.meta.url), "utf8");
+  const html = await readFile(new URL("../apps/console/index.html", import.meta.url), "utf8");
+  const templates = new Map([...html.matchAll(/<template id="([^"]+)">([\s\S]*?)<\/template>/g)].map((match) => [match[1], match[2]]));
+  const helper = app.slice(app.indexOf("function staticMarkup("), app.indexOf("function emptyState("));
   const view = app.slice(app.indexOf("function analyticsView()"), app.indexOf("function manualMailView()"));
   const load = app.slice(app.indexOf("async function loadMetrics()"), app.indexOf("async function updateWorkspaceStatus("));
   const state = { metrics: null, metricsLoading: false, metricsError: null, metricsLoadedAt: null };
   const screen = { html: "" };
   const context = {
     state, client, readCommsMetrics, escapeHtml, formatDateTime, titleCase,
+    document: { getElementById: (id) => ({ innerHTML: templates.get(id) }) },
     shell: (html) => html,
     pageHeader: (title, subtitle, button) => `<h1>${title}</h1><p>${subtitle}</p>${button}`,
     summaryCard: (label, value, subtitle) => `<p>${label}: ${value} · ${subtitle}</p>`,
@@ -73,7 +77,7 @@ async function analyticsHarness(client) {
     render() { screen.html = context.analyticsView(); },
   };
   vm.createContext(context);
-  vm.runInContext(view + load, context);
+  vm.runInContext(helper + view + load, context);
   return { context, state, screen };
 }
 
@@ -90,6 +94,8 @@ test("real analytics view renders AIMS data and shows loading, stale refresh and
   assert.match(harness.screen.html, /Sent autonomously: 3/);
   assert.match(harness.screen.html, /Attachment Review/);
   assert.match(harness.screen.html, /Consent Confirmed/);
+  assert.match(harness.screen.html, /Newsletter confirmation/);
+  assert.match(harness.screen.html, /Signup request counters are cumulative/);
   assert.match(harness.screen.html, /Stale/);
   assert.doesNotMatch(harness.screen.html, /Median response|Failure rate/);
   harness.context.client.metrics = async () => { throw new Error("Network unavailable"); };
