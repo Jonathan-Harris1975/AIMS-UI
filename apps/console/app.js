@@ -1300,39 +1300,18 @@ function workspaceView() {
           aria-pressed="${state.workspaceContextTab === key}">${label}</button>`).join("")}
       </nav>
       <aside class="workspace-aside">
-        <section class="panel detail-card ${state.workspaceContextTab === "details" ? "context-active" : ""}" data-context-section="details">
-          <header><strong>Contact</strong></header>
-          <div class="contact-hero">
-            <div class="avatar large">${escapeHtml((contact.display_name || "U").charAt(0).toUpperCase())}</div>
-            <div>
-              <strong>${escapeHtml(contact.display_name || "Unknown contact")}</strong>
-              <span>${escapeHtml(contact.primary_email || "No email recorded")}</span>
-              <small>${escapeHtml(contact.phone || conversation.provider || "")}</small>
-            </div>
-          </div>
-          <dl>
-            <div><dt>Handling</dt><dd>${assignedToMe ? "Assigned to me" : "Automated"}</dd></div>
-            <div>
-              <dt>Response target</dt>
-              <dd>${escapeHtml(operations.response_due_at
-                ? formatDateTime(operations.response_due_at)
-                : "Not set")}</dd>
-            </div>
-            <div><dt>Workflow</dt><dd>${escapeHtml(titleCase(conversation.workflow || "unassigned"))}</dd></div>
-          </dl>
-          ${roleAllows(role, "assign") ? `<div class="handling-control">
-            <span>Who handles this?</span>
-            <div class="handling-segment" role="group" aria-label="Conversation handling">
-              <button type="button" data-handling-mode="automation" class="${assignedToMe ? "" : "active"}"
-                aria-pressed="${!assignedToMe}">Automated</button>
-              <button type="button" data-handling-mode="person" class="${assignedToMe ? "active" : ""}"
-                aria-pressed="${assignedToMe}">Assigned to me</button>
-            </div>
-            <small>${assignedToMe
-              ? `${escapeHtml(actor)} is handling this conversation. AIMS autonomous replies are paused.`
-              : "AIMS can analyse and reply under the active automation policies."}</small>
-          </div>` : ""}
-        </section>
+        ${staticMarkup("workspace-contact",
+          state.workspaceContextTab === "details" ? "context-active" : "",
+          escapeHtml((contact.display_name || "U").charAt(0).toUpperCase()),
+          escapeHtml(contact.display_name || "Unknown contact"),
+          escapeHtml(contact.primary_email || "No email recorded"),
+          escapeHtml(contact.phone || conversation.provider || ""),
+          assignedToMe ? "Assigned to me" : "Automated",
+          escapeHtml(operations.response_due_at ? formatDateTime(operations.response_due_at) : "Not set"),
+          escapeHtml(titleCase(conversation.workflow || "unassigned")),
+          roleAllows(role, "assign") ? staticMarkup("workspace-handling", assignedToMe ? "" : "active", !assignedToMe, assignedToMe ? "active" : "", assignedToMe,
+            assignedToMe ? `${escapeHtml(actor)} is handling this conversation. AIMS autonomous replies are paused.`
+              : "AIMS can analyse and reply under the active automation policies.") : "")}
         ${socialThread ? `<section class="panel detail-card social-control-card ${state.workspaceContextTab === "actions" ? "context-active" : ""}" data-context-section="actions">
           <header>
             <strong>${socialThread.thread_type === "dm" ? "DM controls" : "Comment controls"}</strong>
@@ -2375,7 +2354,13 @@ async function submitReply(event) {
       await client.socialAction(id, "reply", { message, ...(data.get("replyMode") === "private" ? { private: true } : {}) });
     } else throw new AimsApiError("This channel does not expose a direct reply action.", { status: 409, code: "ui_reply_unsupported" });
     clearSentDraft(id, form, "message", message);
-    if (currentConversation(id) && !root.querySelector("#reply-form textarea")?.value) await openConversation(id);
+    if (currentConversation(id)) {
+      const request = conversationRequest;
+      try {
+        const fresh = await client.workspace(id);
+        if (currentConversation(id) && request === conversationRequest) state.workspace = fresh;
+      } catch { return toast("Reply accepted; refresh to load the latest conversation."); }
+    }
     toast(result?.scheduled ? `Reply scheduled for ${formatDateTime(result.dueAt)}.` : "Reply accepted by AIMS.");
   });
 }

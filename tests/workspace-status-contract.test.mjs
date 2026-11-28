@@ -5,13 +5,13 @@ import vm from 'node:vm';
 
 test('consecutive workspace status changes use the returned version and preserve state on conflicts', async () => {
  const app = await readFile(new URL('../apps/console/app.js', import.meta.url), 'utf8');
- const source = app.slice(app.indexOf('async function updateWorkspaceStatus('), app.indexOf('async function changeHandlingMode('));
+ const source = app.slice(app.indexOf('const conversationBusy = new Set()'), app.indexOf('async function changeHandlingMode('));
  const operations = { operational_status: 'open', version: 4 };
  const row = { id: 'fixture', operational_status: 'open', version: 4 };
  const calls = [];
  let fail = false;
  const context = {
-  state: { selectedConversationId: 'fixture', workspace: { workspace: { operations } }, queue: [row] },
+  state: { view: 'workspace', selectedConversationId: 'fixture', workspace: { workspace: { operations } }, queue: [row] },
   client: { async updateStatus(id, status, options) {
    calls.push({ id, status, ...options });
    if (fail) throw new Error('Conversation changed');

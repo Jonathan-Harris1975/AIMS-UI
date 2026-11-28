@@ -49,6 +49,40 @@
     <svg data-icon="chevronDown" viewBox="0 0 24 24" aria-hidden="true"><path d="m6.7 8.3 5.3 5.3 5.3-5.3 1.4 1.4-6.7 6.7-6.7-6.7 1.4-1.4Z"/></svg>
     <svg data-icon="more" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm7 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm7 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4Z"/></svg>
   </template>
+  <template id="workspace-contact">
+        <section class="panel detail-card {{0}}" data-context-section="details">
+          <header><strong>Contact</strong></header>
+          <div class="contact-hero">
+            <div class="avatar large">{{1}}</div>
+            <div>
+              <strong>{{2}}</strong>
+              <span>{{3}}</span>
+              <small>{{4}}</small>
+            </div>
+          </div>
+          <dl>
+            <div><dt>Handling</dt><dd>{{5}}</dd></div>
+            <div>
+              <dt>Response target</dt>
+              <dd>{{6}}</dd>
+            </div>
+            <div><dt>Workflow</dt><dd>{{7}}</dd></div>
+          </dl>
+          {{8}}
+        </section>
+  </template>
+  <template id="workspace-handling">
+<div class="handling-control">
+            <span>Who handles this?</span>
+            <div class="handling-segment" role="group" aria-label="Conversation handling">
+              <button type="button" data-handling-mode="automation" class="{{0}}"
+                aria-pressed="{{1}}">Automated</button>
+              <button type="button" data-handling-mode="person" class="{{2}}"
+                aria-pressed="{{3}}">Assigned to me</button>
+            </div>
+            <small>{{4}}</small>
+          </div>
+  </template>
   <template id="connection-error">
     <section class="connection-error panel" role="alert">
       <div class="error-orb">!</div>

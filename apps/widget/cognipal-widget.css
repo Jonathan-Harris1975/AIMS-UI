@@ -135,6 +135,3 @@ button,input,textarea { font:inherit; }
 :host([data-theme="dark"]) { --cp-panel:#0a192d; --cp-raised:#061126; --cp-overlay:#10223a; --cp-ink:#eaf7ff; --cp-soft:#c7d9e6; --cp-faint:#a9c1d1; --cp-line:#40556b; --cp-accent:#24c8f0; }
 :host([data-theme="dark"]) .cp-message.visitor .cp-bubble, :host([data-theme="dark"]) .cp-button.primary { color:#061126; }
 
-.cp-footer[hidden],.cp-alert[hidden]{display:none}
-@media(prefers-color-scheme:dark){:host([data-theme="auto"]){--cp-panel:#0a192d;--cp-raised:#061126;--cp-ink:#eaf7ff;--cp-soft:#c7d9e6;--cp-faint:#a9c1d1;--cp-line:#40556b}}
-@media(max-width:520px){.cp-root:focus-within .cp-panel{max-height:calc(100dvh - 82px)}}

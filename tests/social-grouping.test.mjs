@@ -15,7 +15,7 @@ test("console groups DMs and comments as Unified inbox child queues while exclud
   assert.doesNotMatch(app, /function emailGroupView|function adminEmailView|function newsletterEmailView/);
   assert.match(app, /socialInteractionType\(row\)/);
   assert.match(app, /queueRows\(\{ interactionType: type, socialOnly: true \}\)/);
-  assert.match(app, /client\.socialAction\(state\.selectedConversationId, "reply"/);
+  assert.match(app, /client\.socialAction\(id, "reply"/);
   assert.match(app, /reconcileSocialWebhooks/);
   assert.match(app, /executeApprovedSocialModeration/);
   assert.match(app, /data-social-approved-id/);
@@ -47,5 +47,5 @@ test("Admin and Newsletter inboxes remain outside the AIMS-UI automation surface
   assert.doesNotMatch(app, /admin-email|newsletter-email|manual replies only/);
   assert.doesNotMatch(app, /queueRows\(\{ emailAccountKey:/);
   assert.match(app, /else if \(conversation\.channel === "email"\)/);
-  assert.match(app, /client\.sendEmail\(state\.selectedConversationId/);
+  assert.match(app, /client\.sendEmail\(id/);
 });

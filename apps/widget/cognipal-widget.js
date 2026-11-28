@@ -145,6 +145,7 @@ export class CogniPalWidget extends HTMLElement {
 
   connectedCallback() {
     this.config = resolveWidgetConfig(this);
+    if (this.dataset.theme === "auto" && matchMedia("(prefers-color-scheme: dark)").matches) this.dataset.theme = "dark";
     this.lastContent = null;
     this.messages = [];
     this.lastSyncAt = "";
