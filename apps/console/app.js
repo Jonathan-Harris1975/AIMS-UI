@@ -1858,7 +1858,9 @@ function bindEvents() {
   root.querySelector('[data-action="delete-mail"]')?.addEventListener("click", deleteSelectedManualMail);
   root.querySelector('[data-action="compose-mail"]')?.addEventListener("click", () => openManualMailComposer());
   root.querySelector('[data-action="reply-mail"]')?.addEventListener("click", () => openManualMailComposer(true));
-  root.querySelectorAll('[data-action="close-mail-dialog"]').forEach((button) => button.addEventListener("click", () => { if (!root.querySelector('#manual-mail-form [type="submit"]')?.disabled) root.querySelector("#manual-mail-dialog")?.close(); }));
+  root.querySelectorAll('[data-action="close-mail-dialog"]').forEach((button) => button.addEventListener("click", () => {
+    if (!root.querySelector('#manual-mail-form [type="submit"]')?.disabled) root.querySelector("#manual-mail-dialog")?.close();
+  }));
   root.querySelector("#manual-mail-form")?.addEventListener("submit", submitManualMail);
   root.querySelector("#manual-mail-dialog")?.addEventListener("close", render);
   root.querySelector("#manual-mail-dialog")?.addEventListener("cancel", event => { if (event.currentTarget.querySelector('[type="submit"]')?.disabled) event.preventDefault(); });

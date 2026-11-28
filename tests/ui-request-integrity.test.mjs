@@ -4,8 +4,10 @@ import { readFile } from 'node:fs/promises';
 const app = await readFile(new URL('../apps/console/app.js', import.meta.url), 'utf8');
 function deferred() { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; }
 function harness(state, client) {
-  const code = app.slice(app.indexOf('let conversationRequest = 0;'), app.indexOf('async function submitContactEdit')) + app.slice(app.indexOf('async function loadManualMail()'), app.indexOf('async function selectManualMailbox'));
-  return new Function('state', 'client', 'render', 'toast', 'history', 'location', code + '\nreturn { openConversation, openContact, loadManualMail };')(state, client, () => {}, () => {}, { replaceState() {} }, { pathname: '/', search: '' });
+  const code = app.slice(app.indexOf('let conversationRequest = 0;'), app.indexOf('async function submitContactEdit')) +
+    app.slice(app.indexOf('async function loadManualMail()'), app.indexOf('async function selectManualMailbox'));
+  return new Function('state', 'client', 'render', 'toast', 'history', 'location', code + '\nreturn { openConversation, openContact, loadManualMail };')
+    (state, client, () => {}, () => {}, { replaceState() {} }, { pathname: '/', search: '' });
 }
 test('out-of-order workspace responses cannot replace the selected conversation', async () => {
   const a = deferred(), b = deferred(); const state = {};
