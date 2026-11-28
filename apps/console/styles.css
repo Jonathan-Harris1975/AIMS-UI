@@ -640,6 +640,25 @@ input, textarea, select, button { max-width: 100%; }
   .layout.embedded .embedded-inbox-subnav-item { font-size: var(--aims-type-xs); }
 }
 
+/* Match HIVE's mobile workspace selector; the notification bell remains separate. */
+.layout.embedded .embedded-workspace-select { display: none; min-width: 0; flex: 1; }
+.layout.embedded .embedded-workspace-select select {
+  width: 100%; min-width: 0; min-height: 44px; padding: 0 var(--aims-space-3);
+  border: 1px solid var(--aims-border); border-radius: var(--aims-radius);
+  background: var(--aims-surface-raised); color: var(--aims-text);
+  font: inherit;
+}
+.layout.embedded .embedded-workspace-select select:focus-visible {
+  outline: 2px solid var(--aims-accent-strong); outline-offset: 2px;
+}
+@media (max-width: 639px) {
+  .layout.embedded .embedded-workspace-select { display: block; }
+  .layout.embedded .embedded-nav-scroll, .layout.embedded .embedded-inbox-subnav-scroll { display: none; }
+  .layout.embedded .embedded-nav, .layout.embedded .embedded-inbox-subnav {
+    padding: var(--aims-space-2) var(--aims-space-3); gap: var(--aims-space-2);
+  }
+}
+
 /* Signal lamps: restrained hi-fi / studio-console hardware, not flashing alerts. */
 .signal-lamp {
   display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto;
