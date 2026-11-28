@@ -117,7 +117,9 @@ test('mobile KPI layouts stay compact but give very narrow phones full-width car
 test('operator overview does not claim healthy or empty state on failed refresh', async () => {
   const app = await readFile(new URL('../apps/console/app.js', import.meta.url), 'utf8')
   const styles = await readFile(new URL('../apps/console/styles.css', import.meta.url), 'utf8')
-  assert.match(app, /Queue refresh failed/)
+  const html = await readFile(new URL('../apps/console/index.html', import.meta.url), 'utf8')
+  assert.match(html, /Queue refresh failed/)
+  assert.match(app, /staticMarkup\("shell-snapshot-warning"/)
   assert.match(app, /Last loaded snapshot; refresh failed/)
   assert.match(app, /Attention status unavailable/)
   assert.match(app, /Some monitoring is unavailable/)
