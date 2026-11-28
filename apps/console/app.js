@@ -107,6 +107,8 @@ const state = {
   view: "dashboard",
   bootstrap: null,
   queue: [],
+  queueLoadedAt: null,
+  filterDisclosureOpen: false,
   notifications: [],
   workspace: null,
   selectedConversationId: "",
@@ -471,7 +473,10 @@ function notificationPanel() {
 </button>
 </header>
 <div class="notification-list">
-        ${state.notifications.length ? state.notifications.map((item) => `
+        ${state.notifications.length ? [...state.notifications].sort((a, b) => {
+          const rank = (item) => item.severity === "critical" ? 0 : item.severity === "warning" ? 1 : 2;
+          return Number(a.status === "read") - Number(b.status === "read") || rank(a) - rank(b);
+        }).map((item) => `
 <button type="button" class="notification-item severity-${escapeHtml(item.severity || "info")}"
             title="${notificationSignal(item.severity).label}"
             data-notification-id="${escapeHtml(item.id)}"
@@ -554,8 +559,8 @@ function themedSelect({
 function filterBar(compact = false, allowedChannels = null) {
   const optionSet = (values, blank) => [{ value: "", label: blank }, ...values.map((value) => ({ value, label: titleCase(value) }))];
   return `
-    <details class="filter-disclosure">
-      <summary>Filters</summary>
+    <details class="filter-disclosure" ${state.filterDisclosureOpen ? "open" : ""}>
+      <summary>Filters${Object.values(state.filters).filter(Boolean).length ? ` (${Object.values(state.filters).filter(Boolean).length})` : ""}</summary>
       <div class="filter-bar ${compact ? "compact" : ""}">
       ${themedSelect({
         value: state.filters.status,
@@ -575,7 +580,7 @@ function filterBar(compact = false, allowedChannels = null) {
           "All channels",
         ),
       })}
-      ${themedSelect({ value: state.filters.priority, dataFilter: "priority", ariaLabel: "Filter by priority", options: optionSet(["critical", "high", "medium", "low"], "All priorities") })}
+      ${themedSelect({ value: state.filters.priority, dataFilter: "priority", ariaLabel: "Filter by priority", options: optionSet(["critical", "high", "medium", "normal", "low"], "All priorities") })}
       <label class="check-filter"><input type="checkbox" data-filter="overdue" ${state.filters.overdue ? "checked" : ""}><span>Overdue only</span></label>
       <button class="text-button" data-action="clear-filters">Clear filters</button>
       </div>
@@ -584,8 +589,12 @@ function filterBar(compact = false, allowedChannels = null) {
 }
 
 function quickFilterBar() {
+  const rows = state.queue.filter((row) => row.operational_status !== "archived");
+  const counts = { all: rows.length, overdue: rows.filter(row => row.response_overdue).length,
+    open: rows.filter(row => row.operational_status === "open").length,
+    high: rows.filter(row => row.priority_label === "high").length, mine: rows.filter(row => row.owner_type === "person").length };
   const active = (key) => {
-    if (key === "all") return !state.filters.status && !state.filters.priority && !state.filters.overdue && !state.filters.ownerMode;
+    if (key === "all") return !Object.values(state.filters).some(Boolean);
     if (key === "overdue") return state.filters.overdue;
     if (key === "open") return state.filters.status === "open";
     if (key === "high") return state.filters.priority === "high";
@@ -593,15 +602,15 @@ function quickFilterBar() {
     return false;
   };
   return `<div class="quick-filters" aria-label="Quick inbox filters">
-    <span>View</span>
+    <span>Loaded queue</span>
     ${[
       ["all", "All"],
       ["overdue", "Overdue"],
       ["open", "Open"],
       ["high", "High priority"],
-      ["mine", "Assigned to me"],
+      ["mine", "Human assigned"],
     ].map(([key, label]) => `<button type="button" class="quick-filter ${active(key) ? "active" : ""}"
-      data-quick-filter="${key}" aria-pressed="${active(key)}">${label}</button>`).join("")}
+      data-quick-filter="${key}" aria-pressed="${active(key)}">${label} <span class="filter-count">${counts[key]}</span></button>`).join("")}
   </div>`;
 }
 
@@ -628,17 +637,18 @@ function queueTable(rows = queueRows(), limit = 50, compact = false) {
                 </div>
               </div></td>
               <td><span class="channel-label channel-label-${escapeHtml(row.channel)}">${escapeHtml(channelLabel(row.channel))}</span></td>
-              <td><span class="interaction-label interaction-${escapeHtml(socialInteractionType(row) || row.channel)}">${escapeHtml(interactionLabel(row))}</span></td>
+              <td>${interactionLabel(row) === channelLabel(row.channel) ? "—"
+                : `<span class="interaction-label">${escapeHtml(interactionLabel(row))}</span>`}</td>
               <td>${priorityPill(row.priority_label)}</td>
               <td>${statusPill(row.operational_status)}</td>
               <td><span class="age ${row.response_overdue ? "overdue" : ""}">${escapeHtml(secondsToAge(row.age_seconds))}</span></td>
               <td><span class="owner">${row.owner_type === "person"
-                ? `<i>J</i>Me`
+                ? `<i>H</i>Human assigned`
                 : row.owner_type === "automation"
                   ? `<i>A</i>Automated`
                   : row.owner_id
                     ? `<i>${escapeHtml(row.owner_id.charAt(0).toUpperCase())}</i>Assigned`
-                    : "Automated"}</span></td>
+                    : "Unassigned"}</span></td>
               <td><span class="ai-state risk-${escapeHtml(row.risk_level || "unknown")}">${escapeHtml(titleCase(row.intent || "Unanalysed"))}</span></td>
               <td><button class="row-arrow" data-conversation-id="${escapeHtml(row.id)}" aria-label="Open conversation">${icons.arrow}</button></td>
             </tr>
@@ -654,16 +664,14 @@ function queueTable(rows = queueRows(), limit = 50, compact = false) {
                 <strong>${escapeHtml(row.display_name || row.primary_email || "Unknown contact")}</strong>
                 <span>${escapeHtml(row.subject || row.summary_text || "Conversation")}</span>
               </span>
-              ${priorityPill(row.priority_label)}
+              <span class="queue-card-lamps">${priorityPill(row.priority_label)}${statusPill(row.operational_status)}</span>
             </span>
             <span class="queue-card-tags">
               <span class="channel-label channel-label-${escapeHtml(row.channel)}">
                 ${escapeHtml(channelLabel(row.channel))}
               </span>
-              <span class="interaction-label interaction-${escapeHtml(socialInteractionType(row) || row.channel)}">
-                ${escapeHtml(interactionLabel(row))}
-              </span>
-              ${statusPill(row.operational_status)}
+              ${interactionLabel(row) !== channelLabel(row.channel)
+                ? `<span class="interaction-label">${escapeHtml(interactionLabel(row))}</span>` : ""}
               ${row.last_auto_sent_at ? statusPill("auto-sent", "Delivery: Auto-sent") : ""}
             </span>
             <span class="queue-card-meta">
@@ -671,8 +679,8 @@ function queueTable(rows = queueRows(), limit = 50, compact = false) {
                 ? formatDateTime(row.response_due_at)
                 : secondsToAge(row.age_seconds))}${row.response_overdue ? ` <em>Overdue</em>` : ""}</span>
               <span><b>Owner</b>${row.owner_type === "person"
-                ? "Me"
-                : row.owner_type === "automation" ? "Automated" : "Assigned"}</span>
+                ? "Human assigned"
+                : row.owner_type === "automation" ? "Automated" : row.owner_id ? "Assigned" : "Unassigned"}</span>
               <span><b>AI</b>${escapeHtml(titleCase(row.intent || "Unanalysed"))}</span>
             </span>
           </button>
@@ -744,6 +752,17 @@ ${signalLamp(state.monitoringUnavailable || state.error ? "amber" : "neutral")}
   `);
 }
 
+function commsIndicatorKey() {
+  const groups = [
+    ["Priority", [["red", "Critical"], ["orange", "High"], ["amber", "Medium"], ["info", "Normal"], ["low", "Low"], ["neutral", "Unknown"]]],
+    ["Conversation", [["red", "Failed / blocked"], ["amber", "Pending"], ["info", "Open"], ["green", "Resolved / sent"], ["purple", "Snoozed"], ["neutral", "Unknown"]]],
+  ];
+  return `<details class="comms-indicator-key"><summary>Indicator key</summary>
+    <p>On cards: priority above conversation status. On tables: separate columns.</p>
+    ${groups.map(([name, values]) => `<section><strong>${name}</strong><div class="comms-key-items">
+      ${values.map(([tone, label]) => `<span>${signalLamp(tone)}${label}</span>`).join("")}</div></section>`).join("")}</details>`;
+}
+
 function inboxView() {
   return shell(`
     ${pageHeader(
@@ -755,9 +774,10 @@ function inboxView() {
       <header class="panel-header stacked">
         <div>
           <strong>${queueRows().length} conversations</strong>
-          <span>Filters apply to the loaded queue of up to 50 conversations. Refresh to check for changes.</span>
+          <span>Loaded queue · ${state.queueLoadedAt ? escapeHtml(formatDateTime(state.queueLoadedAt)) : "Not yet refreshed"}
+            ${state.error ? " · refresh failed" : ""} · up to 50 conversations</span>
         </div>
-        ${quickFilterBar()}${filterBar()}
+        ${quickFilterBar()}${filterBar()}${commsIndicatorKey()}
       </header>
       ${queueTable()}
     </section>
@@ -1671,7 +1691,13 @@ function outreachView() {
   `);
 }
 
+let renderedView = null;
 function render() {
+  const sameView = renderedView === state.view;
+  const priorScroll = sameView ? window.scrollY : 0;
+  const noticeScroll = root.querySelector(".notification-list")?.scrollTop || 0;
+  const legendOpen = sameView && root.querySelector(".comms-indicator-key")?.open;
+  renderedView = state.view;
   normaliseFiltersForView();
   // The boot class centres a single loading card; it must not wrap the full shell,
   // including when bootstrap fails before the first successful render.
@@ -1700,6 +1726,11 @@ function render() {
   };
   root.innerHTML = (views[state.view] || dashboardView)();
   bindEvents();
+  if (sameView) window.scrollTo({ top: priorScroll, behavior: "instant" });
+  const noticeList = root.querySelector(".notification-list");
+  if (noticeList) noticeList.scrollTop = noticeScroll;
+  const key = root.querySelector(".comms-indicator-key");
+  if (key && legendOpen) key.open = true;
 }
 
 function bindEvents() {
@@ -1711,6 +1742,9 @@ function bindEvents() {
   root.querySelectorAll("tr[data-conversation-id]").forEach((row) => row.addEventListener("keydown", (event) => {
     if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openConversation(row.dataset.conversationId); }
   }));
+  root.querySelector(".filter-disclosure")?.addEventListener("toggle", (event) => {
+    state.filterDisclosureOpen = event.currentTarget.open;
+  });
   root.querySelectorAll("[data-filter]").forEach((control) => control.addEventListener("change", () => {
     const key = control.dataset.filter;
     state.filters[key] = control.type === "checkbox" ? control.checked : control.value;
@@ -2112,6 +2146,7 @@ async function loadBootstrap() {
   try {
     const payload = await client.bootstrap();
     state.queue = payload.queue || payload.conversations || [];
+    state.queueLoadedAt = new Date().toISOString();
     updateCommsNotifications(payload.notifications || []);
     state.bootstrap = payload;
     notificationPollDenied = false;
