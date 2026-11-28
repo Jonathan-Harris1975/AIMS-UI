@@ -292,7 +292,9 @@ function approvalMetadata(approval) {
 function signalLamp(tone) {
   const safeTone = ["red", "amber", "green", "info", "neutral"].includes(tone) ? tone : "neutral";
   const active = safeTone === "red" || safeTone === "green" ? safeTone : "amber";
-  return `<span class="signal-lamp signal-${safeTone}" aria-hidden="true">${["red", "amber", "green"].map((lens) => `<span data-lens="${lens}" data-active="${lens === active}"></span>`).join("")}</span>`;
+  const lenses = ["red", "amber", "green"].map((lens) =>
+    `<span data-lens="${lens}" data-active="${lens === active}"></span>`).join("");
+  return `<span class="signal-lamp signal-${safeTone}" aria-hidden="true">${lenses}</span>`;
 }
 
 function notificationSignal(severity) {
