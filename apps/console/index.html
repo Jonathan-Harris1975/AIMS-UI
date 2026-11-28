@@ -49,6 +49,89 @@
     <svg data-icon="chevronDown" viewBox="0 0 24 24" aria-hidden="true"><path d="m6.7 8.3 5.3 5.3 5.3-5.3 1.4 1.4-6.7 6.7-6.7-6.7 1.4-1.4Z"/></svg>
     <svg data-icon="more" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm7 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm7 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4Z"/></svg>
   </template>
+  <template id="workflow-card">
+<article class="workflow-card">
+        <div class="workflow-node">{{0}}</div>
+        <div>
+          <strong>{{1}}</strong>
+          <span>{{2}} loaded conversation{{3}}</span>
+          <small>Protected gateway controls.</small>
+        </div>
+        <button class="button secondary" data-view="inbox">Inspect queue</button>
+      </article>
+  </template>
+  <template id="workspace-auto-sent">
+<div class="auto-sent-box">
+            <strong>Sent automatically</strong>
+            <dl>
+              <div>
+                <dt>Channel</dt>
+                <dd>{{0}}</dd>
+              </div>
+              <div><dt>Confidence</dt><dd>{{1}}</dd></div>
+              <div><dt>Grounding</dt><dd>{{2}}</dd></div>
+              <div><dt>Model</dt><dd>{{3}}</dd></div>
+            </dl>
+            <p>{{4}}</p>
+            <small>{{5}}</small>
+          </div>
+  </template>
+  <template id="workspace-message">
+<article
+            class="message {{0}}">
+            <div class="message-avatar">
+              {{1}}
+            </div>
+            <div>
+              <header>
+                <strong>{{2}}</strong>
+                <time>{{3}}</time>
+              </header>
+              <p>{{4}}</p>
+            </div>
+          </article>
+  </template>
+  <template id="note-composer">
+<form id="note-form" class="note-form">
+            <textarea name="bodyText" rows="2" placeholder="Add a private note"
+              aria-label="Private note" required></textarea>
+            <button class="button secondary" type="submit">Add note</button>
+          </form>
+  </template>
+  <template id="workspace-contact">
+        <section class="panel detail-card {{0}}" data-context-section="details">
+          <header><strong>Contact</strong></header>
+          <div class="contact-hero">
+            <div class="avatar large">{{1}}</div>
+            <div>
+              <strong>{{2}}</strong>
+              <span>{{3}}</span>
+              <small>{{4}}</small>
+            </div>
+          </div>
+          <dl>
+            <div><dt>Handling</dt><dd>{{5}}</dd></div>
+            <div>
+              <dt>Response target</dt>
+              <dd>{{6}}</dd>
+            </div>
+            <div><dt>Workflow</dt><dd>{{7}}</dd></div>
+          </dl>
+          {{8}}
+        </section>
+  </template>
+  <template id="workspace-handling">
+<div class="handling-control">
+            <span>Who handles this?</span>
+            <div class="handling-segment" role="group" aria-label="Conversation handling">
+              <button type="button" data-handling-mode="automation" class="{{0}}"
+                aria-pressed="{{1}}">Automated</button>
+              <button type="button" data-handling-mode="person" class="{{2}}"
+                aria-pressed="{{3}}">Assigned to me</button>
+            </div>
+            <small>{{4}}</small>
+          </div>
+  </template>
   <template id="connection-error">
     <section class="connection-error panel" role="alert">
       <div class="error-orb">!</div>
@@ -163,6 +246,15 @@
       </div></section>
     </details>
   </template>
+  <dialog id="aims-commands" aria-label="Command palette" class="manual-mail-dialog">
+    <form method="dialog" class="manual-mail-compose">
+      <h2>Find a page</h2>
+      <label>Page<input list="aims-command-pages" placeholder="Find a page…" autocomplete="off" required></label>
+      <datalist id="aims-command-pages"></datalist>
+      <footer><button type="submit" formnovalidate value="cancel" class="button secondary">Cancel</button>
+        <button type="submit" class="button primary">Open</button></footer>
+    </form>
+  </dialog>
   <script type="module" src="./app.js"></script>
 </body>
 </html>

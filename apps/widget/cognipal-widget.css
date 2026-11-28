@@ -79,7 +79,7 @@ button,input,textarea { font:inherit; }
 .cp-mode { position:sticky; top:-16px; margin:-16px -16px 12px; padding:8px 12px; background:var(--cp-warning-soft); border-bottom:1px solid var(--cp-line); color:var(--cp-warning); font-size:11px; text-align:center; }
 .cp-footer { border-top:1px solid var(--cp-line); padding:10px 11px 9px; background:var(--cp-panel); }
 .cp-composer { display:grid; grid-template-columns:1fr auto; gap:8px; align-items:end; }
-.cp-composer textarea { resize:none; min-height:44px; max-height:112px; border:1px solid var(--cp-line); border-radius:var(--cp-r); padding:10px 12px; color:var(--cp-ink); background:var(--cp-panel); line-height:1.45; }
+.cp-composer textarea { font-size:16px;min-width:0;resize:none; min-height:44px; max-height:112px; border:1px solid var(--cp-line); border-radius:var(--cp-r); padding:10px 12px; color:var(--cp-ink); background:var(--cp-panel); line-height:1.45; }
 .cp-send { width:44px; height:44px; border:0; border-radius:var(--cp-r); background:var(--cp-accent); color:var(--cp-panel); cursor:pointer; display:grid; place-items:center; }
 .cp-send:disabled { opacity:.45; cursor:not-allowed; }
 .cp-send svg { width:19px; height:19px; fill:currentColor; }
@@ -131,6 +131,7 @@ button,input,textarea { font:inherit; }
 .cp-icon-button { color:#a9c1d1; }
 .cp-bubble a { color:inherit; text-decoration:underline; }
 .cp-meta { font-variant-numeric:tabular-nums; }
-.cp-composer textarea { font-size:16px; min-width:0; }
+
 :host([data-theme="dark"]) { --cp-panel:#0a192d; --cp-raised:#061126; --cp-overlay:#10223a; --cp-ink:#eaf7ff; --cp-soft:#c7d9e6; --cp-faint:#a9c1d1; --cp-line:#40556b; --cp-accent:#24c8f0; }
 :host([data-theme="dark"]) .cp-message.visitor .cp-bubble, :host([data-theme="dark"]) .cp-button.primary { color:#061126; }
+

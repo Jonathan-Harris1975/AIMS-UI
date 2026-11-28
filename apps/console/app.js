@@ -884,15 +884,11 @@ function workflowsView() {
   return shell(`
     ${pageHeader("Workflows", "Monitor workflow assignments in the loaded queue and inspect conversations when intervention is needed.")}
     <div class="workflow-grid">
-      ${Object.entries(workflowGroups).map(([name, count]) => `<article class="workflow-card">
-        <div class="workflow-node">${icons.workflow}</div>
-        <div>
-          <strong>${escapeHtml(titleCase(name))}</strong>
-          <span>${count} loaded conversation${count === 1 ? "" : "s"}</span>
-          <small>Protected gateway controls.</small>
-        </div>
-        <button class="button secondary" data-view="inbox">Inspect queue</button>
-      </article>`).join("") || emptyState(
+      ${Object.entries(workflowGroups).map(([name, count]) => `${staticMarkup("workflow-card",
+          icons.workflow,
+          escapeHtml(titleCase(name)),
+          count,
+          count === 1 ? "" : "s")}`).join("") || emptyState(
         "No workflow activity",
         "Definitions will appear after the backend returns workflow records.",
       )}
@@ -1257,21 +1253,14 @@ function workspaceView() {
           </span>
         </header>
         <div class="message-thread">
-          ${(conversation.messages || []).map((message) => `<article
-            class="message ${message.direction === "outbound" ? "outbound" : "inbound"}">
-            <div class="message-avatar">
-              ${escapeHtml((message.sender || (message.direction === "outbound" ? "A" : "V")).charAt(0).toUpperCase())}
-            </div>
-            <div>
-              <header>
-                <strong>${escapeHtml(message.sender || (
+          ${(conversation.messages || []).map((message) => `${staticMarkup("workspace-message",
+          message.direction === "outbound" ? "outbound" : "inbound",
+          escapeHtml((message.sender || (message.direction === "outbound" ? "A" : "V")).charAt(0).toUpperCase()),
+          escapeHtml(message.sender || (
                   message.direction === "outbound" ? "AIMS" : contact.display_name || "Visitor"
-                ))}</strong>
-                <time>${escapeHtml(formatDateTime(message.received_at || message.created_at))}</time>
-              </header>
-              <p>${escapeHtml(message.body_text || "")}</p>
-            </div>
-          </article>`).join("") || emptyState("No messages", "The conversation record contains no message bodies.")}
+                )),
+          escapeHtml(formatDateTime(message.received_at || message.created_at)),
+          escapeHtml(message.body_text || ""))}`).join("") || emptyState("No messages", "The conversation record contains no message bodies.")}
         </div>
         ${canReply ? `
           ${staticMarkup("reply-composer", socialThread && socialMonitorOnly ? "disabled" : "",
@@ -1300,39 +1289,18 @@ function workspaceView() {
           aria-pressed="${state.workspaceContextTab === key}">${label}</button>`).join("")}
       </nav>
       <aside class="workspace-aside">
-        <section class="panel detail-card ${state.workspaceContextTab === "details" ? "context-active" : ""}" data-context-section="details">
-          <header><strong>Contact</strong></header>
-          <div class="contact-hero">
-            <div class="avatar large">${escapeHtml((contact.display_name || "U").charAt(0).toUpperCase())}</div>
-            <div>
-              <strong>${escapeHtml(contact.display_name || "Unknown contact")}</strong>
-              <span>${escapeHtml(contact.primary_email || "No email recorded")}</span>
-              <small>${escapeHtml(contact.phone || conversation.provider || "")}</small>
-            </div>
-          </div>
-          <dl>
-            <div><dt>Handling</dt><dd>${assignedToMe ? "Assigned to me" : "Automated"}</dd></div>
-            <div>
-              <dt>Response target</dt>
-              <dd>${escapeHtml(operations.response_due_at
-                ? formatDateTime(operations.response_due_at)
-                : "Not set")}</dd>
-            </div>
-            <div><dt>Workflow</dt><dd>${escapeHtml(titleCase(conversation.workflow || "unassigned"))}</dd></div>
-          </dl>
-          ${roleAllows(role, "assign") ? `<div class="handling-control">
-            <span>Who handles this?</span>
-            <div class="handling-segment" role="group" aria-label="Conversation handling">
-              <button type="button" data-handling-mode="automation" class="${assignedToMe ? "" : "active"}"
-                aria-pressed="${!assignedToMe}">Automated</button>
-              <button type="button" data-handling-mode="person" class="${assignedToMe ? "active" : ""}"
-                aria-pressed="${assignedToMe}">Assigned to me</button>
-            </div>
-            <small>${assignedToMe
-              ? `${escapeHtml(actor)} is handling this conversation. AIMS autonomous replies are paused.`
-              : "AIMS can analyse and reply under the active automation policies."}</small>
-          </div>` : ""}
-        </section>
+        ${staticMarkup("workspace-contact",
+          state.workspaceContextTab === "details" ? "context-active" : "",
+          escapeHtml((contact.display_name || "U").charAt(0).toUpperCase()),
+          escapeHtml(contact.display_name || "Unknown contact"),
+          escapeHtml(contact.primary_email || "No email recorded"),
+          escapeHtml(contact.phone || conversation.provider || ""),
+          assignedToMe ? "Assigned to me" : "Automated",
+          escapeHtml(operations.response_due_at ? formatDateTime(operations.response_due_at) : "Not set"),
+          escapeHtml(titleCase(conversation.workflow || "unassigned")),
+          roleAllows(role, "assign") ? staticMarkup("workspace-handling", assignedToMe ? "" : "active", !assignedToMe, assignedToMe ? "active" : "", assignedToMe,
+            assignedToMe ? `${escapeHtml(actor)} is handling this conversation. AIMS autonomous replies are paused.`
+              : "AIMS can analyse and reply under the active automation policies.") : "")}
         ${socialThread ? `<section class="panel detail-card social-control-card ${state.workspaceContextTab === "actions" ? "context-active" : ""}" data-context-section="actions">
           <header>
             <strong>${socialThread.thread_type === "dm" ? "DM controls" : "Comment controls"}</strong>
@@ -1395,20 +1363,13 @@ function workspaceView() {
             <div><dt>Next action</dt><dd>${escapeHtml(aiState.next_action || "Not set")}</dd></div>
           </dl>
           ${drafts.length ? `<div class="draft-box"><strong>Latest draft</strong><p>${escapeHtml(drafts[0].body_text || drafts[0].content || "")}</p></div>` : ""}
-          ${latestAutoSent ? `<div class="auto-sent-box">
-            <strong>Sent automatically</strong>
-            <dl>
-              <div>
-                <dt>Channel</dt>
-                <dd>${escapeHtml(channelLabel(latestAutoSentDetails.channel || conversation.channel))}</dd>
-              </div>
-              <div><dt>Confidence</dt><dd>${escapeHtml(autoSentConfidence)}</dd></div>
-              <div><dt>Grounding</dt><dd>${escapeHtml(autoSentGrounding)}</dd></div>
-              <div><dt>Model</dt><dd>${escapeHtml(latestAutoSentDetails.model || "Deterministic")}</dd></div>
-            </dl>
-            <p>${escapeHtml(autoSentReasons)}</p>
-            <small>${escapeHtml(formatDateTime(latestAutoSent.occurred_at || latestAutoSent.created_at))}</small>
-          </div>` : ""}
+          ${latestAutoSent ? `${staticMarkup("workspace-auto-sent",
+          escapeHtml(channelLabel(latestAutoSentDetails.channel || conversation.channel)),
+          escapeHtml(autoSentConfidence),
+          escapeHtml(autoSentGrounding),
+          escapeHtml(latestAutoSentDetails.model || "Deterministic"),
+          escapeHtml(autoSentReasons),
+          escapeHtml(formatDateTime(latestAutoSent.occurred_at || latestAutoSent.created_at)))}` : ""}
           ${pendingApproval ? `<div class="approval-box">
             <strong>Approval required</strong>
             <p>${escapeHtml(pendingApproval.rationale
@@ -1452,11 +1413,7 @@ function workspaceView() {
               <small>${escapeHtml(formatRelativeTime(note.created_at))}</small>
             </article>`).join("") || `<p class="muted">No private notes.</p>`}
           </div>
-          ${roleAllows(role, "note") ? `<form id="note-form" class="note-form">
-            <textarea name="bodyText" rows="2" placeholder="Add a private note"
-              aria-label="Private note" required></textarea>
-            <button class="button secondary" type="submit">Add note</button>
-          </form>` : ""}
+          ${roleAllows(role, "note") ? staticMarkup("note-composer") : ""}
         </section>
       </aside>
     </div>
@@ -2275,79 +2232,89 @@ async function loadMetrics() {
   }
 }
 
+const conversationBusy = new Set();
+const currentConversation = id => state.view === "workspace" && state.selectedConversationId === id;
+async function mutateConversation(work) {
+  const id = state.selectedConversationId;
+  if (!id || conversationBusy.has(id)) return;
+  conversationBusy.add(id);
+  try { await work(id); } catch (error) { toast(error.message || "Conversation action failed.", "error"); }
+  finally { conversationBusy.delete(id); }
+}
+
+function applyOperations(id, changes) {
+  if (currentConversation(id) && state.workspace?.workspace?.operations) Object.assign(state.workspace.workspace.operations, changes);
+  const row = state.queue.find(item => item.id === id);
+  if (row) Object.assign(row, changes);
+}
+
 async function updateWorkspaceStatus(event) {
   const status = event.target.value;
-  try {
-    const result = await client.updateStatus(state.selectedConversationId, status, { expectedVersion: state.workspace?.workspace?.operations?.version ?? null });
-    const operations = state.workspace?.workspace?.operations;
-    if (operations) Object.assign(operations, result.result);
-    const queueItem = state.queue.find((row) => row.id === state.selectedConversationId);
-    if (queueItem) Object.assign(queueItem, result.result);
+  await mutateConversation(async id => {
+    const result = await client.updateStatus(id, status, { expectedVersion: state.workspace?.workspace?.operations?.version ?? null });
+    applyOperations(id, result.result);
     toast(`Conversation moved to ${titleCase(status)}.`);
-  } catch (error) { toast(error.message || "Status could not be updated.", "error"); }
+  });
 }
 
 async function changeHandlingMode(mode) {
-  if (!new Set(["automation", "person"]).has(mode)) return;
+  if (!["automation", "person"].includes(mode)) return;
   const actor = state.bootstrap?.identity?.actor || "Jonathan";
-  const assignment = {
-    ownerId: mode === "person" ? actor : "AIMS",
-    ownerType: mode,
-    expectedVersion: state.workspace?.workspace?.operations?.version ?? null,
-  };
-  try {
-    const result = await client.assign(state.selectedConversationId, assignment);
-    const operations = state.workspace?.workspace?.operations;
-    if (operations) Object.assign(operations, result?.result || result || {}, { owner_id: assignment.ownerId, owner_type: assignment.ownerType });
-    const queueItem = state.queue.find((row) => row.id === state.selectedConversationId);
-    if (queueItem) Object.assign(queueItem, { owner_id: assignment.ownerId, owner_type: assignment.ownerType });
+  const assignment = { ownerId: mode === "person" ? actor : "AIMS", ownerType: mode,
+    expectedVersion: state.workspace?.workspace?.operations?.version ?? null };
+  await mutateConversation(async id => {
+    const result = await client.assign(id, assignment);
+    applyOperations(id, { ...(result?.result || result || {}), owner_id: assignment.ownerId, owner_type: assignment.ownerType });
     toast(mode === "person" ? "Assigned to me. AIMS autonomous replies are paused." : "Returned to AIMS automation.");
-  } catch (error) { toast(error.message || "Handling mode could not be updated.", "error"); }
+  });
 }
 
 async function archiveConversation() {
   const operations = state.workspace?.workspace?.operations;
-  if ((operations?.operational_status || "") !== "resolved") return toast("Only completed conversations can be archived.", "error");
-  try {
-    const result = await client.updateStatus(state.selectedConversationId, "archived", { expectedVersion: operations?.version ?? null, reason: "manual_archive" });
-    if (operations) Object.assign(operations, result?.result || result || {}, { operational_status: "archived" });
-    const queueItem = state.queue.find((row) => row.id === state.selectedConversationId);
-    if (queueItem) queueItem.operational_status = "archived";
+  if (operations?.operational_status !== "resolved") return toast("Only completed conversations can be archived.", "error");
+  await mutateConversation(async id => {
+    const result = await client.updateStatus(id, "archived", { expectedVersion: operations?.version ?? null, reason: "manual_archive" });
+    applyOperations(id, { ...(result?.result || result || {}), operational_status: "archived" });
     toast("Completed conversation archived.");
-  } catch (error) { toast(error.message || "Conversation could not be archived.", "error"); }
+  });
 }
 
 async function deleteConversation() {
-  if (!state.selectedConversationId) return;
-  const workspace = state.workspace?.workspace || state.workspace || {};
-  const subject = workspace.conversation?.subject || "this conversation";
+  const subject = state.workspace?.workspace?.conversation?.subject || "this conversation";
   const targetView = workspaceInboxView();
-  const confirmed = globalThis.confirm?.(`Permanently delete ${subject} and all associated messages/history? This cannot be undone.`);
-  if (!confirmed) return;
-  try {
-    await client.deleteConversation(state.selectedConversationId);
-    state.queue = state.queue.filter((row) => row.id !== state.selectedConversationId);
-    state.workspace = null;
-    state.selectedConversationId = "";
-    navigate(targetView);
+  if (!globalThis.confirm?.(`Permanently delete ${subject} and all associated messages/history? This cannot be undone.`)) return;
+  await mutateConversation(async id => {
+    await client.deleteConversation(id);
+    state.queue = state.queue.filter(row => row.id !== id);
+    if (currentConversation(id)) {
+      state.workspace = null;
+      state.selectedConversationId = "";
+      navigate(targetView);
+    }
     toast("Conversation and message history deleted.");
-  } catch (error) {
-    toast(error.message || "Conversation could not be deleted.", "error");
-  }
+  });
+}
+
+function clearSentDraft(id, form, name, value) {
+  if (!currentConversation(id)) return;
+  const control = root.querySelector("#" + form.id)?.elements.namedItem(name);
+  if (control?.value.trim() === value) control.value = "";
 }
 
 async function submitNote(event) {
   event.preventDefault();
   const form = event.currentTarget;
-  const data = new FormData(form);
-  const bodyText = String(data.get("bodyText") || "").trim();
+  const bodyText = String(new FormData(form).get("bodyText") || "").trim();
   if (!bodyText) return;
-  try {
-    const result = await client.addNote(state.selectedConversationId, { bodyText, mentions: [] });
-    state.workspace.workspace.notes = [result.note, ...(state.workspace.workspace.notes || [])];
-    form.reset();
+  await mutateConversation(async id => {
+    const result = await client.addNote(id, { bodyText, mentions: [] });
+    if (currentConversation(id) && state.workspace?.workspace) {
+      const workspace = state.workspace.workspace;
+      workspace.notes = [result.note, ...(workspace.notes || [])];
+      clearSentDraft(id, form, "bodyText", bodyText);
+    }
     toast("Private note added.");
-  } catch (error) { toast(error.message || "Private note could not be added.", "error"); }
+  });
 }
 
 async function submitReply(event) {
@@ -2357,35 +2324,23 @@ async function submitReply(event) {
   const message = String(data.get("message") || "").trim();
   if (!message) return;
   const conversation = state.workspace?.workspace?.conversation || {};
-  try {
-    {
-      if (conversation.channel === "chat") await client.sendChat(state.selectedConversationId, message);
-      else if (conversation.channel === "email") {
-        const result = await client.sendEmail(state.selectedConversationId, { message, bodyText: message });
-        if (result?.scheduled) {
-          form.reset();
-          toast(`Reply scheduled for ${formatDateTime(result.dueAt)}.`);
-          return;
-        }
-      }
-      else if (isSocialChannel(conversation.channel)) {
-        const replyMode = String(data.get("replyMode") || "public");
-        await client.socialAction(state.selectedConversationId, "reply", { message, ...(replyMode === "private" ? { private: true } : {}) });
-      } else throw new AimsApiError("This channel does not expose a direct reply action.", { status: 409, code: "ui_reply_unsupported" });
+  await mutateConversation(async id => {
+    let result;
+    if (conversation.channel === "chat") await client.sendChat(id, message);
+    else if (conversation.channel === "email") result = await client.sendEmail(id, { message, bodyText: message });
+    else if (isSocialChannel(conversation.channel)) {
+      await client.socialAction(id, "reply", { message, ...(data.get("replyMode") === "private" ? { private: true } : {}) });
+    } else throw new AimsApiError("This channel does not expose a direct reply action.", { status: 409, code: "ui_reply_unsupported" });
+    clearSentDraft(id, form, "message", message);
+    if (currentConversation(id)) {
+      const request = conversationRequest;
+      try {
+        const fresh = await client.workspace(id);
+        if (currentConversation(id) && request === conversationRequest) state.workspace = fresh;
+      } catch { return toast("Reply accepted; refresh to load the latest conversation."); }
     }
-    conversation.messages = [
-      ...(conversation.messages || []),
-      {
-        id: `local-${Date.now()}`,
-        direction: "outbound",
-        sender: state.bootstrap.identity.actor,
-        body_text: message,
-        received_at: new Date().toISOString(),
-      },
-    ];
-    form.reset();
-    toast("Reply sent through AIMS.");
-  } catch (error) { toast(error.message || "Reply could not be sent.", "error"); }
+    toast(result?.scheduled ? `Reply scheduled for ${formatDateTime(result.dueAt)}.` : "Reply accepted by AIMS.");
+  });
 }
 
 async function fetchOperationalStatus() {
@@ -2550,6 +2505,22 @@ async function openNotification(button) {
   else if (state.notificationOpen) toggleNotifications();
 }
 
+function openCommands() {
+  const dialog = document.getElementById("aims-commands");
+  const input = dialog.querySelector("input");
+  dialog.querySelector("datalist").innerHTML = navItems.map(([, label]) => `<option>${escapeHtml(label)}</option>`).join("");
+  input.value = "";
+  dialog.showModal();
+  input.focus();
+}
+document.getElementById("aims-commands").addEventListener("submit", event => {
+  const dialog = event.currentTarget;
+  const match = navItems.find(([, label]) => label.toLowerCase() === dialog.querySelector("input").value.trim().toLowerCase());
+  event.preventDefault();
+  if (event.submitter?.value === "cancel") dialog.close();
+  else if (match) { dialog.close(); navigate(match[0]); }
+});
+
 document.addEventListener("keydown", (event) => {
   if (event.key === "Tab" && state.sidebarOpen) {
     const drawer = root.querySelector("#aims-sidebar");
@@ -2564,7 +2535,7 @@ document.addEventListener("keydown", (event) => {
   }
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
     event.preventDefault();
-    root.querySelector("#global-search")?.focus();
+    if (!document.querySelector("dialog[open]") && !state.sidebarOpen && !state.notificationOpen) openCommands();
   }
   if (event.key === "Escape" && state.notificationOpen) {
     event.preventDefault();
