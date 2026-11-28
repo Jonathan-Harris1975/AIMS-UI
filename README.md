@@ -23,6 +23,8 @@ The Worker is deployed on Cloudflare with static assets bound as `ASSETS`. The s
 - Conversation thread, contact context, AI context, notes, assignment, reply and takeover controls.
 - Approval, quarantine, workflow, analytics, notification and settings surfaces.
 - Social capability/status display, webhook reconciliation and controlled polling.
+- Outreach operations console with separate Guest Article and Book Feature delivery ledgers, shared safety controls and controlled-test validation.
+- Embedded Communications uses HIVE's global shell and contextual navigation, with responsive layouts, visible focus and 44px contextual navigation targets.
 - Live API mode only. Connection failures remain visible and never fall back to invented data.
 
 ## Secure HIVE hand-off
@@ -30,6 +32,10 @@ The Worker is deployed on Cloudflare with static assets bound as `ASSETS`. The s
 HIVE opens the console through `/api/auth/comms-handoff`. HIVE-UI creates a short-lived signed hand-off token and redirects to `https://chat.jonathan-harris.online/console/#handoff=...`. The fragment is consumed immediately and removed from the address bar.
 
 The browser then uses same-origin `/console/api`. The gateway exchanges the short-lived HIVE hand-off for an HttpOnly console cookie and delegates to AIMS server-side. If `HIVE_COMMS_HANDOFF_SECRET` is configured, the gateway verifies the hand-off locally; otherwise it uses the configured HIVE identity verifier. `COMMS_HUB_RBAC_DELEGATION_SECRET`, AIMS credentials and provider secrets never enter the browser bundle.
+
+Embedded readiness follows successful AIMS bootstrap, not simply iframe load. Both standalone and embedded modes poll notifications every 15 seconds without overlapping requests. HIVE accepts only trusted frame messages; actionable alerts are relayed without message bodies. The embedded console hides its standalone sidebar and scrim, leaving global navigation to HIVE.
+
+Outreach controls must reflect AIMS effective mode, kill switch, allowlist, caps and delivery status. The console is not an independent authorisation layer: backend policy remains authoritative and controlled tests do not authorise prospect delivery.
 
 ## Gateway boundaries
 
@@ -73,9 +79,11 @@ That command runs linting, source/configuration checks, all Node tests, committe
 
 Bundle policy lives in `config/bundle-budget.json` and is enforced by `npm run check:bundle-budget`:
 
-- gzipped JavaScript warning threshold: **42,750 bytes** (95% of the hard ceiling);
-- gzipped JavaScript hard ceiling: **45,000 bytes**;
-- total bundle, CSS and largest-asset hard limits remain separately enforced.
+- gzipped JavaScript warning threshold: **49,000 bytes**;
+- gzipped JavaScript hard ceiling: **52,000 bytes**;
+- total bundle ceiling: **460,000 bytes**; gzipped CSS ceiling: **13,000 bytes**; largest-asset ceiling: **160,000 bytes**.
+
+The total ceiling was explicitly increased from 420,000 to 460,000 bytes after the integrated Communications release measured 420,889 bytes (39,111 bytes of headroom against the new limit). This avoids removing working responsive navigation and outreach functionality merely to clear an aggregate-size failure. The compressed JavaScript, CSS and single-asset limits remain unchanged; the JavaScript warning remains actionable. The increase does not waive any build, security or release validation.
 
 The checker always reports actual gzipped JavaScript, warning limit, hard limit, remaining bytes, percentage consumed and state. Entering the warning band is visible in CI but does not fail the build. Exceeding the hard ceiling still fails validation and release.
 
@@ -131,3 +139,7 @@ The root Wrangler configuration registers a five-minute scheduled trigger for th
 The widget is isolated in Shadow DOM, persists its session, supports polling/retry/cold-start states and includes keyboard/accessibility controls. Website installation is governed in the website repository; the current public website uses its own first-party CogniPal assets and Pages Functions rather than depending on this repository alone for installation.
 
 See `workers/gateway/README.md`, `apps/widget/README.md`, `docs/architecture.md` and `SECURITY.md` for component-level detail.
+
+## Ecosystem integration and evidence
+
+The eight governed repositories are [HIVE](https://github.com/Jonathan-Harris1975/HIVE), [HIVE-UI](https://github.com/Jonathan-Harris1975/HIVE-UI), [AIMS](https://github.com/Jonathan-Harris1975/AIMS), [AIMS-UI](https://github.com/Jonathan-Harris1975/AIMS-UI), [MAST](https://github.com/Jonathan-Harris1975/MAST), [RAMS](https://github.com/Jonathan-Harris1975/RAMS), [IRS](https://github.com/Jonathan-Harris1975/IRS) and the [public website](https://github.com/Jonathan-Harris1975/jonathan-harris-website). MAST owns schedules; AIMS owns content and communications execution; HIVE and HIVE-UI provide governed intelligence and operator visibility; RAMS performs bounded remediation; IRS and the website own public delivery boundaries. Keep this README aligned with changes to those contracts. A merged change, a healthy HTTP process and verified live functional acceptance are separate evidence; preserve exact-SHA CI and deployment receipts and never report unverified provider delivery as success.

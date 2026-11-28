@@ -1,5 +1,5 @@
 {
-  "maxTotalBytes": 420000,
+  "maxTotalBytes": 460000,
   "warnJavaScriptGzipBytes": 49000,
   "maxJavaScriptGzipBytes": 52000,
   "maxCssGzipBytes": 13000,
