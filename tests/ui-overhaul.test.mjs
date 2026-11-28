@@ -194,10 +194,10 @@ test('mobile navigation recaptures keyboard focus after asynchronous re-render a
 test('all console semantic CSS tokens resolve and keyboard focus stays visible', async () => {
   const tokens = await readFile(new URL('../packages/theme/tokens.css', import.meta.url), 'utf8')
   const styles = await readFile(new URL('../apps/console/styles.css', import.meta.url), 'utf8')
-  const defined = new Set([...(`${tokens}\n${styles}`).matchAll(/(--aims-[\\w-]+)\\s*:/g)].map(match => match[1]))
-  for (const [, name] of styles.matchAll(/var\\((--aims-[\\w-]+)/g)) {
+  const defined = new Set([...(`${tokens}\n${styles}`).matchAll(/(--aims-[\w-]+)\s*:/g)].map(match => match[1]))
+  for (const [, name] of styles.matchAll(/var\((--aims-[\w-]+)/g)) {
     assert.ok(defined.has(name), `Undefined console theme token: ${name}`)
   }
-  assert.match(styles, /\\.themed-select-option:focus-visible,[\\s\\S]*?outline: 2px solid var\\(--aims-accent-strong\\)/)
+  assert.match(styles, /\.themed-select-option:focus-visible,[\s\S]*?outline: 2px solid var\(--aims-accent-strong\)/)
   assert.ok(styles.includes('.manual-mail-dialog { overflow-y: auto; overscroll-behavior: contain; }'))
 })
