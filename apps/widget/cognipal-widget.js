@@ -29,7 +29,7 @@ function readStoredSession(siteId) {
   try {
     const parsed = JSON.parse(localStorage.getItem(storageKey(siteId)) || "null");
     if (!parsed?.sessionId || !parsed?.token || !parsed?.expiresAt) return null;
-    if (Date.parse(parsed.expiresAt) <= Date.now() + 30_000) return null;
+    if (!(Date.parse(parsed.expiresAt) > Date.now() + 30_000)) return null;
     return parsed;
   } catch {
     return null;
@@ -37,11 +37,16 @@ function readStoredSession(siteId) {
 }
 
 function writeStoredSession(siteId, session) {
-  localStorage.setItem(storageKey(siteId), JSON.stringify(session));
+  try { localStorage.setItem(storageKey(siteId), JSON.stringify(session)); } catch {}
 }
 
 function clearStoredSession(siteId) {
-  localStorage.removeItem(storageKey(siteId));
+  try { localStorage.removeItem(storageKey(siteId)); } catch {}
+}
+
+function safePrivacyUrl(value) {
+  try { const url = new URL(value, location.origin); if (/^https?:$/.test(url.protocol)) return url.href; } catch {}
+  return "/privacy/";
 }
 
 export function resolveWidgetConfig(element = null, script = document.currentScript) {
@@ -53,7 +58,7 @@ export function resolveWidgetConfig(element = null, script = document.currentScr
     position: data.position === "left" ? "left" : "right",
     title: String(data.title || globalThis.COGNIPAL_WIDGET_CONFIG?.title || "CogniPal"),
     greeting: String(data.greeting || globalThis.COGNIPAL_WIDGET_CONFIG?.greeting || "Hello. I’m CogniPal. What would you like to explore?"),
-    privacyUrl: String(data.privacyUrl || globalThis.COGNIPAL_WIDGET_CONFIG?.privacyUrl || "/privacy/"),
+    privacyUrl: safePrivacyUrl(data.privacyUrl || globalThis.COGNIPAL_WIDGET_CONFIG?.privacyUrl || "/privacy/"),
   });
 }
 
@@ -66,6 +71,7 @@ class HttpTransport {
     if (!this.config.apiBase) throw new Error("CogniPal API base URL is not configured.");
     const response = await fetch(`${this.config.apiBase}${path}`, {
       credentials: "omit",
+      signal: AbortSignal.timeout(35000),
       ...options,
       headers: { accept: "application/json", ...(options.body ? { "content-type": "application/json" } : {}), ...(options.headers || {}) },
     });
@@ -98,6 +104,20 @@ class HttpTransport {
   }
 }
 
+function messageHtml(text) {
+  return String(text).split(/(https?:\/\/[^\s<>"\x27]+)/g).map((part, index) => {
+    const safe = escapeHtml(part);
+    return index % 2 ? `<a href="${safe}" target="_blank" rel="noopener noreferrer">${safe}</a>` : safe;
+  }).join("");
+}
+
+function starterMarkup() {
+  const path = location.pathname.toLowerCase();
+  const prompt = /book/.test(path) ? "Which AI book should I start with?" : /podcast/.test(path) ? "Help me find a relevant episode"
+    : /ai-edge|newsletter/.test(path) ? "What is AI Edge?" : /course/.test(path) ? "Which AI course suits my experience?" : "Help me find AI resources";
+  return `<button type="button" class="cp-button secondary" data-action="starter">${prompt}</button>`;
+}
+
 const STYLE_URL = new URL("./cognipal-widget.css", import.meta.url).href;
 
 
@@ -119,6 +139,8 @@ export class CogniPalWidget extends HTMLElement {
     this.pollTimer = null;
     this.wakeTimer = null;
     this.lastSyncAt = "";
+    this.connection = "unknown";
+    this.draft = "";
   }
 
   connectedCallback() {
@@ -127,11 +149,15 @@ export class CogniPalWidget extends HTMLElement {
     this.session = readStoredSession(this.config.siteId);
     this.consented = Boolean(this.session);
     this.render();
-    this.bind();
+    if (!this.bound) { this.bind(); this.bound = true; }
   }
 
   disconnectedCallback() {
     this.stopPolling();
+    this.connection = "unknown";
+    this.attempt = null;
+    this.loading = this.sending = this.waking = false;
+    this.session = null;
   }
 
   bind() {
@@ -143,7 +169,10 @@ export class CogniPalWidget extends HTMLElement {
       if (action === "consent") void this.acceptConsent();
       if (action === "retry") void this.initialiseConversation();
       if (action === "retry-message") void this.retryMessage(actionTarget.dataset.messageId);
-      if (action === "reset") this.resetConversation();
+      if (action === "reset" && !this.sending && globalThis.confirm("Clear this local chat and start over?")) this.resetConversation();
+      if (action === "starter") {
+        this.draft = actionTarget.textContent.trim(); this.render(); this.shadowRoot.querySelector("textarea")?.focus();
+      }
     });
     this.shadowRoot.addEventListener("submit", (event) => {
       if (event.target.matches(".cp-composer")) {
@@ -153,13 +182,14 @@ export class CogniPalWidget extends HTMLElement {
     });
     this.shadowRoot.addEventListener("keydown", (event) => {
       if (event.key === "Escape" && this.open) this.toggle(false);
-      if (event.target.matches("textarea") && event.key === "Enter" && !event.shiftKey) {
+      if (event.target.matches("textarea") && event.key === "Enter" && !event.shiftKey && !event.isComposing) {
         event.preventDefault();
         void this.sendMessage();
       }
     });
     this.shadowRoot.addEventListener("input", (event) => {
       if (!event.target.matches("textarea")) return;
+      this.draft = event.target.value;
       event.target.style.height = "auto";
       event.target.style.height = `${Math.min(event.target.scrollHeight, 112)}px`;
       const count = this.shadowRoot.querySelector("[data-count]");
@@ -169,6 +199,7 @@ export class CogniPalWidget extends HTMLElement {
 
   toggle(force) {
     this.open = typeof force === "boolean" ? force : !this.open;
+    this.connection = "unknown";
     this.render();
     if (this.open) {
       if (this.consented && !this.session) void this.initialiseConversation();
@@ -190,65 +221,81 @@ export class CogniPalWidget extends HTMLElement {
 
   async initialiseConversation() {
     if (this.loading) return;
+    const attempt = {};
+    this.attempt = attempt;
     this.loading = true;
+    this.connection = "pending";
     this.error = "";
     this.render();
     try {
-      const session = await this.transport.createSession({ siteId: this.config.siteId, pageUrl: location.href, referrer: document.referrer || "" });
+      const publicUrl = value => { try { const url = new URL(value); return url.origin + url.pathname; } catch { return ""; } };
+      const session = await this.transport.createSession({
+        siteId: this.config.siteId, pageUrl: publicUrl(location.href), referrer: publicUrl(document.referrer),
+      });
+      if (this.attempt !== attempt) return;
       this.session = session;
+      this.messages = [];
       this.lastSyncAt = "";
       writeStoredSession(this.config.siteId, session);
-      await this.refreshMessages();
+      await this.refreshMessages(true);
+      if (this.attempt !== attempt || this.session !== session) return;
       if (!this.messages.length) {
         this.messages = [{ id: "welcome", role: "assistant", text: this.config.greeting, createdAt: new Date().toISOString(), local: true }];
       }
     } catch (error) {
+      if (this.attempt !== attempt) return;
+      this.connection = "error";
       this.error = error.message || "CogniPal could not start this conversation.";
       this.consented = false;
     } finally {
-      this.loading = false;
-      this.render();
-      this.scrollToEnd();
+      if (this.attempt === attempt) { this.loading = false; this.render(); }
     }
   }
 
-  async refreshMessages() {
-    if (!this.session || this.loading || this.refreshing || document.hidden) return;
-    this.refreshing = true;
+  async refreshMessages(initial = false) {
+    const session = this.session;
+    if (!session || (!initial && this.loading) || this.refreshing === session || document.hidden || !this.open) return;
+    this.refreshing = session;
     try {
-      const payload = await this.transport.messages(this.session, this.lastSyncAt);
-      const remote = Array.isArray(payload?.messages) ? payload.messages : [];
-      if (this.lastSyncAt) {
-        this.messages = [...this.messages.filter(({ id }) => !remote.some((item) => item.id === id)), ...remote];
-      } else {
-        const welcome = this.messages.find((item) => item.id === "welcome");
-        this.messages = welcome ? [welcome, ...remote] : remote;
+      const cursor = this.messages.some(item => ["pending", "failed"].includes(item.status)) ? "" : this.lastSyncAt;
+      const after = cursor ? new Date(Date.parse(cursor) - 1).toISOString() : "";
+      const payload = await this.transport.messages(session, after);
+      if (this.session !== session) return;
+      const before = JSON.stringify([this.messages, this.mode, this.error, this.connection]);
+      const merged = new Map(this.messages.map(item => [item.id, item]));
+      for (const item of Array.isArray(payload?.messages) ? payload.messages : []) {
+        const previous = merged.get(item.id);
+        if (!(previous?.status === "failed" && item.status === "pending")) merged.set(item.id, item);
+        if (Date.parse(item.createdAt) > (Date.parse(this.lastSyncAt) || 0)) this.lastSyncAt = item.createdAt;
       }
-      this.lastSyncAt = remote.at(-1)?.createdAt || this.lastSyncAt;
-      this.mode = payload?.mode || "automation";
-      if (this.mode === "closed" || payload?.exists === false) this.stopPolling();
+      this.messages = [...merged.values()].sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+      this.mode = payload?.status === "closed" ? "closed" : payload?.mode || "automation";
+      if (this.mode === "closed") this.stopPolling();
       else this.startPolling();
+      this.connection = payload?.exists === false ? "pending" : "ready";
       this.error = "";
-      this.render();
-      this.scrollToEnd();
+      if (before !== JSON.stringify([this.messages, this.mode, this.error, this.connection])) this.render();
     } catch (error) {
+      if (this.session !== session) return;
       if (error.status === 401 || error.status === 404) {
         clearStoredSession(this.config.siteId);
         this.session = null;
         this.consented = false;
         this.stopPolling();
       }
+      this.connection = "error";
       this.error = error.message || "Conversation updates could not be loaded.";
       this.render();
     } finally {
-      this.refreshing = false;
+      if (this.refreshing === session) this.refreshing = null;
     }
   }
 
   async sendMessage() {
     const input = this.shadowRoot.querySelector(".cp-composer textarea");
     const message = String(input?.value || "").trim();
-    if (!message || message.length > MAX_MESSAGE_LENGTH || this.sending || !this.session) return;
+    if (!message || message.length > MAX_MESSAGE_LENGTH || this.sending || !this.session || this.mode === "closed") return;
+    input.value = this.draft = "";
     const clientMessageId = newId("visitor");
     const optimistic = { id: clientMessageId, role: "visitor", text: message, createdAt: new Date().toISOString(), status: "sending" };
     this.messages.push(optimistic);
@@ -256,33 +303,38 @@ export class CogniPalWidget extends HTMLElement {
   }
 
   async retryMessage(messageId) {
-    const message = this.messages.find((item) => item.id === messageId && item.role === "visitor" && item.status === "failed");
-    if (!message || this.sending || !this.session) return;
+    const message = this.messages.find((item) => item.id === messageId && item.role === "visitor" && ["failed", "pending"].includes(item.status));
+    if (!message || this.sending || !this.session || this.mode === "closed") return;
     await this.transmitMessage(message);
   }
 
   async transmitMessage(message) {
+    const session = this.session;
     this.sending = true;
     this.error = "";
+    this.connection = "pending";
     this.waking = false;
     message.status = "sending";
-    this.wakeTimer = setTimeout(() => { this.waking = true; this.render(); this.scrollToEnd(); }, 2500);
+    this.wakeTimer = setTimeout(() => { if (this.session === session) { this.waking = true; this.render(); } }, 2500);
     this.render();
     this.scrollToEnd();
     try {
-      await this.transport.send(this.session, { message: message.text, clientMessageId: message.id, occurredAt: message.createdAt });
-      message.status = "accepted";
+      await this.transport.send(session, { message: message.text, clientMessageId: message.id, occurredAt: message.createdAt });
+      if (this.session !== session) return;
+      this.messages.find(item => item.id === message.id).status = "accepted";
+      this.connection = "ready";
       await this.refreshMessages();
     } catch (error) {
-      message.status = "failed";
+      if (this.session !== session) return;
+      this.messages.find(item => item.id === message.id).status = "failed";
+      this.connection = "error";
       this.error = error.message || "That message was not accepted. Please try again.";
     } finally {
-      clearTimeout(this.wakeTimer);
-      this.waking = false;
-      this.sending = false;
-      this.render();
-      this.scrollToEnd();
-      this.shadowRoot.querySelector(".cp-composer textarea")?.focus();
+      if (this.session === session || !this.session) {
+        clearTimeout(this.wakeTimer);
+        this.waking = this.sending = false;
+        this.render();
+      }
     }
   }
 
@@ -290,6 +342,10 @@ export class CogniPalWidget extends HTMLElement {
     clearStoredSession(this.config.siteId);
     this.stopPolling();
     this.session = null;
+    this.attempt = null;
+    this.loading = this.sending = this.waking = false;
+    this.lastSyncAt = this.draft = "";
+    this.connection = "unknown";
     this.messages = [];
     this.consented = false;
     this.error = "";
@@ -298,7 +354,7 @@ export class CogniPalWidget extends HTMLElement {
   }
 
   startPolling() {
-    if (this.pollTimer || !this.open || !this.session) return;
+    if (this.pollTimer || !this.open || !this.session || this.mode === "closed") return;
     this.pollTimer = setInterval(() => this.refreshMessages(), 10000);
   }
 
@@ -341,18 +397,21 @@ export class CogniPalWidget extends HTMLElement {
     }
     const messages = this.messages.map((item) => {
       const sender = item.role === "visitor" ? "You" : item.role === "operator" ? "AIMS team" : "CogniPal";
-      const retry = item.status === "failed"
+      const time = Date.parse(item.createdAt) ? new Date(item.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+      const retry = ["failed", "pending"].includes(item.status) && item.role === "visitor" && this.mode !== "closed"
         ? ` · not sent <button class="cp-message-retry" type="button" data-action="retry-message"
              data-message-id="${escapeHtml(item.id)}">Try again</button>`
         : "";
       return `<article class="cp-message ${escapeHtml(item.role || "assistant")}">
-        <div class="cp-bubble">${escapeHtml(item.text || item.body_text || "")}</div>
-        <div class="cp-meta">${sender}${retry}</div>
+        <div class="cp-bubble">${messageHtml(item.text || item.body_text || "")}</div>
+        <div class="cp-meta">${sender} ${escapeHtml(time)}${retry}</div>
       </article>`;
     }).join("");
     return `<div class="cp-thread" role="log" aria-live="polite" aria-relevant="additions text">
-      ${["human", "takeover_requested"].includes(this.mode) ? `<div class="cp-mode">A human operator is handling this conversation.</div>` : ""}
+      ${this.mode === "human" ? '<div class="cp-mode">Human support active</div>' : this.mode === "takeover_requested" ? '<div class="cp-mode">Human support requested</div>' : ""}
       ${messages}
+      ${!this.messages.some(item => item.role === "visitor") && this.mode !== "closed" ? starterMarkup() : ""}
+      ${this.mode === "closed" ? '<p class="cp-mode">Conversation closed. Start a new chat to continue.</p>' : ""}
       ${this.waking ? `<div class="cp-wake" role="status"><span aria-hidden="true"></span>Waking CogniPal and checking the AIMS route…</div>` : ""}
       ${this.sending && !this.waking ? `<div class="cp-typing" role="status" aria-label="CogniPal is thinking">
         <i aria-hidden="true"></i><i aria-hidden="true"></i><i aria-hidden="true"></i>
@@ -362,12 +421,18 @@ export class CogniPalWidget extends HTMLElement {
 
   render() {
     if (!this.config) return;
+    const oldBody = this.shadowRoot.querySelector(".cp-body");
+    const top = oldBody?.scrollTop || 0;
+    const follow = !oldBody || oldBody.scrollHeight - top - oldBody.clientHeight < 48;
+    const oldInput = this.shadowRoot.activeElement;
+    const selection = oldInput?.matches("textarea") ? [oldInput.selectionStart, oldInput.selectionEnd] : null;
     this.shadowRoot.innerHTML = `<link rel="stylesheet" href="${escapeHtml(STYLE_URL)}">
       <div class="cp-root ${escapeHtml(this.config.position)}">
-        <section class="cp-panel ${this.open ? "open" : ""}" role="dialog" aria-modal="false" aria-label="CogniPal chat" tabindex="-1">
+        <section class="cp-panel ${this.open ? "open" : ""}" id="cp-chat" role="dialog" aria-modal="false" aria-label="CogniPal chat" tabindex="-1">
           <header class="cp-header">
             <span class="cp-avatar"><img src="${escapeHtml(this.config.iconUrl)}" alt=""></span>
-            <div class="cp-heading"><strong>${escapeHtml(this.config.title)}</strong><span>${this.mode === "human" ? "Human support active" : "AIMS website assistant"}</span></div>
+            <div class="cp-heading"><strong>${escapeHtml(this.config.title)}</strong><span>${this.mode === "human" ? "Human support active"
+        : this.mode === "takeover_requested" ? "Human support requested" : "AI website assistant"}</span></div>
             <button class="cp-icon-button" data-action="toggle" aria-label="Minimise chat"><svg viewBox="0 0 24 24"><path d="M5 11h14v2H5z"/></svg></button>
           </header>
           <main class="cp-body">${this.content()}</main>
@@ -375,16 +440,27 @@ export class CogniPalWidget extends HTMLElement {
             ${this.error ? `<div class="cp-alert" role="alert">${escapeHtml(this.error)}</div>` : ""}
             <form class="cp-composer">
               <label class="cp-sr" for="cp-message">Message CogniPal</label>
-              <textarea id="cp-message" maxlength="${MAX_MESSAGE_LENGTH}" rows="1" placeholder="Write a message…" ${this.sending ? "disabled" : ""}></textarea>
-              <button class="cp-send" type="submit" aria-label="Send message" ${this.sending ? "disabled" : ""}><svg viewBox="0 0 24 24"><path d="m3 20 18-8L3 4v6l12 2-12 2v6Z"/></svg></button>
+              <textarea id="cp-message" maxlength="${MAX_MESSAGE_LENGTH}" rows="1" placeholder="Write a message…" ${this.sending || this.mode === "closed" ? "disabled"
+        : ""}>${escapeHtml(this.draft)}</textarea>
+              <button class="cp-send" type="submit"
+          aria-label="Send message" ${this.sending || this.mode === "closed" ? "disabled" : ""}><svg viewBox="0 0 24 24"><path d="m3 20 18-8L3 4v6l12 2-12 2v6Z"/></svg></button>
             </form>
-            <div class="cp-footnote"><span data-count aria-live="polite">0/${MAX_MESSAGE_LENGTH}</span><button type="button" data-action="reset">End conversation</button></div>
+            <div class="cp-footnote"><span data-count>${this.draft.length}/${MAX_MESSAGE_LENGTH}</span><button type="button" data-action="reset" ${this.sending ? "disabled"
+        : ""}>Start over</button></div>
           </footer>` : ""}
         </section>
-        <button class="cp-launcher" data-action="toggle" aria-label="${this.open ? "Close" : "Open"} CogniPal chat" aria-expanded="${this.open}">
-          <img src="${escapeHtml(this.config.iconUrl)}" alt=""><span class="cp-online"></span>
+        <button class="cp-launcher" data-action="toggle"
+          aria-label="${this.open ? "Close" : "Open"} CogniPal chat" aria-expanded="${this.open}" aria-controls="cp-chat" title="CogniPal · ${this.open ? this.connection : "unknown"}">
+          <img src="${escapeHtml(this.config.iconUrl)}" alt=""><span class="cp-online" data-state="${this.open ? this.connection : "unknown"}" aria-hidden="true"></span>
         </button>
       </div>`;
+    const body = this.shadowRoot.querySelector(".cp-body");
+    if (body) body.scrollTop = follow ? body.scrollHeight : top;
+    const input = this.shadowRoot.querySelector("textarea");
+    if (input && !input.disabled) {
+      input.style.height = `${Math.min(input.scrollHeight, 112)}px`;
+      if (selection) { input.focus({ preventScroll: true }); input.setSelectionRange(...selection); }
+    }
   }
 }
 

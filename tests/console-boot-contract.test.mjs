@@ -51,3 +51,17 @@ test("static console icons are supplied by the inert document template", async (
   for (const [, name] of app.matchAll(/\bicons\.(\w+)/g)) assert.ok(names.includes(name), "Missing icon: " + name);
   assert.match(app, /document\.querySelector\("#console-icons"\)\.content/);
 });
+
+
+test("static editor templates preserve fields and permission placeholders", async () => {
+  const html = await readFile(resolve(root, "apps/console/index.html"), "utf8");
+  const app = await readFile(resolve(root, "apps/console/app.js"), "utf8");
+  for (const id of ["mail-compose", "contact-editor", "reply-composer"]) {
+    assert.ok(html.includes('<template id="' + id + '">'));
+    assert.ok(app.includes('staticMarkup("' + id + '"'));
+  }
+  assert.match(html, /name="displayName"[^>]*data-slot-6=""/);
+  assert.match(html, /name="message"[^>]*data-slot-0=""/s);
+  assert.match(app, /canEdit \? "" : "disabled"/);
+  assert.match(app, /socialThread && socialMonitorOnly \? "disabled" : ""/);
+});

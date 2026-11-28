@@ -30,3 +30,7 @@ The widget contains no AIMS, HIVE or webhook credentials. Allowed website origin
 ## Verification
 
 `npm run validate` covers widget loader, accessibility/interaction source checks, gateway contract tests, secret scanning, production build and bundle limits. The production JavaScript warning/hard thresholds are documented in the root `README.md` and configured in `config/bundle-budget.json`.
+
+## Display and interaction
+
+The widget defaults to a flat light interface with the existing portrait and a midnight header. Set `data-theme="dark"` on the custom element (or on the loader script) for the dark palette. The launcher indicator reports the latest session evidence rather than an unconditional online claim. Contextual starters populate the draft; they never send automatically. Start over clears the local session after confirmation; it does not claim to close or erase the server-side conversation. Query strings and fragments are excluded from transmitted page and referrer URLs.

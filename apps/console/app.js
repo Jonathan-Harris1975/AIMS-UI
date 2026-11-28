@@ -103,6 +103,9 @@ function acknowledgeCommsNotification(id) {
   } catch {}
 }
 
+let displayDensity = "compact";
+try { if (localStorage.getItem("aims-density") === "comfortable") displayDensity = "comfortable"; } catch {}
+
 const state = {
   view: "dashboard",
   bootstrap: null,
@@ -316,6 +319,10 @@ function priorityPill(priority) {
   return labelledSignal(prioritySignal(value), `Priority: ${titleCase(value)}`, "priority");
 }
 
+function staticMarkup(id, ...values) {
+  return document.getElementById(id).innerHTML.replace(/data-slot-(\d+)=""|\{\{(\d+)\}\}/g, (_, attr, value) => values[Number(attr ?? value)] ?? "");
+}
+
 function emptyState(title, copy) {
   return `<div class="empty-state"><div class="empty-mark">${icons.inbox}</div><h3>${escapeHtml(title)}</h3><p>${escapeHtml(copy)}</p></div>`;
 }
@@ -324,7 +331,7 @@ function shell(content) {
   const identity = state.bootstrap?.identity || { actor: "Unknown", role: "read_only" };
   const unread = state.notifications.filter((item) => item.status !== "read").length;
   return `
-<div class="layout ${state.sidebarOpen ? "sidebar-open" : ""} ${config.embedded ? "embedded" : ""}">
+<div class="layout ${state.sidebarOpen ? "sidebar-open" : ""} ${config.embedded ? "embedded" : ""}" data-density="${displayDensity}">
 <a class="skip-link" href="#aims-main-content">Skip to main content</a>
 <button class="scrim" data-action="close-sidebar" aria-label="Close navigation" tabindex="-1"></button>
 <aside class="sidebar" id="aims-sidebar" aria-label="AIMS navigation" ${state.sidebarOpen ? 'role="dialog" aria-modal="true"' : ""}>
@@ -839,29 +846,12 @@ function contactsView() {
   const profile = state.contactProfile?.profile || state.contactProfile || null;
   const contact = profile?.contact || null;
   const editor = contact ? `
-    <section class="panel contact-editor">
-      <header class="panel-header stacked">
-        <div>
-          <strong>Manage contact</strong>
-          <span>${profile.conversations?.length || 0} linked conversation${profile.conversations?.length === 1 ? "" : "s"}</span>
-        </div>
-        <button class="icon-button" type="button" data-action="close-contact" aria-label="Close contact editor">
-          ${icons.close}
-        </button>
-      </header>
-      <form id="contact-edit-form" class="contact-edit-form">
-        <label><span>Name</span><input name="displayName" maxlength="300" value="${escapeHtml(contact.display_name || "")}" ${canEdit ? "" : "disabled"}></label>
-        <label><span>Email</span><input name="primaryEmail" type="email" maxlength="320" value="${escapeHtml(contact.primary_email || "")}" ${canEdit ? "" : "disabled"}></label>
-        <label><span>Phone</span><input name="phone" maxlength="100" value="${escapeHtml(contact.phone || "")}" ${canEdit ? "" : "disabled"}></label>
-        <div class="contact-edit-actions">
-          <span>Deleting a contact keeps linked conversations intact and reassigns them to a non-personal placeholder.</span>
-          <div class="button-row">
-            ${canDelete ? `<button class="button danger" type="button" data-action="delete-contact" ${state.contactBusy ? "disabled" : ""}>Delete contact</button>` : ""}
-            ${canEdit ? `<button class="button primary" type="submit" ${state.contactBusy ? "disabled" : ""}>Save changes</button>` : ""}
-          </div>
-        </div>
-      </form>
-    </section>
+    ${staticMarkup("contact-editor",
+      profile.conversations?.length || 0, profile.conversations?.length === 1 ? "" : "s", icons.close,
+      escapeHtml(contact.display_name || ""), escapeHtml(contact.primary_email || ""), escapeHtml(contact.phone || ""),
+      canEdit ? "" : "disabled",
+      canDelete ? `<button class="button danger" type="button" data-action="delete-contact" ${state.contactBusy ? "disabled" : ""}>Delete contact</button>` : "",
+      canEdit ? `<button class="button primary" type="submit" ${state.contactBusy ? "disabled" : ""}>Save changes</button>` : "")}
   ` : state.contactBusy ? `<section class="panel contact-editor" role="status" aria-live="polite" aria-busy="true"><p class="muted">Loading contact…</p></section>` : "";
   return shell(`
     ${pageHeader("Contacts", "Edit contact details without breaking the conversation history anchored to each record.")}
@@ -995,9 +985,9 @@ function analyticsView() {
       ${countList(metrics.autonomy, (row) => `${channelLabel(row.channel)} · ${titleCase(row.outcome)}${row.reason ? ` · ${titleCase(row.reason)}` : ""}`)}
     </section>
     <section class="panel analytics-panel">
-      <header class="panel-header"><div><strong>Newsletter confirmation</strong><span>SMTP acceptance and confirmed consent are separate outcomes.</span></div></header>
+      ${staticMarkup("newsletter-header")}
       ${countList(metrics.newsletter, (row) => titleCase(row.outcome))}
-      <p>Signup request counters are cumulative for the backend state file, outside this reporting window.</p>
+      ${staticMarkup("newsletter-note")}
       ${metrics.newsletterRequests
         ? countList(Object.entries(metrics.newsletterRequests).map(([outcome, count]) => ({ outcome, count })), (row) => titleCase(row.outcome))
         : '<p>Request counters unavailable.</p>'}
@@ -1062,20 +1052,7 @@ function manualMailView() {
         <div class="manual-mail-body">${escapeHtml(selected.text || "(No plain-text content)")}</div>
       ` : emptyState("Select a message", "Choose an email to read it here.")}</div>
     </section>
-    <dialog class="manual-mail-dialog" id="manual-mail-dialog" aria-labelledby="manual-mail-dialog-title">
-      <form method="dialog" class="manual-mail-compose" id="manual-mail-form">
-        <header>
-          <div><h2 id="manual-mail-dialog-title">New email</h2><p>Sending as ${escapeHtml(account?.address || "")}</p></div>
-          <button type="button" class="icon-button" data-action="close-mail-dialog" aria-label="Close">${icons.close}</button>
-        </header>
-        <label>To<input name="to" type="email" required autocomplete="off"></label>
-        <label>Subject<input name="subject" maxlength="500" required></label>
-        <label>Message<textarea name="bodyText" rows="10" required></textarea></label>
-        <input name="inReplyTo" type="hidden"><input name="references" type="hidden">
-        <p role="alert" data-mail-compose-error hidden></p>
-        <footer><button type="button" class="button secondary" data-action="close-mail-dialog">Cancel</button><button type="submit" class="button primary">Send</button></footer>
-      </form>
-    </dialog>
+    ${staticMarkup("mail-compose", escapeHtml(account?.address || ""), icons.close)}
   `);
 }
 
@@ -1106,23 +1083,9 @@ function settingsView() {
 <div><dt>API version</dt><dd>${escapeHtml(state.bootstrap?.apiVersion || "Unknown")}</dd></div>
 </dl>
 </section>
-<section class="panel settings-card comms-audio-settings">
-<h3>Audio notifications</h3>
-<p>Only actionable alerts sound.</p>
-<label><input type="checkbox" data-comms-audio="enabled" ${commsAudioPreferences().enabled ? "checked" : ""}> Sound on</label>
-<label><input type="checkbox" data-comms-audio="review_required" ${commsAudioPreferences().review_required ? "checked" : ""}> Review required sound</label>
-<label><input type="checkbox" data-comms-audio="urgent" ${commsAudioPreferences().urgent ? "checked" : ""}> Urgent sound</label>
-<label><input type="checkbox" data-comms-audio="resolved" ${commsAudioPreferences().resolved ? "checked" : ""}> Resolved confirmation sound</label>
-<label><input type="checkbox" data-comms-audio="new_message" ${commsAudioPreferences().new_message ? "checked" : ""}> Actionable new message sound</label>
-<label class="comms-audio-volume">
-          Volume <input type="range" min="0" max="1" step="0.05" value="${commsAudioPreferences().volume}" data-comms-audio="volume">
-<span>${Math.round(commsAudioPreferences().volume * 100)}%</span>
-</label>
-<div class="comms-audio-actions">
-<button class="button secondary" type="button" data-action="test-comms-sound">Test Sound</button>
-</div>
-<p class="comms-audio-status" role="status" aria-live="polite"></p>
-</section>
+<section class="panel settings-card"><h3>Display</h3>
+<label><input type="checkbox" data-density-toggle ${displayDensity === "comfortable" ? "checked" : ""}> Comfortable spacing</label></section>
+${document.getElementById("audio-settings").innerHTML}
 <section class="panel settings-card">
 <h3>Verified identity</h3>
 <dl>
@@ -1168,8 +1131,8 @@ ${labelledSignal(!socialLoaded ? "neutral" : social.monitorOnly ? "amber" : "gre
           ? `<p class="async-status" role="status" aria-live="polite">Updating social provider status…</p>`
           : ""}` : ""}
 </section>
-<section class="panel settings-card">
-<h3>Responsive contract</h3>
+<details class="panel settings-card">
+<summary>Responsive contract</summary>
 <dl>
 <div>
 <dt>Minimum width</dt>
@@ -1184,12 +1147,8 @@ ${labelledSignal(!socialLoaded ? "neutral" : social.monitorOnly ? "amber" : "gre
 <dd>${escapeHtml((state.bootstrap?.responsiveContract?.actions || []).join(", "))}</dd>
 </div>
 </dl>
-</section>
-<section class="panel settings-card">
-<h3>Security boundary</h3>
-<p>The browser holds no AIMS delegation secret. HIVE identity verification and HMAC signing happen in the
-          edge gateway before AIMS performs its own RBAC checks.</p>
-</section>
+</details>
+${document.getElementById("security-boundary").innerHTML}
 </div>
   `);
 }
@@ -1315,10 +1274,8 @@ function workspaceView() {
           </article>`).join("") || emptyState("No messages", "The conversation record contains no message bodies.")}
         </div>
         ${canReply ? `
-          <form id="reply-form" class="reply-composer">
-            <textarea name="message" rows="3" maxlength="20000" placeholder="Write an operator reply…"
-              aria-label="Operator reply" required ${socialThread && socialMonitorOnly ? "disabled" : ""}></textarea>
-            ${socialThread?.thread_type === "comment" && socialCapabilities?.privateCommentReplies
+          ${staticMarkup("reply-composer", socialThread && socialMonitorOnly ? "disabled" : "",
+            socialThread?.thread_type === "comment" && socialCapabilities?.privateCommentReplies
               ? `<label class="reply-mode"><span>Reply mode</span>${themedSelect({
                 name: "replyMode",
                 value: "public",
@@ -1329,13 +1286,7 @@ function workspaceView() {
                   { value: "private", label: "Private reply" },
                 ],
               })}</label>`
-              : ""}
-            <div>
-              <span>${replyStatus}</span>
-              <button class="button primary" type="submit"
-                ${socialThread && socialMonitorOnly ? "disabled" : ""}>${replyLabel}</button>
-            </div>
-          </form>
+              : "", replyStatus, replyLabel)}
         ` : `<div class="read-only-banner">Read-only role. Reply and mutation controls are disabled.</div>`}
       </section>
       <nav class="workspace-context-tabs" aria-label="Conversation context">
@@ -1544,12 +1495,7 @@ async function downloadAttachment(attachmentId, button) {
 function errorView() {
   return shell(`
     ${pageHeader("Connection not ready", "The live AIMS gateway could not be loaded.")}
-    <section class="connection-error panel" role="alert">
-      <div class="error-orb">!</div>
-      <h2>${escapeHtml(state.error?.message || "AIMS gateway could not be reached.")}</h2>
-      <p>Check the gateway URL, HIVE session verification and AIMS Comms Hub readiness.</p>
-      <div><button class="button primary" data-action="refresh">Try again</button></div>
-    </section>
+    ${staticMarkup("connection-error", escapeHtml(state.error?.message || "AIMS gateway could not be reached."))}
   `);
 }
 
@@ -1720,6 +1666,11 @@ function render() {
 }
 
 function bindEvents() {
+  root.querySelector("[data-density-toggle]")?.addEventListener("change", event => {
+    displayDensity = event.target.checked ? "comfortable" : "compact";
+    try { localStorage.setItem("aims-density", displayDensity); } catch {}
+    root.querySelector(".layout").dataset.density = displayDensity;
+  });
   root.querySelectorAll("[data-view]").forEach((button) => button.addEventListener("click", () => navigate(button.dataset.view)));
   root.querySelectorAll("[data-conversation-id]").forEach((element) => element.addEventListener("click", (event) => {
     const id = event.currentTarget.dataset.conversationId;
@@ -1782,6 +1733,14 @@ function bindEvents() {
   root.querySelector('[data-action="open-sidebar"]')?.addEventListener("click", openSidebar);
   root.querySelectorAll('[data-action="close-sidebar"]').forEach((button) => button.addEventListener("click", closeSidebar));
   root.querySelectorAll('[data-action="toggle-notifications"]').forEach((button) => button.addEventListener("click", () => toggleNotifications(button)));
+  const prefs = commsAudioPreferences();
+  root.querySelectorAll("[data-comms-audio]").forEach(control => {
+    const key = control.dataset.commsAudio;
+    if (key === "volume") {
+      control.value = prefs.volume;
+      control.nextElementSibling.textContent = `${Math.round(prefs.volume * 100)}%`;
+    } else control.checked = !!prefs[key];
+  });
   root.querySelectorAll("[data-comms-audio]").forEach((control) => control.addEventListener("change", () => {
     const key = control.dataset.commsAudio;
     const value = control.type === "checkbox" ? control.checked : Number(control.value);

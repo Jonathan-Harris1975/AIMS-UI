@@ -60,10 +60,10 @@
   --aims-space-8: 2rem;
 
   /* Shape */
-  --aims-radius-sm: 8px;
-  --aims-radius: 12px;
+  --aims-radius-sm: 6px;
+  --aims-radius: 6px;
   --aims-radius-md: var(--aims-radius);
-  --aims-radius-lg: 18px;
+  --aims-radius-lg: 8px;
 
   /* Motion */
   --aims-motion-fast: 150ms;
