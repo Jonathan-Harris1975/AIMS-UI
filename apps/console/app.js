@@ -376,6 +376,12 @@ ${staticMarkup("sidebar-identity",
 <main class="main" id="aims-main-content" tabindex="-1" ${state.sidebarOpen ? "inert" : ""}>
         ${config.embedded ? `
 <nav class="embedded-nav" aria-label="Communications sections">
+<label class="embedded-workspace-select">
+<span class="sr-only">Current communications view</span>
+<select data-embedded-view>
+              ${navItems.map(([key, label]) => `<option value="${key}" ${(key === "inbox" ? isInboxFamilyView() : state.view === key) ? "selected" : ""}>${escapeHtml(label)}${key === "approvals" && pendingApprovals().length ? ` (${pendingApprovals().length})` : ""}</option>`).join("")}
+</select>
+</label>
 <div class="embedded-nav-scroll">
             ${navItems.map(([key, label, icon]) => `
 <button
@@ -393,6 +399,12 @@ ${staticMarkup("sidebar-identity",
 </nav>
         ${isInboxFamilyView() ? `
 <nav class="embedded-inbox-subnav" aria-label="Unified inbox sections">
+<label class="embedded-workspace-select">
+<span class="sr-only">Current unified inbox view</span>
+<select data-embedded-view>
+              ${inboxSubItems.map(([key, label]) => `<option value="${key}" ${activeInboxSubView() === key ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}
+</select>
+</label>
 <div class="embedded-inbox-subnav-scroll">
               ${inboxSubItems.map(([subKey, subLabel, subIcon]) => `
 <button class="embedded-inbox-subnav-item ${activeInboxSubView() === subKey ? "active" : ""}"
@@ -1576,6 +1588,9 @@ function bindEvents() {
     root.querySelector(".layout").dataset.density = displayDensity;
   });
   root.querySelectorAll("[data-view]").forEach((button) => button.addEventListener("click", () => navigate(button.dataset.view)));
+  root.querySelectorAll("[data-embedded-view]").forEach(select => select.addEventListener("change", () => {
+    if (routableViews.has(select.value)) navigate(select.value);
+  }));
   root.querySelectorAll("[data-conversation-id]:not([data-notification-id])").forEach((element) => element.addEventListener("click", (event) => {
     const id = event.currentTarget.dataset.conversationId;
     if (id) openConversation(id);
