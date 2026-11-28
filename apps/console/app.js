@@ -379,7 +379,9 @@ ${staticMarkup("sidebar-identity",
 <label class="embedded-workspace-select">
 <span class="sr-only">Current communications view</span>
 <select data-embedded-view>
-              ${navItems.map(([key, label]) => `<option value="${key}" ${(key === "inbox" ? isInboxFamilyView() : state.view === key) ? "selected" : ""}>${escapeHtml(label)}${key === "approvals" && pendingApprovals().length ? ` (${pendingApprovals().length})` : ""}</option>`).join("")}
+              ${navItems.map(([key, label]) =>
+                `<option value="${key}" ${(key === "inbox" ? isInboxFamilyView() : state.view === key) ? "selected" : ""}>
+                  ${escapeHtml(label)}${key === "approvals" && pendingApprovals().length ? ` (${pendingApprovals().length})` : ""}</option>`).join("")}
 </select>
 </label>
 <div class="embedded-nav-scroll">
