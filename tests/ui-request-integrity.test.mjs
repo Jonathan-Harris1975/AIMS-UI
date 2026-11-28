@@ -23,3 +23,22 @@ test('out-of-order mailbox responses cannot overwrite current messages', async (
   b.resolve({messages:[{uid:'b'}]}); await second; a.resolve({messages:[{uid:'a'}]}); await first;
   assert.equal(state.manualMail.accountKey,'b'); assert.equal(state.manualMail.messages[0].uid,'b');
 });
+
+
+test("conversation delete completion cannot delete the newly selected record", async () => {
+  const request = deferred();
+  const state = {view:"workspace",selectedConversationId:"a",workspace:{workspace:{conversation:{subject:"A"}}},queue:[{id:"a"},{id:"b"}]};
+  const code = app.slice(app.indexOf("const conversationBusy = new Set()"), app.indexOf("async function fetchOperationalStatus()"));
+  const navigate = () => assert.fail("must not navigate away from B");
+  const old = globalThis.confirm;
+  globalThis.confirm = () => true;
+  try {
+    const ui = new Function("state","client","toast","navigate","workspaceInboxView", code+"\nreturn {deleteConversation};")
+      (state,{deleteConversation: id => { assert.equal(id,"a");return request.promise; }},()=>{},navigate,()=> "inbox");
+    const pending = ui.deleteConversation();
+    state.selectedConversationId = "b";
+    state.workspace = {workspace:{conversation:{subject:"B"}}};
+    request.resolve(); await pending;
+    assert.deepEqual(state.queue,[{id:"b"}]);assert.equal(state.selectedConversationId,"b");
+  } finally { globalThis.confirm = old; }
+});

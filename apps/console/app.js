@@ -2275,79 +2275,89 @@ async function loadMetrics() {
   }
 }
 
+const conversationBusy = new Set();
+const currentConversation = id => state.view === "workspace" && state.selectedConversationId === id;
+async function mutateConversation(work) {
+  const id = state.selectedConversationId;
+  if (!id || conversationBusy.has(id)) return;
+  conversationBusy.add(id);
+  try { await work(id); } catch (error) { toast(error.message || "Conversation action failed.", "error"); }
+  finally { conversationBusy.delete(id); }
+}
+
+function applyOperations(id, changes) {
+  if (currentConversation(id) && state.workspace?.workspace?.operations) Object.assign(state.workspace.workspace.operations, changes);
+  const row = state.queue.find(item => item.id === id);
+  if (row) Object.assign(row, changes);
+}
+
 async function updateWorkspaceStatus(event) {
   const status = event.target.value;
-  try {
-    const result = await client.updateStatus(state.selectedConversationId, status, { expectedVersion: state.workspace?.workspace?.operations?.version ?? null });
-    const operations = state.workspace?.workspace?.operations;
-    if (operations) Object.assign(operations, result.result);
-    const queueItem = state.queue.find((row) => row.id === state.selectedConversationId);
-    if (queueItem) Object.assign(queueItem, result.result);
+  await mutateConversation(async id => {
+    const result = await client.updateStatus(id, status, { expectedVersion: state.workspace?.workspace?.operations?.version ?? null });
+    applyOperations(id, result.result);
     toast(`Conversation moved to ${titleCase(status)}.`);
-  } catch (error) { toast(error.message || "Status could not be updated.", "error"); }
+  });
 }
 
 async function changeHandlingMode(mode) {
-  if (!new Set(["automation", "person"]).has(mode)) return;
+  if (!["automation", "person"].includes(mode)) return;
   const actor = state.bootstrap?.identity?.actor || "Jonathan";
-  const assignment = {
-    ownerId: mode === "person" ? actor : "AIMS",
-    ownerType: mode,
-    expectedVersion: state.workspace?.workspace?.operations?.version ?? null,
-  };
-  try {
-    const result = await client.assign(state.selectedConversationId, assignment);
-    const operations = state.workspace?.workspace?.operations;
-    if (operations) Object.assign(operations, result?.result || result || {}, { owner_id: assignment.ownerId, owner_type: assignment.ownerType });
-    const queueItem = state.queue.find((row) => row.id === state.selectedConversationId);
-    if (queueItem) Object.assign(queueItem, { owner_id: assignment.ownerId, owner_type: assignment.ownerType });
+  const assignment = { ownerId: mode === "person" ? actor : "AIMS", ownerType: mode,
+    expectedVersion: state.workspace?.workspace?.operations?.version ?? null };
+  await mutateConversation(async id => {
+    const result = await client.assign(id, assignment);
+    applyOperations(id, { ...(result?.result || result || {}), owner_id: assignment.ownerId, owner_type: assignment.ownerType });
     toast(mode === "person" ? "Assigned to me. AIMS autonomous replies are paused." : "Returned to AIMS automation.");
-  } catch (error) { toast(error.message || "Handling mode could not be updated.", "error"); }
+  });
 }
 
 async function archiveConversation() {
   const operations = state.workspace?.workspace?.operations;
-  if ((operations?.operational_status || "") !== "resolved") return toast("Only completed conversations can be archived.", "error");
-  try {
-    const result = await client.updateStatus(state.selectedConversationId, "archived", { expectedVersion: operations?.version ?? null, reason: "manual_archive" });
-    if (operations) Object.assign(operations, result?.result || result || {}, { operational_status: "archived" });
-    const queueItem = state.queue.find((row) => row.id === state.selectedConversationId);
-    if (queueItem) queueItem.operational_status = "archived";
+  if (operations?.operational_status !== "resolved") return toast("Only completed conversations can be archived.", "error");
+  await mutateConversation(async id => {
+    const result = await client.updateStatus(id, "archived", { expectedVersion: operations?.version ?? null, reason: "manual_archive" });
+    applyOperations(id, { ...(result?.result || result || {}), operational_status: "archived" });
     toast("Completed conversation archived.");
-  } catch (error) { toast(error.message || "Conversation could not be archived.", "error"); }
+  });
 }
 
 async function deleteConversation() {
-  if (!state.selectedConversationId) return;
-  const workspace = state.workspace?.workspace || state.workspace || {};
-  const subject = workspace.conversation?.subject || "this conversation";
+  const subject = state.workspace?.workspace?.conversation?.subject || "this conversation";
   const targetView = workspaceInboxView();
-  const confirmed = globalThis.confirm?.(`Permanently delete ${subject} and all associated messages/history? This cannot be undone.`);
-  if (!confirmed) return;
-  try {
-    await client.deleteConversation(state.selectedConversationId);
-    state.queue = state.queue.filter((row) => row.id !== state.selectedConversationId);
-    state.workspace = null;
-    state.selectedConversationId = "";
-    navigate(targetView);
+  if (!globalThis.confirm?.(`Permanently delete ${subject} and all associated messages/history? This cannot be undone.`)) return;
+  await mutateConversation(async id => {
+    await client.deleteConversation(id);
+    state.queue = state.queue.filter(row => row.id !== id);
+    if (currentConversation(id)) {
+      state.workspace = null;
+      state.selectedConversationId = "";
+      navigate(targetView);
+    }
     toast("Conversation and message history deleted.");
-  } catch (error) {
-    toast(error.message || "Conversation could not be deleted.", "error");
-  }
+  });
+}
+
+function clearSentDraft(id, form, name, value) {
+  if (!currentConversation(id)) return;
+  const control = root.querySelector("#" + form.id)?.elements.namedItem(name);
+  if (control?.value.trim() === value) control.value = "";
 }
 
 async function submitNote(event) {
   event.preventDefault();
   const form = event.currentTarget;
-  const data = new FormData(form);
-  const bodyText = String(data.get("bodyText") || "").trim();
+  const bodyText = String(new FormData(form).get("bodyText") || "").trim();
   if (!bodyText) return;
-  try {
-    const result = await client.addNote(state.selectedConversationId, { bodyText, mentions: [] });
-    state.workspace.workspace.notes = [result.note, ...(state.workspace.workspace.notes || [])];
-    form.reset();
+  await mutateConversation(async id => {
+    const result = await client.addNote(id, { bodyText, mentions: [] });
+    if (currentConversation(id) && state.workspace?.workspace) {
+      const workspace = state.workspace.workspace;
+      workspace.notes = [result.note, ...(workspace.notes || [])];
+      clearSentDraft(id, form, "bodyText", bodyText);
+    }
     toast("Private note added.");
-  } catch (error) { toast(error.message || "Private note could not be added.", "error"); }
+  });
 }
 
 async function submitReply(event) {
@@ -2357,35 +2367,17 @@ async function submitReply(event) {
   const message = String(data.get("message") || "").trim();
   if (!message) return;
   const conversation = state.workspace?.workspace?.conversation || {};
-  try {
-    {
-      if (conversation.channel === "chat") await client.sendChat(state.selectedConversationId, message);
-      else if (conversation.channel === "email") {
-        const result = await client.sendEmail(state.selectedConversationId, { message, bodyText: message });
-        if (result?.scheduled) {
-          form.reset();
-          toast(`Reply scheduled for ${formatDateTime(result.dueAt)}.`);
-          return;
-        }
-      }
-      else if (isSocialChannel(conversation.channel)) {
-        const replyMode = String(data.get("replyMode") || "public");
-        await client.socialAction(state.selectedConversationId, "reply", { message, ...(replyMode === "private" ? { private: true } : {}) });
-      } else throw new AimsApiError("This channel does not expose a direct reply action.", { status: 409, code: "ui_reply_unsupported" });
-    }
-    conversation.messages = [
-      ...(conversation.messages || []),
-      {
-        id: `local-${Date.now()}`,
-        direction: "outbound",
-        sender: state.bootstrap.identity.actor,
-        body_text: message,
-        received_at: new Date().toISOString(),
-      },
-    ];
-    form.reset();
-    toast("Reply sent through AIMS.");
-  } catch (error) { toast(error.message || "Reply could not be sent.", "error"); }
+  await mutateConversation(async id => {
+    let result;
+    if (conversation.channel === "chat") await client.sendChat(id, message);
+    else if (conversation.channel === "email") result = await client.sendEmail(id, { message, bodyText: message });
+    else if (isSocialChannel(conversation.channel)) {
+      await client.socialAction(id, "reply", { message, ...(data.get("replyMode") === "private" ? { private: true } : {}) });
+    } else throw new AimsApiError("This channel does not expose a direct reply action.", { status: 409, code: "ui_reply_unsupported" });
+    clearSentDraft(id, form, "message", message);
+    if (currentConversation(id) && !root.querySelector("#reply-form textarea")?.value) await openConversation(id);
+    toast(result?.scheduled ? `Reply scheduled for ${formatDateTime(result.dueAt)}.` : "Reply accepted by AIMS.");
+  });
 }
 
 async function fetchOperationalStatus() {
@@ -2550,6 +2542,23 @@ async function openNotification(button) {
   else if (state.notificationOpen) toggleNotifications();
 }
 
+function openCommands() {
+  const dialog = document.getElementById("aims-commands");
+  const input = dialog.querySelector("input");
+  const list = dialog.querySelector("datalist");
+  list.innerHTML = navItems.map(([key, label]) => `<option value="${escapeHtml(label)}" data-view="${key}"></option>`).join("");
+  input.value = "";
+  dialog.showModal();
+  input.focus();
+}
+document.getElementById("aims-commands").addEventListener("submit", event => {
+  const dialog = event.currentTarget;
+  const match = navItems.find(([, label]) => label.toLowerCase() === dialog.querySelector("input").value.trim().toLowerCase());
+  event.preventDefault();
+  if (event.submitter?.value === "cancel") dialog.close();
+  else if (match) { dialog.close(); navigate(match[0]); }
+});
+
 document.addEventListener("keydown", (event) => {
   if (event.key === "Tab" && state.sidebarOpen) {
     const drawer = root.querySelector("#aims-sidebar");
@@ -2564,7 +2573,7 @@ document.addEventListener("keydown", (event) => {
   }
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
     event.preventDefault();
-    root.querySelector("#global-search")?.focus();
+    if (!document.querySelector("dialog[open]") && !state.sidebarOpen && !state.notificationOpen) openCommands();
   }
   if (event.key === "Escape" && state.notificationOpen) {
     event.preventDefault();

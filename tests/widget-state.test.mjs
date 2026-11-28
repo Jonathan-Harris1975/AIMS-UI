@@ -54,3 +54,12 @@ test("closed conversations stop polling and reject sending", async () => {
   await w.sendMessage();
   assert.deepEqual(w.messages, []);
 });
+
+
+test("visitor delivery confirmation remains distinct from sending", () => {
+  const w = widget();
+  w.messages = [{id:"x",role:"visitor",text:"Hello",status:"accepted",createdAt:"2026-01-01T00:00:00Z"}];
+  assert.match(w.content(), /Accepted/);
+  w.messages[0].status = "failed";
+  assert.match(w.content(), /Try again/);
+});

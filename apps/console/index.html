@@ -163,6 +163,15 @@
       </div></section>
     </details>
   </template>
+  <dialog id="aims-commands" aria-label="Command palette" class="manual-mail-dialog">
+    <form method="dialog" class="manual-mail-compose">
+      <h2>Find a page</h2>
+      <label>Page<input list="aims-command-pages" placeholder="Find a page…" autocomplete="off" required></label>
+      <datalist id="aims-command-pages"></datalist>
+      <footer><button type="submit" formnovalidate value="cancel" class="button secondary">Cancel</button>
+        <button type="submit" class="button primary">Open</button></footer>
+    </form>
+  </dialog>
   <script type="module" src="./app.js"></script>
 </body>
 </html>

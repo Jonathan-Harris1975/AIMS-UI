@@ -145,6 +145,10 @@ export class CogniPalWidget extends HTMLElement {
 
   connectedCallback() {
     this.config = resolveWidgetConfig(this);
+    this.lastContent = null;
+    this.messages = [];
+    this.lastSyncAt = "";
+    this.mode = "automation";
     this.transport = new HttpTransport(this.config);
     this.session = readStoredSession(this.config.siteId);
     this.consented = Boolean(this.session);
@@ -193,7 +197,7 @@ export class CogniPalWidget extends HTMLElement {
       event.target.style.height = "auto";
       event.target.style.height = `${Math.min(event.target.scrollHeight, 112)}px`;
       const count = this.shadowRoot.querySelector("[data-count]");
-      if (count) count.textContent = `${event.target.value.length}/${MAX_MESSAGE_LENGTH}`;
+      if (count) count.textContent = this.draft.length >= 3500 ? `${this.draft.length}/${MAX_MESSAGE_LENGTH}` : "";
     });
   }
 
@@ -254,7 +258,8 @@ export class CogniPalWidget extends HTMLElement {
 
   async refreshMessages(initial = false) {
     const session = this.session;
-    if (!session || (!initial && this.loading) || this.refreshing === session || document.hidden || !this.open) return;
+    if (!session || (!initial && this.loading) || this.refreshing === session || !this.open) return;
+    if (document.hidden) { this.startPolling(); return; }
     this.refreshing = session;
     try {
       const cursor = this.messages.some(item => ["pending", "failed"].includes(item.status)) ? "" : this.lastSyncAt;
@@ -271,7 +276,6 @@ export class CogniPalWidget extends HTMLElement {
       this.messages = [...merged.values()].sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
       this.mode = payload?.status === "closed" ? "closed" : payload?.mode || "automation";
       if (this.mode === "closed") this.stopPolling();
-      else this.startPolling();
       this.connection = payload?.exists === false ? "pending" : "ready";
       this.error = "";
       if (before !== JSON.stringify([this.messages, this.mode, this.error, this.connection])) this.render();
@@ -288,6 +292,7 @@ export class CogniPalWidget extends HTMLElement {
       this.render();
     } finally {
       if (this.refreshing === session) this.refreshing = null;
+      if (this.session === session) this.startPolling();
     }
   }
 
@@ -355,7 +360,7 @@ export class CogniPalWidget extends HTMLElement {
 
   startPolling() {
     if (this.pollTimer || !this.open || !this.session || this.mode === "closed") return;
-    this.pollTimer = setInterval(() => this.refreshMessages(), 10000);
+    this.pollTimer = setTimeout(() => { this.pollTimer = null; void this.refreshMessages(); }, this.connection === "error" ? 30000 : 10000);
   }
 
   stopPolling() {
@@ -404,7 +409,7 @@ export class CogniPalWidget extends HTMLElement {
         : "";
       return `<article class="cp-message ${escapeHtml(item.role || "assistant")}">
         <div class="cp-bubble">${messageHtml(item.text || item.body_text || "")}</div>
-        <div class="cp-meta">${sender} ${escapeHtml(time)}${retry}</div>
+        <div class="cp-meta">${sender} ${escapeHtml(time)}${item.status === "accepted" ? " · Accepted" : ""}${retry}</div>
       </article>`;
     }).join("");
     return `<div class="cp-thread" role="log" aria-live="polite" aria-relevant="additions text">
@@ -421,47 +426,59 @@ export class CogniPalWidget extends HTMLElement {
 
   render() {
     if (!this.config) return;
-    const oldBody = this.shadowRoot.querySelector(".cp-body");
-    const top = oldBody?.scrollTop || 0;
-    const follow = !oldBody || oldBody.scrollHeight - top - oldBody.clientHeight < 48;
-    const oldInput = this.shadowRoot.activeElement;
-    const selection = oldInput?.matches("textarea") ? [oldInput.selectionStart, oldInput.selectionEnd] : null;
-    this.shadowRoot.innerHTML = `<link rel="stylesheet" href="${escapeHtml(STYLE_URL)}">
+    const root = this.shadowRoot;
+    if (!root.querySelector(".cp-panel")) root.innerHTML = `<link rel="stylesheet" href="${escapeHtml(STYLE_URL)}">
       <div class="cp-root ${escapeHtml(this.config.position)}">
-        <section class="cp-panel ${this.open ? "open" : ""}" id="cp-chat" role="dialog" aria-modal="false" aria-label="CogniPal chat" tabindex="-1">
+        <section class="cp-panel" id="cp-chat" role="dialog" aria-modal="false" aria-label="CogniPal chat" tabindex="-1">
           <header class="cp-header">
             <span class="cp-avatar"><img src="${escapeHtml(this.config.iconUrl)}" alt=""></span>
-            <div class="cp-heading"><strong>${escapeHtml(this.config.title)}</strong><span>${this.mode === "human" ? "Human support active"
-        : this.mode === "takeover_requested" ? "Human support requested" : "AI website assistant"}</span></div>
+            <div class="cp-heading"><strong>${escapeHtml(this.config.title)}</strong><span></span></div>
             <button class="cp-icon-button" data-action="toggle" aria-label="Minimise chat"><svg viewBox="0 0 24 24"><path d="M5 11h14v2H5z"/></svg></button>
           </header>
-          <main class="cp-body">${this.content()}</main>
-          ${this.consented && this.session ? `<footer class="cp-footer">
-            ${this.error ? `<div class="cp-alert" role="alert">${escapeHtml(this.error)}</div>` : ""}
+          <main class="cp-body"></main>
+          <footer class="cp-footer" hidden>
+            <div class="cp-alert" role="alert" hidden></div>
             <form class="cp-composer">
               <label class="cp-sr" for="cp-message">Message CogniPal</label>
-              <textarea id="cp-message" maxlength="${MAX_MESSAGE_LENGTH}" rows="1" placeholder="Write a message…" ${this.sending || this.mode === "closed" ? "disabled"
-        : ""}>${escapeHtml(this.draft)}</textarea>
-              <button class="cp-send" type="submit"
-          aria-label="Send message" ${this.sending || this.mode === "closed" ? "disabled" : ""}><svg viewBox="0 0 24 24"><path d="m3 20 18-8L3 4v6l12 2-12 2v6Z"/></svg></button>
+              <textarea id="cp-message" maxlength="${MAX_MESSAGE_LENGTH}" rows="1" placeholder="Write a message…"></textarea>
+              <button class="cp-send" type="submit" aria-label="Send message"><svg viewBox="0 0 24 24"><path d="m3 20 18-8L3 4v6l12 2-12 2v6Z"/></svg></button>
             </form>
-            <div class="cp-footnote"><span data-count>${this.draft.length}/${MAX_MESSAGE_LENGTH}</span><button type="button" data-action="reset" ${this.sending ? "disabled"
-        : ""}>Start over</button></div>
-          </footer>` : ""}
+            <div class="cp-footnote"><span data-count></span><button type="button" data-action="reset">Start over</button></div>
+          </footer>
         </section>
-        <button class="cp-launcher" data-action="toggle"
-          aria-label="${this.open ? "Close" : "Open"} CogniPal chat" aria-expanded="${this.open}" aria-controls="cp-chat" title="CogniPal · ${this.open ? this.connection : "unknown"}">
-          <img src="${escapeHtml(this.config.iconUrl)}" alt=""><span class="cp-online" data-state="${this.open ? this.connection : "unknown"}" aria-hidden="true"></span>
+        <button class="cp-launcher" data-action="toggle" aria-controls="cp-chat">
+          <img src="${escapeHtml(this.config.iconUrl)}" alt=""><span class="cp-online" aria-hidden="true"></span>
         </button>
       </div>`;
-    const body = this.shadowRoot.querySelector(".cp-body");
-    if (body) body.scrollTop = follow ? body.scrollHeight : top;
-    const input = this.shadowRoot.querySelector("textarea");
-    if (input && !input.disabled) {
-      input.style.height = `${Math.min(input.scrollHeight, 112)}px`;
-      if (selection) { input.focus({ preventScroll: true }); input.setSelectionRange(...selection); }
+    const get = selector => root.querySelector(selector);
+    get(".cp-panel").classList.toggle("open", this.open);
+    const launcher = get(".cp-launcher");
+    launcher.setAttribute("aria-expanded", String(this.open));
+    launcher.setAttribute("aria-label", (this.open ? "Close" : "Open") + " CogniPal chat");
+    launcher.title = "CogniPal · " + this.connection;
+    get(".cp-online").dataset.state = this.open ? this.connection : "unknown";
+    get(".cp-heading span").textContent = this.mode === "human" ? "Human support active"
+      : this.mode === "takeover_requested" ? "Human support requested" : "AI website assistant";
+    const body = get(".cp-body"), top = body.scrollTop;
+    const follow = body.scrollHeight - top - body.clientHeight < 48;
+    const content = this.content();
+    if (this.lastContent !== content) {
+      body.innerHTML = content;
+      this.lastContent = content;
+      body.scrollTop = follow ? body.scrollHeight : top;
     }
+    get(".cp-footer").hidden = !this.consented || !this.session;
+    const alert = get(".cp-alert");
+    alert.hidden = !this.error;
+    alert.textContent = this.error;
+    const input = get("textarea");
+    if (input.value !== this.draft) input.value = this.draft;
+    input.disabled = this.mode === "closed";
+    get(".cp-send").disabled = this.sending || input.disabled;
+    get('[data-action="reset"]').disabled = this.sending;
+    get("[data-count]").textContent = this.draft.length >= 3500 ? `${this.draft.length}/${MAX_MESSAGE_LENGTH}` : "";
   }
+
 }
 
 if (!customElements.get("cognipal-widget")) customElements.define("cognipal-widget", CogniPalWidget);
